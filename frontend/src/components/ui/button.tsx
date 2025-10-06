@@ -48,7 +48,6 @@ export const Button = React.forwardRef<HTMLButtonElement | HTMLAnchorElement, Bu
     if (as === "a") {
       // Render anchor element for hash links or navigation
       return (
-        // @ts-expect-error: ref type is compatible for anchors here
         <a ref={ref} href={href} className={commonClass} {...(props as any)} />
       );
     }
