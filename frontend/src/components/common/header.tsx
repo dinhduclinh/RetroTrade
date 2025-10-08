@@ -18,6 +18,7 @@ import { RootState } from '@/store/redux_store';
 import { logout } from '@/store/auth/authReducer';
 import { jwtDecode } from 'jwt-decode';
 import { toast } from "sonner";
+import Image from "next/image";
 
 interface DecodedToken {
   email: string;
@@ -90,30 +91,45 @@ export function Header() {
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center">
-              <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" className="w-6 h-6">
-                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <path d="M16 10a4 4 0 0 1-8 0" />
-              </svg>
-            </div>
+            <Image
+              src="/retrologo.png"
+              alt="Retro Trade Logo"
+              width={60}
+              height={60}
+              className="rounded-lg"
+            />
             <span className="text-xl font-bold text-gray-900">Retro Trade</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
-            <Link href="/home" className="text-gray-700 hover:text-indigo-600 transition-colors">
+            <Link
+              href="/home"
+              className="text-gray-700 hover:text-indigo-600 transition-colors"
+            >
               Home
             </Link>
-            <Link href="/products" className="text-gray-700 hover:text-indigo-600 transition-colors">
+            <Link
+              href="/products"
+              className="text-gray-700 hover:text-indigo-600 transition-colors"
+            >
               Product
             </Link>
-            <Link href="/blog" className="text-gray-700 hover:text-indigo-600 transition-colors">
+            <Link
+              href="/blog"
+              className="text-gray-700 hover:text-indigo-600 transition-colors"
+            >
               Blog
             </Link>
-            <Link href="/about" className="text-gray-700 hover:text-indigo-600 transition-colors">
+            <Link
+              href="/about"
+              className="text-gray-700 hover:text-indigo-600 transition-colors"
+            >
               About Us
             </Link>
-            <Link href="/contact" className="text-gray-700 hover:text-indigo-600 transition-colors">
+            <Link
+              href="/contact"
+              className="text-gray-700 hover:text-indigo-600 transition-colors"
+            >
               Contact
             </Link>
           </nav>
@@ -126,7 +142,13 @@ export function Header() {
               size="icon"
               className="relative"
             >
-              <ShoppingCart className="h-5 w-5" />
+              <Image
+                src="/market.png" 
+                alt="Retro Trade Logo"
+                width={25} 
+                height={25}
+                className="rounded-lg"
+              />
               {/* Badge count sẽ được thêm sau khi có cart system */}
             </Button>
 
@@ -138,10 +160,7 @@ export function Header() {
                     className="relative h-10 w-10 rounded-full"
                   >
                     <Avatar className="h-10 w-10">
-                      <AvatarImage
-                        src=""
-                        alt={userInfo.email}
-                      />
+                      <AvatarImage src="" alt={userInfo.email} />
                       <AvatarFallback className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
                         {userInfo.email.charAt(0).toUpperCase()}
                       </AvatarFallback>
@@ -154,15 +173,21 @@ export function Header() {
                       {userInfo.email}
                     </p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      {userInfo.role || 'user'}
+                      {userInfo.role || "user"}
                     </p>
                   </div>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="cursor-pointer" onClick={handleGoToProfile}>
+                  <DropdownMenuItem
+                    className="cursor-pointer"
+                    onClick={handleGoToProfile}
+                  >
                     <User className="mr-2 h-4 w-4" />
                     <span>Thông tin cá nhân</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="cursor-pointer" onClick={handleGoToOrders}>
+                  <DropdownMenuItem
+                    className="cursor-pointer"
+                    onClick={handleGoToOrders}
+                  >
                     <Package className="mr-2 h-4 w-4" />
                     <span>Đơn hàng của tôi</span>
                   </DropdownMenuItem>
@@ -178,11 +203,17 @@ export function Header() {
               </DropdownMenu>
             ) : (
               <>
-                <Link href="/auth/login" className="text-gray-700 hover:text-indigo-600 transition-colors">
+                <Link
+                  href="/auth/login"
+                  className="text-gray-700 hover:text-indigo-600 transition-colors"
+                >
                   Đăng nhập
                 </Link>
                 <Button className="bg-indigo-600 hover:bg-indigo-700 text-white">
-                  <Link href="/auth/register" className="text-white hover:text-white">
+                  <Link
+                    href="/auth/register"
+                    className="text-white hover:text-white"
+                  >
                     Đăng ký
                   </Link>
                 </Button>
@@ -192,7 +223,7 @@ export function Header() {
         </div>
       </div>
     </header>
-  )
+  );
 }
 
 export default Header;
