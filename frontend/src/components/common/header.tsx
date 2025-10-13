@@ -124,13 +124,7 @@ export function Header() {
               href="/about"
               className="text-gray-700 hover:text-indigo-600 transition-colors"
             >
-              About Us
-            </Link>
-            <Link
-              href="/contact"
-              className="text-gray-700 hover:text-indigo-600 transition-colors"
-            >
-              Contact
+              About & Contact
             </Link>
           </nav>
 
@@ -143,9 +137,9 @@ export function Header() {
               className="relative"
             >
               <Image
-                src="/market.png" 
+                src="/market.png"
                 alt="Retro Trade Logo"
-                width={25} 
+                width={25}
                 height={25}
                 className="rounded-lg"
               />
