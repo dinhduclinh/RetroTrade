@@ -1,4 +1,5 @@
 import instance from "../customizeAPI";
+import type { ApiResponse, LoginResponseData } from "@iService";
 
 // Authentication API functions
 export const login = async (email: string, password: string): Promise<Response> => {
@@ -35,5 +36,18 @@ export const refreshToken = async (refreshToken: string): Promise<Response> => {
 
 export const getUserProfile = async (): Promise<Response> => {
     return await instance.get("/auth/profile");
+};
+
+
+export const loginWithGoogle = async (
+    payload: { email: string; avatarUrl?: string; fullName?: string }
+): Promise<Response> => {
+    return await instance.post("/auth/login-with-google", payload);
+};
+
+export const loginWithFacebook = async (
+    payload: { email: string; avatarUrl?: string; fullName?: string }
+): Promise<Response> => {
+    return await instance.post("/auth/login-with-facebook", payload);
 };
 

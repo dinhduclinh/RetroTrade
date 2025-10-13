@@ -4,30 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Star, Edit, Sparkles } from "lucide-react"
-
-interface UserProfile {
-  _id: string;
-  userGuid: string;
-  email: string;
-  fullName: string;
-  displayName?: string;
-  avatarUrl?: string;
-  bio?: string;
-  phone?: string;
-  isEmailConfirmed: boolean;
-  isPhoneConfirmed: boolean;
-  isIdVerified: boolean;
-  reputationScore: number;
-  points: number;
-  role: string;
-  wallet: {
-    currency: string;
-    balance: number;
-  };
-  lastLoginAt?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import type { UserProfile } from "@iService"
 
 interface ProfileHeaderProps {
   userProfile: UserProfile;

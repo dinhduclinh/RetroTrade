@@ -4,7 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Edit, Shield, Wallet, Settings, ChevronRight } from "lucide-react"
 
-export function QuickActionsCard() {
+interface QuickActionsCardProps {
+  onEditProfile?: () => void;
+}
+
+export function QuickActionsCard({ onEditProfile }: QuickActionsCardProps) {
   const actions = [
     { icon: Edit, label: "Chỉnh sửa hồ sơ", color: "from-blue-500/20 to-cyan-500/20", iconColor: "text-blue-600" },
     {
@@ -32,6 +36,7 @@ export function QuickActionsCard() {
           <Button
             key={index}
             variant="outline"
+            onClick={action.label === "Chỉnh sửa hồ sơ" ? onEditProfile : undefined}
             className={`w-full justify-between bg-white border border-gray-200 hover:border-gray-300 text-gray-900 hover:bg-gray-50 transition-all duration-300 hover:scale-105 hover:shadow-lg group`}
           >
             <div className="flex items-center gap-3">

@@ -8,9 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ShoppingBag, Eye, EyeOff } from "lucide-react"
 import { useRouter } from "next/router"
 import { toast } from "sonner"
-import { login } from "@/services/auth/auth.api"
+import { login, loginWithGoogle, loginWithFacebook } from "@/services/auth/auth.api"
 import { useDispatch } from "react-redux"
 import { login as loginAction } from "@/store/auth/authReducer"
+import { useGoogleLogin } from "@react-oauth/google"
 // i18n removed
 
 export function LoginForm() {
@@ -69,13 +70,62 @@ export function LoginForm() {
     }
   }
 
-  const handleGoogleLogin = () => {
-    toast.info("Đăng nhập với Google")
-  }
+  const googleRedirect = useGoogleLogin({
+    flow: "implicit",
+    scope: "openid email profile",
+    onSuccess: async (tokenResponse) => {
+      try {
+        const accessToken = tokenResponse.access_token;
+        if (!accessToken) {
+          toast.error("Không lấy được access_token từ Google")
+          return;
+        }
+        const profileRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!profileRes.ok) throw new Error(`Google userinfo HTTP ${profileRes.status}`);
+        const profile = await profileRes.json();
+        const email = profile?.email as string | undefined;
+        const fullName = profile?.name as string | undefined;
+        const avatarUrl = profile?.picture as string | undefined;
+
+        if (!email) {
+          toast.error("Không lấy được email từ Google")
+          return;
+        }
+
+        const response = await loginWithGoogle({ email, fullName, avatarUrl });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const result = await response.json();
+
+        if (result.code === 200) {
+          dispatch(loginAction({ accessToken: result.data.accessToken, refreshToken: result.data.refreshToken }))
+          toast.success("Đăng nhập Google thành công!")
+          router.push("/")
+        } else {
+          toast.error(result.message || "Đăng nhập Google thất bại")
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Lỗi đăng nhập Google")
+      }
+    },
+    onError: () => toast.error("Google login bị hủy hoặc lỗi"),
+  })
 
   const handleFacebookLogin = () => {
-    toast.info("Đăng nhập với Facebook")
+    const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || "";
+    if (!appId) {
+      toast.error("Thiếu NEXT_PUBLIC_FACEBOOK_APP_ID");
+      return;
+    }
+    const redirectUri = (typeof window !== "undefined" ? window.location.origin : "") + "/auth/facebook";
+    const authUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${encodeURIComponent(appId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=email,public_profile`;
+    if (typeof window !== "undefined") {
+      window.location.href = authUrl;
+    }
   }
+
+  // removed old placeholder handler
 
   return (
     <Card className="w-full max-w-md bg-white shadow-xl">
@@ -167,7 +217,7 @@ export function LoginForm() {
             type="button"
             variant="outline"
             className="w-full h-11 border-gray-300 hover:bg-gray-50 font-normal bg-transparent text-black"
-            onClick={handleGoogleLogin}
+            onClick={() => googleRedirect()}
           >
             <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
               <path

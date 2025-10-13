@@ -2,30 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { BarChart3, Star, Calendar } from "lucide-react"
-
-interface UserProfile {
-  _id: string;
-  userGuid: string;
-  email: string;
-  fullName: string;
-  displayName?: string;
-  avatarUrl?: string;
-  bio?: string;
-  phone?: string;
-  isEmailConfirmed: boolean;
-  isPhoneConfirmed: boolean;
-  isIdVerified: boolean;
-  reputationScore: number;
-  points: number;
-  role: string;
-  wallet: {
-    currency: string;
-    balance: number;
-  };
-  lastLoginAt?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import type { UserProfile } from "@iService"
 
 interface StatisticsCardProps {
   userProfile: UserProfile;

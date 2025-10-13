@@ -72,3 +72,4 @@ module.exports.deleteUser = async (req, res) => {
         return res.json({ code: 400, message: "Failed to delete user", error: error.message });
     }
 };
+

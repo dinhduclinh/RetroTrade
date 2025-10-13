@@ -22,6 +22,7 @@ import { toast } from "sonner";
 interface DecodedToken {
   email: string;
   userGuid?: string;
+  avatarUrl?: string;
   role?: string;
   exp: number;
   iat: number;
@@ -139,11 +140,11 @@ export function Header() {
                   >
                     <Avatar className="h-10 w-10">
                       <AvatarImage
-                        src=""
-                        alt={userInfo.email}
+                        src={userInfo.avatarUrl ?? ""}
+                        alt={userInfo.email ?? ""}
                       />
                       <AvatarFallback className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-                        {userInfo.email.charAt(0).toUpperCase()}
+                        {userInfo.email?.charAt(0).toUpperCase() ?? ""}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
@@ -151,10 +152,10 @@ export function Header() {
                 <DropdownMenuContent className="w-56" align="end" forceMount>
                   <div className="flex flex-col space-y-1 p-2">
                     <p className="text-sm font-medium leading-none">
-                      {userInfo.email}
+                      {userInfo.email ?? ""}
                     </p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      {userInfo.role || 'user'}
+                      {userInfo.role ?? 'user'}
                     </p>
                   </div>
                   <DropdownMenuSeparator />

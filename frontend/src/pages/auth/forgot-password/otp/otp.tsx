@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/router"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,11 +12,15 @@ import { verifyEmail, resendOtp } from "@/services/auth/auth.api"
 
 export default function OtpVerificationPage() {
   const router = useRouter()
-  const [otp, setOtp] = useState("")
+  const [otpDigits, setOtpDigits] = useState<string[]>(Array(8).fill(""))
   const [email, setEmail] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isResending, setIsResending] = useState(false)
   const [countdown, setCountdown] = useState(0)
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([])
+
+  // Convert otpDigits array to string
+  const otp = otpDigits.join("")
 
   useEffect(() => {
     // Get email from URL query params
@@ -26,12 +30,59 @@ export default function OtpVerificationPage() {
   }, [router.query.email])
 
   useEffect(() => {
+    // Focus first input when component mounts
+    if (inputRefs.current[0]) {
+      inputRefs.current[0].focus()
+    }
+  }, [])
+
+  useEffect(() => {
     let timer: NodeJS.Timeout
     if (countdown > 0) {
       timer = setTimeout(() => setCountdown(countdown - 1), 1000)
     }
     return () => clearTimeout(timer)
   }, [countdown])
+
+  // Handle OTP digit input
+  const handleOtpChange = (index: number, value: string) => {
+    // Only allow single digit
+    if (value.length > 1) return
+    
+    const newOtpDigits = [...otpDigits]
+    newOtpDigits[index] = value
+    setOtpDigits(newOtpDigits)
+
+    // Auto focus next input if value is entered
+    if (value && index < 7) {
+      inputRefs.current[index + 1]?.focus()
+    }
+  }
+
+  // Handle backspace
+  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus()
+    }
+  }
+
+  // Handle paste
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault()
+    const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 8)
+    const newOtpDigits = Array(8).fill("")
+    
+    for (let i = 0; i < pastedData.length && i < 8; i++) {
+      newOtpDigits[i] = pastedData[i]
+    }
+    
+    setOtpDigits(newOtpDigits)
+    
+    // Focus the next empty input or the last input
+    const nextEmptyIndex = newOtpDigits.findIndex(digit => digit === "")
+    const focusIndex = nextEmptyIndex === -1 ? 7 : nextEmptyIndex
+    inputRefs.current[focusIndex]?.focus()
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -77,6 +128,8 @@ export default function OtpVerificationPage() {
       if (result.code === 200) {
         toast.success("Mã OTP đã được gửi lại!")
         setCountdown(60) // 60 seconds countdown
+        setOtpDigits(Array(8).fill("")) // Clear OTP inputs
+        inputRefs.current[0]?.focus() // Focus first input
       } else {
         toast.error(result.message || "Không thể gửi lại mã OTP")
       }
@@ -154,17 +207,27 @@ export default function OtpVerificationPage() {
           <CardContent className="space-y-4">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="otp" className="text-sm font-medium text-gray-700">Mã OTP</Label>
-                <Input
-                  id="otp"
-                  type="text"
-                  placeholder="Nhập mã OTP 8 chữ số"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  className="h-11 bg-indigo-100 border-indigo-200 focus:border-indigo-400 focus:ring-indigo-400 text-black text-center text-lg tracking-widest"
-                  maxLength={8}
-                  required
-                />
+                <Label className="text-sm font-medium text-gray-700">Mã OTP</Label>
+                <div className="flex justify-center gap-2" onPaste={handlePaste}>
+                  {otpDigits.map((digit, index) => (
+                    <Input
+                      key={index}
+                      ref={(el) => { inputRefs.current[index] = el }}
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={digit}
+                      onChange={(e) => handleOtpChange(index, e.target.value)}
+                      onKeyDown={(e) => handleKeyDown(index, e)}
+                      className="w-12 h-12 text-center text-lg font-bold bg-indigo-100 border-indigo-200 focus:border-indigo-400 focus:ring-indigo-400 text-black"
+                      maxLength={1}
+                      required
+                    />
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 text-center">
+                  Nhập mã OTP 8 chữ số đã được gửi đến email của bạn
+                </p>
               </div>
 
               <Button
