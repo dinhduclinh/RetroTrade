@@ -45,7 +45,7 @@ const customFetch = async (url: string, options: ExtendedRequestInit = {}): Prom
     console.log('Making request to:', url, 'with options:', options);
 
     try {
-        // Make the request
+       
         const response = await fetch(url, options);
         console.log('Response status:', response.status, 'for URL:', url);
 

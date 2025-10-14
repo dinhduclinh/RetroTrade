@@ -4,38 +4,17 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/store/redux_store';
 import { getUserProfile } from '@/services/auth/user.api';
 import { toast } from 'sonner';
+import type { UserProfile, ProfileApiResponse } from '@iService';
 
 // Import components
 import { ProfileHeader } from '@/components/ui/profile-header';
 import { AccountStatusCard } from '@/components/ui/account-status-card';
-import { WalletCard } from '@/components/ui/wallet-card';
+// import { WalletCard } from '@/components/ui/wallet-card';
 import { StatisticsCard } from '@/components/ui/statistics-card';
-import { DetailedInfoCard } from '@/components/ui/detailed-info-card';
+import { DetailedInfoCard, DetailedInfoCardHandle } from '@/components/ui/detailed-info-card';
 import { QuickActionsCard } from '@/components/ui/quick-actions-card';
-
-interface UserProfile {
-  _id: string;
-  userGuid: string;
-  email: string;
-  fullName: string;
-  displayName?: string;
-  avatarUrl?: string;
-  bio?: string;
-  phone?: string;
-  isEmailConfirmed: boolean;
-  isPhoneConfirmed: boolean;
-  isIdVerified: boolean;
-  reputationScore: number;
-  points: number;
-  role: string;
-  wallet: {
-    currency: string;
-    balance: number;
-  };
-  lastLoginAt?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import { EditProfileModal } from '@/components/ui/edit-profile-modal';
+import { ChangePasswordModal } from '@/components/ui/change-password-modal';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -44,6 +23,8 @@ export default function ProfilePage() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
 
   // Redirect nếu chưa đăng nhập
   useEffect(() => {
@@ -66,10 +47,10 @@ export default function ProfilePage() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const result = await response.json();
+      const result: ProfileApiResponse = await response.json();
 
       if (result.code === 200) {
-        setUserProfile(result.user);
+        setUserProfile((result.user as UserProfile) ?? (result.data as UserProfile) ?? null);
         toast.success('Lấy thông tin thành công!');
       } else if (result.code === 401) {
         // Token expired or invalid - chỉ logout khi token thực sự hết hạn
@@ -105,15 +86,23 @@ export default function ProfilePage() {
     }
   }, [accessToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const detailRef = React.useRef<DetailedInfoCardHandle | null>(null);
+  
   const handleEditClick = () => {
-    // TODO: Implement edit functionality
-    toast.info('Tính năng chỉnh sửa đang được phát triển');
+    setShowEditModal(true);
   };
 
-  const handleTopUpClick = () => {
-    // TODO: Implement top up functionality
-    toast.info('Tính năng nạp tiền đang được phát triển');
+  const handleChangePasswordClick = () => {
+    setShowChangePasswordModal(true);
   };
+
+  const handleProfileUpdate = (updatedProfile: UserProfile) => {
+    setUserProfile(updatedProfile);
+  };
+
+  // const handleTopUpClick = () => {
+  //   toast.info('Tính năng nạp tiền đang được phát triển');
+  // };
 
   if (!accessToken) {
     return (
@@ -165,6 +154,11 @@ export default function ProfilePage() {
     return null;
   }
 
+  const normalizedUserProfile: UserProfile = {
+    ...userProfile,
+    wallet: userProfile.wallet ?? { currency: 'VND', balance: 0 },
+  } as UserProfile;
+
   return (
     <div className="min-h-screen bg-white relative overflow-hidden">
       {/* Subtle background elements */}
@@ -174,29 +168,48 @@ export default function ProfilePage() {
       <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-100 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-4000" />
 
       <div className="relative z-10">
-        <ProfileHeader userProfile={userProfile} onEditClick={handleEditClick} />
+        <ProfileHeader userProfile={normalizedUserProfile} onEditClick={handleEditClick} />
 
         <div className="container mx-auto px-4 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Left Column - spans 4 columns */}
             <div className="lg:col-span-4 space-y-6">
-              <AccountStatusCard userProfile={userProfile} />
+              <AccountStatusCard userProfile={normalizedUserProfile} />
               {/* <WalletCard userProfile={userProfile} onTopUpClick={handleTopUpClick} /> */}
-              <StatisticsCard userProfile={userProfile} />
+              <StatisticsCard userProfile={normalizedUserProfile} />
             </div>
 
             {/* Center Column - spans 5 columns */}
             <div className="lg:col-span-5">
-              <DetailedInfoCard userProfile={userProfile} />
+              <DetailedInfoCard ref={detailRef} userProfile={normalizedUserProfile} />
             </div>
 
             {/* Right Column - spans 3 columns */}
             <div className="lg:col-span-3">
-              <QuickActionsCard />
+              <QuickActionsCard 
+                onEditProfile={handleEditClick} 
+                onChangePassword={handleChangePasswordClick}
+              />
             </div>
           </div>
         </div>
       </div>
+      
+      {/* Edit Profile Modal */}
+      {userProfile && (
+        <EditProfileModal 
+          userProfile={normalizedUserProfile} 
+          open={showEditModal}
+          onOpenChange={setShowEditModal}
+          onProfileUpdate={handleProfileUpdate}
+        />
+      )}
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal 
+        open={showChangePasswordModal}
+        onOpenChange={setShowChangePasswordModal}
+      />
     </div>
   );
 }

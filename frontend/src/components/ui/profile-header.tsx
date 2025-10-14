@@ -4,30 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Star, Edit, Sparkles } from "lucide-react"
-
-interface UserProfile {
-  _id: string;
-  userGuid: string;
-  email: string;
-  fullName: string;
-  displayName?: string;
-  avatarUrl?: string;
-  bio?: string;
-  phone?: string;
-  isEmailConfirmed: boolean;
-  isPhoneConfirmed: boolean;
-  isIdVerified: boolean;
-  reputationScore: number;
-  points: number;
-  role: string;
-  wallet: {
-    currency: string;
-    balance: number;
-  };
-  lastLoginAt?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import type { UserProfile } from "@iService"
 
 interface ProfileHeaderProps {
   userProfile: UserProfile;
@@ -65,10 +42,16 @@ export function ProfileHeader({ userProfile, onEditClick }: ProfileHeaderProps) 
 
             {/* User Info */}
             <div className="space-y-3 text-center md:text-left">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-white to-purple-100 bg-clip-text text-transparent">
-                {userProfile.fullName}
+              <h1 className="text-5xl font-bold bg-gradient-to-r from-white to-purple-100 bg-clip-text text-transparent">
+                {userProfile.displayName || userProfile.fullName}
               </h1>
+              <h2 className="text-2xl font-semibold text-white/90">
+                {userProfile.fullName}
+              </h2>
               <p className="text-purple-100 text-lg">{userProfile.email}</p>
+              {userProfile.bio && (
+                <p className="text-purple-100 text-base max-w-md">{userProfile.bio}</p>
+              )}
 
               <div className="flex items-center gap-2 flex-wrap justify-center md:justify-start">
                 <Badge className="backdrop-blur-md bg-white/20 text-white border border-white/30 hover:bg-white/30 transition-all duration-300 hover:scale-105 px-3 py-1">
