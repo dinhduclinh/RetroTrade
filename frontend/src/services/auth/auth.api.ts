@@ -1,5 +1,5 @@
 import instance from "../customizeAPI";
-import type { ApiResponse, LoginResponseData } from "@iService";
+import type { ApiResponse, LoginResponseData, UpdateProfileRequest, UpdateAvatarRequest } from "@iService";
 
 // Authentication API functions
 export const login = async (email: string, password: string): Promise<Response> => {
@@ -36,6 +36,14 @@ export const refreshToken = async (refreshToken: string): Promise<Response> => {
 
 export const getUserProfile = async (): Promise<Response> => {
     return await instance.get("/auth/profile");
+};
+
+export const updateUserProfile = async (payload: UpdateProfileRequest): Promise<Response> => {
+    return await instance.put("/auth/profile", payload);
+};
+
+export const updateUserAvatar = async (payload: UpdateAvatarRequest): Promise<Response> => {
+    return await instance.put("/auth/profile/avatar", payload);
 };
 
 

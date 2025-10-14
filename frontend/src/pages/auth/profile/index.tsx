@@ -14,6 +14,7 @@ import { StatisticsCard } from '@/components/ui/statistics-card';
 import { DetailedInfoCard, DetailedInfoCardHandle } from '@/components/ui/detailed-info-card';
 import { QuickActionsCard } from '@/components/ui/quick-actions-card';
 import { EditProfileModal } from '@/components/ui/edit-profile-modal';
+import { ChangePasswordModal } from '@/components/ui/change-password-modal';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -23,6 +24,7 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
 
   // Redirect nếu chưa đăng nhập
   useEffect(() => {
@@ -88,6 +90,10 @@ export default function ProfilePage() {
   
   const handleEditClick = () => {
     setShowEditModal(true);
+  };
+
+  const handleChangePasswordClick = () => {
+    setShowChangePasswordModal(true);
   };
 
   const handleProfileUpdate = (updatedProfile: UserProfile) => {
@@ -180,7 +186,10 @@ export default function ProfilePage() {
 
             {/* Right Column - spans 3 columns */}
             <div className="lg:col-span-3">
-              <QuickActionsCard onEditProfile={handleEditClick} />
+              <QuickActionsCard 
+                onEditProfile={handleEditClick} 
+                onChangePassword={handleChangePasswordClick}
+              />
             </div>
           </div>
         </div>
@@ -195,6 +204,12 @@ export default function ProfilePage() {
           onProfileUpdate={handleProfileUpdate}
         />
       )}
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal 
+        open={showChangePasswordModal}
+        onOpenChange={setShowChangePasswordModal}
+      />
     </div>
   );
 }

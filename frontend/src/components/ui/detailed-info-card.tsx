@@ -6,7 +6,7 @@ import { User, Mail, Phone, Calendar, Shield } from "lucide-react"
 import { useState, forwardRef, useImperativeHandle, useRef } from "react"
 import { toast } from "sonner"
 import { updateUserProfile } from "@/services/auth/user.api"
-import type { UserProfile } from "@iService"
+import type { UpdateProfileRequest, UserProfile } from "@iService"
 
 interface DetailedInfoCardProps {
   userProfile: UserProfile;
@@ -33,13 +33,13 @@ export const DetailedInfoCard = forwardRef<DetailedInfoCardHandle, DetailedInfoC
 
     try {
       setIsSubmitting(true)
-      const payload = { phone: newPhone ? newPhone : null }
+      const payload: UpdateProfileRequest = { phone: newPhone ? newPhone : null }
       const res = await updateUserProfile(payload)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       // FE-only change: set phone and mark phone confirmed false
       setLocalPhone(newPhone || undefined)
-      ;(userProfile as unknown as { phone?: string; isPhoneConfirmed: boolean }).phone = newPhone || undefined
-      ;(userProfile as unknown as { phone?: string; isPhoneConfirmed: boolean }).isPhoneConfirmed = false
+        ; (userProfile as unknown as { phone?: string; isPhoneConfirmed: boolean }).phone = newPhone || undefined
+        ; (userProfile as unknown as { phone?: string; isPhoneConfirmed: boolean }).isPhoneConfirmed = false
       toast.success("Cập nhật số điện thoại thành công. Trạng thái xác thực đã đặt lại.")
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Lỗi khi cập nhật số điện thoại")
@@ -112,12 +112,8 @@ export const DetailedInfoCard = forwardRef<DetailedInfoCardHandle, DetailedInfoC
               )}
             </div>
           </div>
-          
+
           <div className="space-y-4">
-            <div className="p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-all duration-300">
-              <label className="text-sm text-gray-500 block mb-2">User ID</label>
-              <p className="text-gray-900 font-mono text-sm">{userProfile.userGuid}</p>
-            </div>
 
             <div className="p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-all duration-300">
               <label className="text-sm text-gray-500 mb-2 flex items-center gap-2">
@@ -138,9 +134,21 @@ export const DetailedInfoCard = forwardRef<DetailedInfoCardHandle, DetailedInfoC
                 Hoạt động
               </Badge>
             </div>
+
+            <div className="p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-all duration-300">
+              <label className="text-sm text-gray-500 mb-2 flex items-center gap-2">
+                <Calendar className="w-4 h-4" />
+                Đăng nhập lần cuối
+              </label>
+              <p className="text-gray-900 text-sm">
+                {userProfile.lastLoginAt ? new Date(userProfile.lastLoginAt).toLocaleString('vi-VN') : "—"}
+              </p>
+            </div>
+
+
           </div>
         </div>
-        
+
         {userProfile.bio && (
           <div className="pt-6 border-t border-gray-200">
             <label className="text-sm text-gray-500 block mb-2">Giới thiệu</label>

@@ -29,7 +29,7 @@ export interface LoginRequest {
   password: string;
 }
 
-export interface LoginResponseData extends AuthTokens {}
+export type LoginResponseData = AuthTokens;
 
 export interface RegisterRequest {
   email: string;
@@ -58,6 +58,16 @@ export interface ResetPasswordRequest {
 
 export interface RefreshTokenRequest {
   refreshToken: string;
+}
+
+export interface UpdateProfileRequest {
+  fullName?: string;
+  displayName?: string;
+  bio?: string;
+}
+
+export interface UpdateAvatarRequest {
+  avatarUrl: string;
 }
 
 // User profile entity inferred from profile page
@@ -89,6 +99,12 @@ export interface UserProfile {
 export type LoginApiResponse = ApiResponse<LoginResponseData>;
 export type ProfileApiResponse = ApiResponse<UserProfile> & { user?: UserProfile };
 export type RegisterApiResponse = ApiResponse<null>;
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
 
 // Error shape when backend returns an error payload
 export interface ErrorResponse {

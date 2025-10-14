@@ -13,6 +13,7 @@ import { useDispatch } from "react-redux"
 import { login as loginAction } from "@/store/auth/authReducer"
 import { useGoogleLogin } from "@react-oauth/google"
 import Image from "next/image";
+import { validatePassword } from "@/lib/validation-password";
 
 export function RegisterForm() {
   const router = useRouter()
@@ -25,6 +26,7 @@ export function RegisterForm() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,8 +34,17 @@ export function RegisterForm() {
       toast.error('Vui lòng nhập đầy đủ thông tin')
       return
     }
+    const validation = validatePassword(password)
+    if (!validation.isValid) {
+      toast.error(validation.message || 'Mật khẩu không hợp lệ')
+      return
+    }
     if (password !== confirmPassword) {
       toast.error('Mật khẩu không khớp')
+      return
+    }
+    if (!acceptedTerms) {
+      toast.error('Bạn phải đồng ý với Điều khoản dịch vụ để đăng ký')
       return
     }
     
@@ -253,6 +264,23 @@ export function RegisterForm() {
               Quên mật khẩu?
             </button>
           </div>
+
+        <div className="flex items-start gap-2">
+          <input
+            id="terms"
+            type="checkbox"
+            checked={acceptedTerms}
+            onChange={(e) => setAcceptedTerms(e.target.checked)}
+            className="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            aria-describedby="terms-description"
+          />
+          <Label htmlFor="terms" className="text-sm text-gray-700">
+            Tôi đồng ý với{' '}
+            <a href="/terms" className="text-blue-600 hover:text-blue-700 hover:underline">Điều khoản dịch vụ</a>
+            {' '}và các{' '}
+            <a href="/privacy" className="text-blue-600 hover:text-blue-700 hover:underline">chính sách liên quan</a>.
+          </Label>
+        </div>
 
           <Button
             type="submit"

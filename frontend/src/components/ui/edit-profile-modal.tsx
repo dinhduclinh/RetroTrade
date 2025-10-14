@@ -22,7 +22,6 @@ export function EditProfileModal({ userProfile, open, onOpenChange, onProfileUpd
     fullName: userProfile.fullName,
     displayName: userProfile.displayName || userProfile.fullName,
     bio: userProfile.bio || "",
-    phone: userProfile.phone || "",
   })
 
   // Update form when userProfile changes
@@ -31,7 +30,6 @@ export function EditProfileModal({ userProfile, open, onOpenChange, onProfileUpd
       fullName: userProfile.fullName,
       displayName: userProfile.displayName || userProfile.fullName,
       bio: userProfile.bio || "",
-      phone: userProfile.phone || "",
     });
   }, [userProfile]);
 
@@ -47,7 +45,6 @@ export function EditProfileModal({ userProfile, open, onOpenChange, onProfileUpd
         fullName: formData.fullName,
         displayName: formData.displayName,
         bio: formData.bio || undefined,
-        phone: formData.phone || undefined,
       };
       
       const response = await updateUserProfile(payload);
@@ -132,23 +129,6 @@ export function EditProfileModal({ userProfile, open, onOpenChange, onProfileUpd
             />
             <p className="text-xs text-gray-500">
               {formData.bio.length}/160 ký tự
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="phone" className="text-sm font-medium text-gray-700">
-              Số điện thoại
-            </Label>
-            <Input
-              id="phone"
-              type="tel"
-              value={formData.phone}
-              onChange={(e) => handleInputChange('phone', e.target.value)}
-              placeholder="0123456789"
-              className="w-full"
-            />
-            <p className="text-xs text-gray-500">
-              Số điện thoại để liên hệ (10-11 chữ số).
             </p>
           </div>
 

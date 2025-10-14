@@ -82,8 +82,10 @@ module.exports.loginWithGoogle = async (req, res) => {
         }
         const dataToken = {
             email: existingUser.email,
+            userGuid: existingUser.userGuid,
             avatarUrl: existingUser.avatarUrl,
-            fullName: existingUser.fullName
+            fullName: existingUser.fullName,
+            role: existingUser.role
         }
         const accessToken = jwt.sign(dataToken, process.env.TOKEN_SECRET, { expiresIn: "7d" });
         const refreshToken = jwt.sign(dataToken, process.env.REFRESH_TOKEN_SECRET, { expiresIn: "7d" });
@@ -114,8 +116,10 @@ module.exports.loginWithFacebook = async (req, res) => {
         }
         const dataToken = {
             email: existingUser.email,
+            userGuid: existingUser.userGuid,
             avatarUrl: existingUser.avatarUrl,
-            fullName: existingUser.fullName
+            fullName: existingUser.fullName,
+            role: existingUser.role
         }
         const accessToken = jwt.sign(dataToken, process.env.TOKEN_SECRET, { expiresIn: "7d" });
         const refreshToken = jwt.sign(dataToken, process.env.REFRESH_TOKEN_SECRET, { expiresIn: "7d" });
@@ -676,7 +680,12 @@ module.exports.refreshToken = async (req, res) => {
         jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err) => {
             if (err) return res.json({ code: 403, message: "Token expired or invalid" });
 
-            const newAccessToken = jwt.sign({ username: user.name, email: user.email, role: user.role }, process.env.TOKEN_SECRET, {
+            const newAccessToken = jwt.sign({ 
+                email: user.email, 
+                userGuid: user.userGuid,
+                avatarUrl: user.avatarUrl,
+                role: user.role 
+            }, process.env.TOKEN_SECRET, {
                 expiresIn: "15m",
             });
 
