@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -12,63 +12,70 @@ import { login, loginWithGoogle, loginWithFacebook } from "@/services/auth/auth.
 import { useDispatch } from "react-redux"
 import { login as loginAction } from "@/store/auth/authReducer"
 import { useGoogleLogin } from "@react-oauth/google"
-// i18n removed
+import Image from "next/image";
 
 export function LoginForm() {
   // i18n removed
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
-  const dispatch = useDispatch()
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+  const dispatch = useDispatch();
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     if (!email || !password) {
-      toast.error("Vui lòng nhập đầy đủ thông tin")
-      return
+      toast.error("Vui lòng nhập đầy đủ thông tin");
+      return;
     }
-    
-    setIsLoading(true)
-    toast.info("Đang xử lý...")
-    
+
+    setIsLoading(true);
+    toast.info("Đang xử lý...");
+
     try {
-      const response = await login(email, password)
-      
+      const response = await login(email, password);
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
-      const result = await response.json()
-      
+
+      const result = await response.json();
+
       if (result.code === 200) {
         // Lưu tokens vào Redux store
-        dispatch(loginAction({
-          accessToken: result.data.accessToken,
-          refreshToken: result.data.refreshToken
-        }))
-        
-        toast.success("Đăng nhập thành công!")
+        dispatch(
+          loginAction({
+            accessToken: result.data.accessToken,
+            refreshToken: result.data.refreshToken,
+          })
+        );
+
+        toast.success("Đăng nhập thành công!");
         // Redirect to dashboard or home page
-        router.push("/")
+        router.push("/");
       } else {
-        toast.error(result.message || "Đăng nhập thất bại")
+        toast.error(result.message || "Đăng nhập thất bại");
       }
     } catch (error) {
-      console.error("Login error:", error)
-      
-      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-        toast.error("Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng hoặc liên hệ admin.")
+      console.error("Login error:", error);
+
+      if (
+        error instanceof TypeError &&
+        error.message.includes("Failed to fetch")
+      ) {
+        toast.error(
+          "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng hoặc liên hệ admin."
+        );
       } else if (error instanceof Error) {
-        toast.error(`Lỗi: ${error.message}`)
+        toast.error(`Lỗi: ${error.message}`);
       } else {
-        toast.error("Có lỗi xảy ra, vui lòng thử lại")
+        toast.error("Có lỗi xảy ra, vui lòng thử lại");
       }
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const googleRedirect = useGoogleLogin({
     flow: "implicit",
@@ -131,23 +138,33 @@ export function LoginForm() {
     <Card className="w-full max-w-md bg-white shadow-xl">
       <CardHeader className="text-center space-y-4 pb-4">
         <div className="flex justify-center">
-          <div className="relative w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-            <ShoppingBag className="w-8 h-8 text-white" strokeWidth={2.5} />
-            <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-indigo-400 rounded-full flex items-center justify-center">
-              <div className="w-3 h-3 bg-white rounded-full"></div>
-            </div>
-          </div>
+          <Image
+            src="/retrologo.png"
+            alt="Retro Trade Logo"
+            width={80}
+            height={80}
+            className="rounded-lg"
+          />
         </div>
         <div>
-          <CardTitle className="text-2xl font-bold text-gray-900">Retro Trade</CardTitle>
-          <p className="text-sm text-gray-600 mt-2">Đăng nhập vào tài khoản của bạn</p>
+          <CardTitle className="text-2xl font-bold text-gray-900">
+            Retro Trade
+          </CardTitle>
+          <p className="text-sm text-gray-600 mt-2">
+            Đăng nhập vào tài khoản của bạn
+          </p>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-4">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-sm font-medium text-gray-700">Email</Label>
+            <Label
+              htmlFor="email"
+              className="text-sm font-medium text-gray-700"
+            >
+              Email
+            </Label>
             <Input
               id="email"
               type="email"
@@ -160,7 +177,12 @@ export function LoginForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password" className="text-sm font-medium text-gray-700">Mật khẩu</Label>
+            <Label
+              htmlFor="password"
+              className="text-sm font-medium text-gray-700"
+            >
+              Mật khẩu
+            </Label>
             <div className="relative">
               <Input
                 id="password"
@@ -174,11 +196,17 @@ export function LoginForm() {
               {password && password.length > 0 && (
                 <button
                   type="button"
-                  aria-label={showPassword ? "Ẩn mật khẩu" : "Hiển thị mật khẩu"}
+                  aria-label={
+                    showPassword ? "Ẩn mật khẩu" : "Hiển thị mật khẩu"
+                  }
                   onClick={() => setShowPassword((v) => !v)}
                   className="absolute inset-y-0 right-2 flex items-center text-gray-600 hover:text-gray-800"
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
                 </button>
               )}
             </div>
@@ -254,7 +282,7 @@ export function LoginForm() {
         </div>
 
         <p className="text-center text-sm text-gray-600">
-          Chưa có tài khoản? {" "}
+          Chưa có tài khoản?{" "}
           <button
             type="button"
             onClick={() => router.push("/auth/register")}
@@ -265,5 +293,5 @@ export function LoginForm() {
         </p>
       </CardContent>
     </Card>
-  )
+  );
 }

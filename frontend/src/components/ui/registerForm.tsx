@@ -12,7 +12,7 @@ import { register, loginWithGoogle, loginWithFacebook } from "@/services/auth/au
 import { useDispatch } from "react-redux"
 import { login as loginAction } from "@/store/auth/authReducer"
 import { useGoogleLogin } from "@react-oauth/google"
-// i18n removed
+import Image from "next/image";
 
 export function RegisterForm() {
   const router = useRouter()
@@ -118,15 +118,18 @@ export function RegisterForm() {
     <Card className="w-full max-w-md bg-white shadow-xl">
       <CardHeader className="text-center space-y-4 pb-4">
         <div className="flex justify-center">
-          <div className="relative w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-            <ShoppingBag className="w-8 h-8 text-white" strokeWidth={2.5} />
-            <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-indigo-400 rounded-full flex items-center justify-center">
-              <div className="w-3 h-3 bg-white rounded-full"></div>
-            </div>
-          </div>
+          <Image
+            src="/retrologo.png"
+            alt="Retro Trade Logo"
+            width={80}
+            height={80}
+            className="rounded-lg"
+          />
         </div>
         <div>
-          <CardTitle className="text-2xl font-bold text-gray-900">Retro Trade</CardTitle>
+          <CardTitle className="text-2xl font-bold text-gray-900">
+            Retro Trade
+          </CardTitle>
           <p className="text-sm text-gray-600 mt-2">Tạo tài khoản mới</p>
         </div>
       </CardHeader>
@@ -134,7 +137,12 @@ export function RegisterForm() {
       <CardContent className="space-y-4">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-sm font-medium text-gray-700">Email</Label>
+            <Label
+              htmlFor="email"
+              className="text-sm font-medium text-gray-700"
+            >
+              Email
+            </Label>
             <Input
               id="email"
               type="email"
@@ -147,7 +155,12 @@ export function RegisterForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="fullName" className="text-sm font-medium text-gray-700">Họ và tên</Label>
+            <Label
+              htmlFor="fullName"
+              className="text-sm font-medium text-gray-700"
+            >
+              Họ và tên
+            </Label>
             <Input
               id="fullName"
               type="text"
@@ -160,7 +173,12 @@ export function RegisterForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password" className="text-sm font-medium text-gray-700">Mật khẩu</Label>
+            <Label
+              htmlFor="password"
+              className="text-sm font-medium text-gray-700"
+            >
+              Mật khẩu
+            </Label>
             <div className="relative">
               <Input
                 id="password"
@@ -174,18 +192,29 @@ export function RegisterForm() {
               {password && password.length > 0 && (
                 <button
                   type="button"
-                  aria-label={showPassword ? "Ẩn mật khẩu" : "Hiển thị mật khẩu"}
+                  aria-label={
+                    showPassword ? "Ẩn mật khẩu" : "Hiển thị mật khẩu"
+                  }
                   onClick={() => setShowPassword((v) => !v)}
                   className="absolute inset-y-0 right-2 flex items-center text-gray-600 hover:text-gray-800"
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
                 </button>
               )}
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">Xác nhận mật khẩu</Label>
+            <Label
+              htmlFor="confirmPassword"
+              className="text-sm font-medium text-gray-700"
+            >
+              Xác nhận mật khẩu
+            </Label>
             <div className="relative">
               <Input
                 id="confirmPassword"
@@ -199,11 +228,17 @@ export function RegisterForm() {
               {confirmPassword && confirmPassword.length > 0 && (
                 <button
                   type="button"
-                  aria-label={showConfirmPassword ? "Ẩn mật khẩu" : "Hiển thị mật khẩu"}
+                  aria-label={
+                    showConfirmPassword ? "Ẩn mật khẩu" : "Hiển thị mật khẩu"
+                  }
                   onClick={() => setShowConfirmPassword((v) => !v)}
                   className="absolute inset-y-0 right-2 flex items-center text-gray-600 hover:text-gray-800"
                 >
-                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showConfirmPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
                 </button>
               )}
             </div>
@@ -279,7 +314,7 @@ export function RegisterForm() {
         </div>
 
         <p className="text-center text-sm text-gray-600">
-          Đã có tài khoản? {" "}
+          Đã có tài khoản?{" "}
           <button
             type="button"
             onClick={() => router.push("/auth/login")}
@@ -290,5 +325,5 @@ export function RegisterForm() {
         </p>
       </CardContent>
     </Card>
-  )
+  );
 }

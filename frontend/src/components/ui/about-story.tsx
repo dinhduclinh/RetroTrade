@@ -60,7 +60,7 @@ export function AboutStory() {
             </div>
             <div className="absolute bottom-8 left-8 right-8 p-6 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30">
               <div className="text-white">
-                <div className="text-4xl font-bold">2023</div>
+                <div className="text-4xl font-bold">2025</div>
                 <div className="text-lg">Năm thành lập</div>
               </div>
             </div>
@@ -91,7 +91,7 @@ export function AboutStory() {
                 </div>
                 <div>
                   <div className="font-bold text-gray-900">Ra mắt nền tảng</div>
-                  <div className="text-gray-600">Tháng 3/2023 - Khởi đầu hành trình</div>
+                  <div className="text-gray-600">Tháng 10/2025 - Khởi đầu hành trình</div>
                 </div>
               </div>
               <div className="flex gap-4 items-start">
@@ -100,7 +100,7 @@ export function AboutStory() {
                 </div>
                 <div>
                   <div className="font-bold text-gray-900">10,000 người dùng</div>
-                  <div className="text-gray-600">Tháng 9/2023 - Cộng đồng phát triển</div>
+                  <div className="text-gray-600">Tháng 10/2025 - Cộng đồng phát triển</div>
                 </div>
               </div>
               <div className="flex gap-4 items-start">
@@ -109,7 +109,7 @@ export function AboutStory() {
                 </div>
                 <div>
                   <div className="font-bold text-gray-900">Mở rộng toàn quốc</div>
-                  <div className="text-gray-600">Tháng 1/2024 - Phủ sóng 63 tỉnh thành</div>
+                  <div className="text-gray-600">Tháng 10/2025 - Phủ sóng 63 tỉnh thành</div>
                 </div>
               </div>
             </div>
