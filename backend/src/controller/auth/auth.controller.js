@@ -40,7 +40,11 @@ module.exports.login = async (req, res) => {
             });
         }
 
-        const accessToken = jwt.sign({ email: user.email }, process.env.TOKEN_SECRET, { expiresIn: "7d" });
+        const accessToken = jwt.sign(
+          { _id: user._id, email: user.email, fullName: user.fullName },
+          process.env.TOKEN_SECRET,
+          { expiresIn: "7d" }
+        );
         const refreshToken = jwt.sign({ email: user.email }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: "7d" });
 
         await User.findOneAndUpdate({ email: user.email }, { re_token: refreshToken }, { new: true });

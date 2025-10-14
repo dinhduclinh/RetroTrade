@@ -1,36 +1,68 @@
-const cloudinary = require('cloudinary').v2;
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
-const multer = require('multer');
+const multer = require("multer");
+const cloudinary = require("cloudinary").v2;
+const fs = require("fs");
+const path = require("path");
 
 cloudinary.config({
-    cloud_name: process.env.cloud_name,
-    api_key: process.env.api_key,
-    api_secret: process.env.api_secret
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const storage = new CloudinaryStorage({
-    cloudinary,
-    params: async (req, file) => {
-        let resource_type = 'image';
-        const videoFormats = ['video/mp4', 'video/quicktime', 'video/x-msvideo'];
-        if (videoFormats.includes(file.mimetype)) {
-            resource_type = 'video';
-        }
+const uploadDir = path.join(__dirname, "../../uploads");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+  console.log("Đã tạo thư mục upload tại:", uploadDir);
+}
 
-        return {
-            folder: resource_type === 'image' ? 'nutigo/images' : 'nutigo/videos',
-            resource_type,
-            allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'mp4', 'mov', 'avi'],
-            transformation: resource_type === 'image' ? [{ width: 1000, crop: 'limit' }] : undefined
-        };
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname));
+  },
+});
+
+const upload = multer({
+  storage,
+  fileFilter: (req, file, cb) => {
+    const filetypes = /jpeg|jpg|png/;
+    const extname = filetypes.test(
+      path.extname(file.originalname).toLowerCase()
+    );
+    const mimetype = filetypes.test(file.mimetype);
+    if (extname && mimetype) {
+      cb(null, true);
+    } else {
+      cb(new Error("Chỉ hỗ trợ file ảnh JPEG/JPG/PNG"));
     }
+  },
+  limits: { fileSize: 5 * 1024 * 1024 }, 
 });
 
-const upload = multer({ 
-    storage,
-    limits: {
-        fileSize: 5 * 1024 * 1024 
-    }
-});
+const uploadToCloudinary = async (files) => {
+  const uploadPromises = files.map((file) =>
+    cloudinary.uploader.upload(file.path, {
+      folder: "retrotrade/products",
+      resource_type: "image",
+    })
+  );
 
-module.exports = { cloudinary, upload };
+  const results = await Promise.all(uploadPromises);
+
+  files.forEach((file) => {
+    fs.unlink(file.path, (err) => {
+      if (err) console.error("Lỗi xóa file tạm:", file.path);
+    });
+  });
+
+  return results.map((result, index) => ({
+    Url: result.secure_url,
+    IsPrimary: index === 0,
+    Ordinal: index,
+    AltText: files[index].originalname,
+  }));
+};
+
+module.exports = { upload, uploadToCloudinary };

@@ -1,76 +1,70 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
+const { v4: uuidv4 } = require("uuid");
 
-const itemSchema = new mongoose.Schema({
-    itemGuid: {
-        type: String,
-        default: () => require('crypto').randomUUID(),
-        unique: true
+const itemSchema = new mongoose.Schema(
+  {
+    ItemGuid: {
+      type: String,
+      required: true,
+      unique: true,
+      default: () => uuidv4(),
     },
-    ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    title: { type: String, required: true, maxlength: 300 },
-    shortDescription: { type: String, maxlength: 1000 },
-    description: String,
-    categoryId: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
-    condition: {
-        type: String,
-        enum: ['new', 'like_new', 'good', 'fair', 'poor']
+    OwnerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+      ref: "User",
     },
-    basePrice: { type: Number, required: true, min: 0 },
-    priceUnit: {
-        type: String,
-        enum: ['hour', 'day', 'week', 'month'],
-        default: 'day'
+    Title: { type: String, required: true, maxlength: 300 },
+    ShortDescription: { type: String, maxlength: 1000 },
+    Description: { type: String },
+    CategoryId: { type: mongoose.Schema.Types.ObjectId, ref: "Categories" },
+    ConditionId: { type: Number, required: true },
+    BasePrice: { type: Number, required: true, min: 0.01 },
+    PriceUnitId: { type: Number, required: true },
+    DepositAmount: { type: Number, required: true, min: 0.01 },
+    MinRentalDuration: { type: Number, min: 1 },
+    MaxRentalDuration: { type: Number, min: 1 },
+    Currency: {
+      type: String,
+      required: true,
+      enum: ["VND", "USD"],
+      default: "VND",
     },
-    depositAmount: { type: Number, default: 0, min: 0 },
-    minRentalDuration: Number,
-    maxRentalDuration: Number,
-    currency: { type: String, default: 'VND' },
-    quantity: { type: Number, default: 1, min: 0 },
-    availableQuantity: { type: Number, default: 1, min: 0 },
-    status: {
-        type: String,
-        enum: ['available', 'rented', 'maintenance', 'unavailable'],
-        default: 'available'
+    Quantity: { type: Number, required: true, min: 1 },
+    AvailableQuantity: {
+      type: Number,
+      required: true,
+      min: 0,
+      default: function () {
+        return this.Quantity;
+      },
     },
-    location: {
-        type: {
-            type: String,
-            enum: ['Point'],
-            default: 'Point'
-        },
-        coordinates: {
-            type: [Number],
-            index: '2dsphere'
-        }
+    StatusId: {
+      type: Number,
+      required: true,
+      enum: [1, 2, 3], // 1: Pending, 2: Approved, 3: Rejected
+      default: 1,
     },
-    address: String,
-    city: String,
-    district: String,
-    images: [{
-        url: String,
-        isPrimary: { type: Boolean, default: false },
-        ordinal: Number,
-        altText: String
-    }],
-    tags: [String],
-    isHighlighted: { type: Boolean, default: false },
-    isTrending: { type: Boolean, default: false },
-    viewCount: { type: Number, default: 0 },
-    favoriteCount: { type: Number, default: 0 },
-    rentCount: { type: Number, default: 0 },
-    averageRating: { type: Number, default: 0 },
-    isDeleted: { type: Boolean, default: false }
-}, {
-    timestamps: true
-});
+    Address: { type: String, maxlength: 500 },
+    City: { type: String, maxlength: 200 },
+    District: { type: String, maxlength: 200 },
+    IsHighlighted: { type: Boolean, required: true, default: false },
+    IsTrending: { type: Boolean, required: true, default: false },
+    ViewCount: { type: Number, required: true, default: 0 },
+    FavoriteCount: { type: Number, required: true, default: 0 },
+    RentCount: { type: Number, required: true, default: 0 },
+    IsDeleted: { type: Boolean, required: true, default: false },
+  },
+  {
+    collection: "items",
+    timestamps: { createdAt: "CreatedAt", updatedAt: "UpdatedAt" },
+  }
+);
 
-itemSchema.index({ ownerId: 1 });
-itemSchema.index({ categoryId: 1, status: 1 });
-itemSchema.index({ location: '2dsphere' });
-itemSchema.index({ city: 1, district: 1 });
-itemSchema.index({ status: 1, availableQuantity: 1 });
-itemSchema.index({ basePrice: 1, rentCount: -1 });
-itemSchema.index({ tags: 1 });
-itemSchema.index({ title: 'text', shortDescription: 'text', description: 'text' });
+// Indexes cho performance
+itemSchema.index({ OwnerId: 1 });
+itemSchema.index({ CategoryId: 1 });
+itemSchema.index({ StatusId: 1 });
+itemSchema.index({ IsDeleted: 1 });
 
-module.exports = mongoose.model('Item', itemSchema);
+module.exports = mongoose.model("Item", itemSchema);

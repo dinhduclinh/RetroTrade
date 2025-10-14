@@ -35,10 +35,12 @@ const customFetch = async (url: string, options: ExtendedRequestInit = {}): Prom
     }
 
     // Add default headers
-    options.headers = {
-        'Content-Type': 'application/json',
-        ...options.headers,
-    };
+    if (!(options.body instanceof FormData)) {
+     options.headers = {
+       "Content-Type": "application/json",
+       ...options.headers,
+     };
+   }
 
     console.log('Making request to:', url, 'with options:', options);
 
@@ -120,44 +122,50 @@ const customFetch = async (url: string, options: ExtendedRequestInit = {}): Prom
 
 // API methods using fetch
 const api = {
-    get: (url: string, options: ExtendedRequestInit = {}) => 
-        customFetch(`${BASE_URL}${url}`, { ...options, method: 'GET' }),
-    
-    post: (url: string, data?: unknown, options: ExtendedRequestInit = {}) => 
-        customFetch(`${BASE_URL}${url}`, {
-            ...options,
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...options.headers,
-            },
-            body: data ? JSON.stringify(data) : undefined,
-        }),
-    
-    put: (url: string, data?: unknown, options: ExtendedRequestInit = {}) => 
-        customFetch(`${BASE_URL}${url}`, {
-            ...options,
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                ...options.headers,
-            },
-            body: data ? JSON.stringify(data) : undefined,
-        }),
-    
-    delete: (url: string, options: ExtendedRequestInit = {}) => 
-        customFetch(`${BASE_URL}${url}`, { ...options, method: 'DELETE' }),
-    
-    patch: (url: string, data?: unknown, options: ExtendedRequestInit = {}) => 
-        customFetch(`${BASE_URL}${url}`, {
-            ...options,
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                ...options.headers,
-            },
-            body: data ? JSON.stringify(data) : undefined,
-        }),
+  get: (url: string, options: ExtendedRequestInit = {}) =>
+    customFetch(`${BASE_URL}${url}`, { ...options, method: "GET" }),
+
+  post: (url: string, data?: any, options: ExtendedRequestInit = {}) => {
+    const isFormData = data instanceof FormData;
+
+    const headers = isFormData
+      ? options.headers 
+      : { "Content-Type": "application/json", ...options.headers };
+
+    const body = isFormData ? data : data ? JSON.stringify(data) : undefined;
+
+    return customFetch(`${BASE_URL}${url}`, {
+      ...options,
+      method: "POST",
+      headers,
+      body,
+    });
+  },
+
+  put: (url: string, data?: unknown, options: ExtendedRequestInit = {}) =>
+    customFetch(`${BASE_URL}${url}`, {
+      ...options,
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+      body: data ? JSON.stringify(data) : undefined,
+    }),
+
+  delete: (url: string, options: ExtendedRequestInit = {}) =>
+    customFetch(`${BASE_URL}${url}`, { ...options, method: "DELETE" }),
+
+  patch: (url: string, data?: unknown, options: ExtendedRequestInit = {}) =>
+    customFetch(`${BASE_URL}${url}`, {
+      ...options,
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+      body: data ? JSON.stringify(data) : undefined,
+    }),
 };
 
 export default api;
