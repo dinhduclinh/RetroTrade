@@ -9,5 +9,5 @@ module.exports = (app) => {
     app.use(api + "/auth", userAuthRouter);
     // app.use(api + "profile/", userProfileRouter);
     app.use(api + "/user", userRouter);
-    app.use(api, blogRoutes);
+    app.use(api + "/post", blogRoutes);
 }
