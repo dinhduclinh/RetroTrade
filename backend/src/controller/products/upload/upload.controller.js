@@ -1,13 +1,14 @@
-const ItemImages = require("../../models/ItemImage.model");
-const { uploadToCloudinary } = require("../../middleware/upload.middleware");
+const ItemImages = require("../../../models/Product/ItemImage.model");
+const { uploadToCloudinary } = require("../../../middleware/upload.middleware");
 const fs = require("fs");
 
 const uploadImages = async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
-      return res
-        .status(400)
-        .json({ success: false, message: "No images provided" });
+      return res.status(400).json({
+        success: false,
+        message: "Không có hình ảnh nào được cung cấp",
+      });
     }
 
     const cloudinaryResults = await uploadToCloudinary(req.files);
@@ -36,18 +37,17 @@ const uploadImages = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Images uploaded successfully",
+      message: "Hình ảnh được tải lên thành công",
       data: images,
     });
   } catch (error) {
-    console.error("Upload images error:", error);
+    console.error("Lỗi tải lên hình ảnh:", error);
     res.status(500).json({
       success: false,
-      message: "Upload failed",
+      message: "Tải lên thất bại",
       error: error.message,
     });
   }
 };
-
 
 module.exports = { uploadImages };

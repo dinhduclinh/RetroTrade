@@ -1,4 +1,4 @@
-const ItemConditions = require("../../models/ItemConditions.model");
+const ItemConditions = require("../../models/Product/ItemConditions.model");
 
 const getConditions = async (req, res) => {
   try {
@@ -7,14 +7,14 @@ const getConditions = async (req, res) => {
     });
     res.status(200).json({
       success: true,
-      message: "Conditions fetched successfully",
+      message: "Điều kiện được lấy thành công",
       data: conditions,
     });
   } catch (error) {
-    console.error("Error fetching conditions:", error);
+    console.error("Lỗi khi lấy điều kiện:", error);
     res.status(500).json({
       success: false,
-      message: "Internal server error while fetching conditions",
+      message: "Lỗi máy chủ nội bộ khi lấy điều kiện",
       error: error.message,
     });
   }

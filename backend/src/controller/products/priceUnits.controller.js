@@ -1,4 +1,4 @@
-const PriceUnits = require("../../models/PriceUnits.model");
+const PriceUnits = require("../../models/Product/PriceUnits.model");
 
 const getPriceUnits = async (req, res) => {
   try {
@@ -7,14 +7,14 @@ const getPriceUnits = async (req, res) => {
     });
     res.status(200).json({
       success: true,
-      message: "Price units fetched successfully",
+      message: "Đơn vị giá đã được lấy thành công",
       data: priceUnits,
     });
   } catch (error) {
-    console.error("Error fetching price units:", error);
+    console.error("Lỗi khi lấy đơn vị giá:", error);
     res.status(500).json({
       success: false,
-      message: "Internal server error while fetching price units",
+      message: "Lỗi server khi lấy đơn vị giá",
       error: error.message,
     });
   }

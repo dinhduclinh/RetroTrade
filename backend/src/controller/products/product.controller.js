@@ -1,13 +1,13 @@
 const { v4: uuidv4 } = require("uuid");
 const mongoose = require("mongoose");
 
-const Item = require("../../models/Item.model");
-const ItemImages = require("../../models/ItemImage.model");
-const ItemTag = require("../../models/ItemTag.model");
+const Item = require("../../models/Product/Item.model");
+const ItemImages = require("../../models/Product/ItemImage.model");
+const ItemTag = require("../../models/Product/ItemTag.model");
 const AuditLog = require("../../models/AuditLog.model");
 const Categories = require("../../models/Categories.model");
-const ItemConditions = require("../../models/ItemConditions.model");
-const PriceUnits = require("../../models/PriceUnits.model");
+const ItemConditions = require("../../models/Product/ItemConditions.model");
+const PriceUnits = require("../../models/Product/PriceUnits.model");
 const User = require("../../models/User.model");
 const Tags = require("../../models/Tag.model");
 
@@ -17,7 +17,7 @@ const addProduct = async (req, res) => {
     if (!ownerId || !mongoose.Types.ObjectId.isValid(ownerId)) {
       return res
         .status(400)
-        .json({ success: false, message: "Invalid OwnerId" });
+        .json({ success: false, message: "OwnerId không hợp lệ" });
     }
 
     let {
@@ -56,7 +56,7 @@ const addProduct = async (req, res) => {
       } catch (err) {
         return res
           .status(400)
-          .json({ success: false, message: "Invalid Tags format" });
+          .json({ success: false, message: "Định dạng tag không hợp lệ" });
       }
     }
 
@@ -72,7 +72,7 @@ const addProduct = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "Missing required fields: Title, BasePrice, DepositAmount, Quantity, CategoryId, ConditionId, PriceUnitId",
+          "Thiếu các trường bắt buộc: Title, BasePrice, DepositAmount, Quantity, CategoryId, ConditionId, PriceUnitId",
       });
     }
 
@@ -96,7 +96,7 @@ const addProduct = async (req, res) => {
     ) {
       return res
         .status(400)
-        .json({ success: false, message: "Invalid numeric values" });
+        .json({ success: false, message: "Giá trị không hợp lệ" });
     }
 
     if (
@@ -104,20 +104,19 @@ const addProduct = async (req, res) => {
       parsedMaxDuration &&
       parsedMinDuration > parsedMaxDuration
     ) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "MinRentalDuration cannot exceed MaxRentalDuration",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "MinRentalDuration không thể vượt quá MaxRentalDuration",
+      });
     }
 
     // Validate references
     const category = await Categories.findById(parsedCategoryId);
     if (!category || !category.isActive)
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid or inactive category" });
+      return res.status(400).json({
+        success: false,
+        message: "Danh mục không hợp lệ hoặc không hoạt động",
+      });
 
     const condition = await ItemConditions.findOne({
       ConditionId: parsedConditionId,
@@ -125,13 +124,13 @@ const addProduct = async (req, res) => {
     if (!condition || condition.IsDeleted)
       return res
         .status(400)
-        .json({ success: false, message: "Invalid condition" });
+        .json({ success: false, message: "Điều kiện không hợp lệ" });
 
     const priceUnit = await PriceUnits.findOne({ UnitId: parsedPriceUnitId });
     if (!priceUnit || priceUnit.IsDeleted)
       return res
         .status(400)
-        .json({ success: false, message: "Invalid price unit" });
+        .json({ success: false, message: "Đơn vị giá không hợp lệ" });
 
     const owner = await User.findById(ownerId);
     // Optional: check if owner can create product
@@ -220,14 +219,14 @@ const addProduct = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: "Product created successfully and awaiting moderation approval.",
+      message: "Sản phẩm đã được tạo thành công và đang chờ phê duyệt.",
       data: itemWithDetails,
     });
   } catch (error) {
-    console.error("Error creating product:", error);
+    console.error("Lỗi khi tạo sản phẩm:", error);
     res.status(500).json({
       success: false,
-      message: "Internal server error while creating product",
+      message: "Lỗi server khi tạo sản phẩm",
       error: error.message,
     });
   }
