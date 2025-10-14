@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const PostCategorySchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -8,5 +8,5 @@ const PostCategorySchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
-export default mongoose.models.PostCategory ||
+module.exports =  mongoose.models.PostCategory ||
   mongoose.model("PostCategory", PostCategorySchema);

@@ -1,8 +1,7 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const PostSchema = new mongoose.Schema({
   title: { type: String, required: true },
-  slug: { type: String, unique: true },
   shortDescription: String,
   content: { type: String, required: true },
   thumbnail: String,
@@ -19,4 +18,4 @@ const PostSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
-export default mongoose.models.Post || mongoose.model("Post", PostSchema);
+module.exports =  mongoose.models.Post || mongoose.model("Post", PostSchema);
