@@ -89,6 +89,73 @@ const deletePost = async (req, res) => {
     res.status(500).json({ message: "Failed to delete post", error });
   }
 };
+const getPostsByCategory = async (req, res) => {
+  try {
+    const { categoryId } = req.params;
+    const { page = 1, limit = 6 } = req.query;
+
+    const filter = { isActive: true, categoryId };
+    const skip = (page - 1) * limit;
+
+    const posts = await Post.find(filter)
+      .populate("authorId", "name avatar")
+      .populate("categoryId", "name")
+      .populate("tags", "name")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit));
+
+    const total = await Post.countDocuments(filter);
+
+    res.json({
+      success: true,
+      data: posts,
+      pagination: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Failed to load posts by category", error });
+  }
+};
+const getPostsByTag = async (req, res) => {
+  try {
+    const { tagId } = req.params;
+    const { page = 1, limit = 6 } = req.query;
+
+    const filter = { isActive: true, tags: { $in: [tagId] } };
+    const skip = (page - 1) * limit;
+
+    const posts = await Post.find(filter)
+      .populate("authorId", "name avatar")
+      .populate("categoryId", "name")
+      .populate("tags", "name")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit));
+
+    const total = await Post.countDocuments(filter);
+
+    res.json({
+      success: true,
+      data: posts,
+      pagination: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to load posts by tag", error });
+  }
+};
+
 
 module.exports = {
   getAllPosts,
@@ -96,4 +163,6 @@ module.exports = {
   createPost,
   updatePost,
   deletePost,
+  getPostsByCategory,
+  getPostsByTag,
 };
