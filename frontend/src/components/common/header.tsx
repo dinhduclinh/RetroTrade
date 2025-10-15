@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, LogOut, User, Package } from "lucide-react";
+import { LogOut, User, Package, Settings, Shield, Crown, Users } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,7 +23,9 @@ import Image from "next/image";
 interface DecodedToken {
   email: string;
   userGuid?: string;
+  avatarUrl?: string;
   role?: string;
+  fullName?: string;
   exp: number;
   iat: number;
 }
@@ -57,6 +59,18 @@ export function Header() {
       if (decodedUser.exp && decodedUser.exp > currentTime) {
         setIsLoggedIn(true);
         setUserInfo(decodedUser);
+        
+        // Chuyển hướng dựa trên role
+        const currentPath = router.pathname;
+        const userRole = decodedUser.role || 'user';
+        
+        // Chỉ chuyển hướng nếu không phải trang admin/moderator/owner và user có role đặc biệt
+        if (userRole !== 'user' && !currentPath.startsWith(`/${userRole}`)) {
+          // Kiểm tra xem có đang ở trang chính không để tránh redirect loop
+          if (currentPath === '/' || currentPath === '/home') {
+            router.push(`/${userRole}`);
+          }
+        }
       } else {
         // Token hết hạn
         dispatch(logout());
@@ -68,7 +82,7 @@ export function Header() {
       setIsLoggedIn(false);
       setUserInfo(null);
     }
-  }, [decodedUser, dispatch]);
+  }, [decodedUser, dispatch, router]);
 
   const handleLogout = () => {
     setIsLoggedIn(false);
@@ -84,6 +98,67 @@ export function Header() {
 
   const handleGoToOrders = () => {
     router.push('/orders');
+  };
+
+  const handleGoToAdminPanel = () => {
+    router.push('/admin');
+  };
+
+  const handleGoToModeratorPanel = () => {
+    router.push('/moderator');
+  };
+
+  const handleGoToOwnerPanel = () => {
+    router.push('/owner');
+  };
+
+  // Render menu items dựa trên role
+  const renderRoleSpecificMenuItems = () => {
+    if (!userInfo?.role) return null;
+
+    const role = userInfo.role;
+    const items = [];
+
+    switch (role) {
+      case 'admin':
+        items.push(
+          <DropdownMenuItem
+            key="admin-panel"
+            className="cursor-pointer"
+            onClick={handleGoToAdminPanel}
+          >
+            <Crown className="mr-2 h-4 w-4" />
+            <span>Admin Panel</span>
+          </DropdownMenuItem>
+        );
+        break;
+      case 'moderator':
+        items.push(
+          <DropdownMenuItem
+            key="moderator-panel"
+            className="cursor-pointer"
+            onClick={handleGoToModeratorPanel}
+          >
+            <Shield className="mr-2 h-4 w-4" />
+            <span>Moderator Panel</span>
+          </DropdownMenuItem>
+        );
+        break;
+      case 'owner':
+        items.push(
+          <DropdownMenuItem
+            key="owner-panel"
+            className="cursor-pointer"
+            onClick={handleGoToOwnerPanel}
+          >
+            <Settings className="mr-2 h-4 w-4" />
+            <span>Owner Panel</span>
+          </DropdownMenuItem>
+        );
+        break;
+    }
+
+    return items;
   };
 
   return (
@@ -154,9 +229,9 @@ export function Header() {
                     className="relative h-10 w-10 rounded-full"
                   >
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src="" alt={userInfo.email} />
+                      <AvatarImage src={userInfo.avatarUrl ?? ""} alt={userInfo.email} />
                       <AvatarFallback className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
-                        {userInfo.email.charAt(0).toUpperCase()}
+                        {userInfo.email?.charAt(0).toUpperCase() ?? ""}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
@@ -164,10 +239,10 @@ export function Header() {
                 <DropdownMenuContent className="w-56" align="end" forceMount>
                   <div className="flex flex-col space-y-1 p-2">
                     <p className="text-sm font-medium leading-none">
-                      {userInfo.email}
+                      {userInfo.email ?? ""}
                     </p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      {userInfo.role || "user"}
+                      {userInfo.role ?? 'user'}
                     </p>
                   </div>
                   <DropdownMenuSeparator />
@@ -185,6 +260,10 @@ export function Header() {
                     <Package className="mr-2 h-4 w-4" />
                     <span>Đơn hàng của tôi</span>
                   </DropdownMenuItem>
+                  
+                  {/* Render role-specific menu items */}
+                  {renderRoleSpecificMenuItems()}
+                  
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="cursor-pointer text-red-600 focus:text-red-600"

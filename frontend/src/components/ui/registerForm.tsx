@@ -8,12 +8,16 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ShoppingBag, Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
-import { register } from "@/services/auth/auth.api"
-import Image from "next/image"
-// i18n removed
+import { register, loginWithGoogle, loginWithFacebook } from "@/services/auth/auth.api"
+import { useDispatch } from "react-redux"
+import { login as loginAction } from "@/store/auth/authReducer"
+import { useGoogleLogin } from "@react-oauth/google"
+import Image from "next/image";
+import { validatePassword } from "@/lib/validation-password";
 
 export function RegisterForm() {
   const router = useRouter()
+  const dispatch = useDispatch()
   // i18n removed
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -22,6 +26,7 @@ export function RegisterForm() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -29,8 +34,17 @@ export function RegisterForm() {
       toast.error('Vui lòng nhập đầy đủ thông tin')
       return
     }
+    const validation = validatePassword(password)
+    if (!validation.isValid) {
+      toast.error(validation.message || 'Mật khẩu không hợp lệ')
+      return
+    }
     if (password !== confirmPassword) {
       toast.error('Mật khẩu không khớp')
+      return
+    }
+    if (!acceptedTerms) {
+      toast.error('Bạn phải đồng ý với Điều khoản dịch vụ để đăng ký')
       return
     }
     
@@ -56,12 +70,59 @@ export function RegisterForm() {
     }
   }
 
-  const handleGoogleLogin = () => {
-    toast.info("Đăng nhập với Google")
-  }
+  const googleRedirect = useGoogleLogin({
+    flow: "implicit",
+    scope: "openid email profile",
+    onSuccess: async (tokenResponse) => {
+      try {
+        const accessToken = tokenResponse.access_token;
+        if (!accessToken) {
+          toast.error("Không lấy được access_token từ Google")
+          return;
+        }
+        const profileRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!profileRes.ok) throw new Error(`Google userinfo HTTP ${profileRes.status}`);
+        const profile = await profileRes.json();
+        const email = profile?.email as string | undefined;
+        const fullName = profile?.name as string | undefined;
+        const avatarUrl = profile?.picture as string | undefined;
+
+        if (!email) {
+          toast.error("Không lấy được email từ Google")
+          return;
+        }
+
+        const response = await loginWithGoogle({ email, fullName, avatarUrl });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const result = await response.json();
+
+        if (result.code === 200) {
+          dispatch(loginAction({ accessToken: result.data.accessToken, refreshToken: result.data.refreshToken }))
+          toast.success("Đăng ký Google thành công!")
+          router.push("/")
+        } else {
+          toast.error(result.message || "Đăng ký Google thất bại")
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Lỗi đăng ký Google")
+      }
+    },
+    onError: () => toast.error("Google login bị hủy hoặc lỗi"),
+  })
 
   const handleFacebookLogin = () => {
-    toast.info("Đăng nhập với Facebook")
+    const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || "";
+    if (!appId) {
+      toast.error("Thiếu NEXT_PUBLIC_FACEBOOK_APP_ID");
+      return;
+    }
+    const redirectUri = (typeof window !== "undefined" ? window.location.origin : "") + "/auth/facebook";
+    const authUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${encodeURIComponent(appId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=email,public_profile`;
+    if (typeof window !== "undefined") {
+      window.location.href = authUrl;
+    }
   }
 
   return (
@@ -204,6 +265,23 @@ export function RegisterForm() {
             </button>
           </div>
 
+        <div className="flex items-start gap-2">
+          <input
+            id="terms"
+            type="checkbox"
+            checked={acceptedTerms}
+            onChange={(e) => setAcceptedTerms(e.target.checked)}
+            className="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            aria-describedby="terms-description"
+          />
+          <Label htmlFor="terms" className="text-sm text-gray-700">
+            Tôi đồng ý với{' '}
+            <a href="/terms" className="text-blue-600 hover:text-blue-700 hover:underline">Điều khoản dịch vụ</a>
+            {' '}và các{' '}
+            <a href="/privacy" className="text-blue-600 hover:text-blue-700 hover:underline">chính sách liên quan</a>.
+          </Label>
+        </div>
+
           <Button
             type="submit"
             disabled={isLoading}
@@ -227,7 +305,7 @@ export function RegisterForm() {
             type="button"
             variant="outline"
             className="w-full h-11 border-gray-300 hover:bg-gray-50 font-normal bg-transparent text-black"
-            onClick={handleGoogleLogin}
+            onClick={() => googleRedirect()}
           >
             <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
               <path
@@ -247,7 +325,7 @@ export function RegisterForm() {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            Đăng nhập với Google
+            Đăng ký với Google
           </Button>
 
           <Button
@@ -259,7 +337,7 @@ export function RegisterForm() {
             <svg className="w-5 h-5 mr-2" fill="#1877F2" viewBox="0 0 24 24">
               <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
             </svg>
-            Đăng nhập với Facebook
+            Đăng ký với Facebook
           </Button>
         </div>
 
