@@ -5,7 +5,7 @@ export const addProduct = async (productData: any): Promise<Response> => {
 };
 
 export const uploadImages = async (formData: FormData): Promise<Response> => {
-  return await instance.post("products/upload", formData); 
+  return await instance.post("/products/upload", formData); 
 };
 
 export const getConditions = async (): Promise<Response> => {

@@ -44,7 +44,7 @@ const upload = multer({
 const uploadToCloudinary = async (files) => {
   const uploadPromises = files.map((file) =>
     cloudinary.uploader.upload(file.path, {
-      folder: "retrotrade/products",
+      folder: "retrotrade/",
       resource_type: "image",
     })
   );

@@ -1,7 +1,5 @@
 const userAuthRouter = require("../routes/auth/auth.router");
 
-const userRouter = require("../routes/user/user.controller");
-
 const categoryRouter = require("../routes/products/category.router");
 const productRouter = require("../routes/products/product.router")
 const conditionsRouter = require("../routes/products/conditions.router");

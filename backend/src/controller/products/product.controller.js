@@ -47,16 +47,36 @@ const addProduct = async (req, res) => {
     City = City?.trim() || "";
     District = District?.trim() || "";
 
-    // Parse tags
     let tagsArray = [];
     if (TagsInput) {
-      try {
-        tagsArray =
-          typeof TagsInput === "string" ? JSON.parse(TagsInput) : TagsInput;
-      } catch (err) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Định dạng tag không hợp lệ" });
+      if (Array.isArray(TagsInput)) {
+        tagsArray = TagsInput.map((tag) => {
+          if (typeof tag === "string") return tag.trim();
+          return null;
+        }).filter((tag) => tag !== null && tag !== undefined && tag.length > 0);
+      } else if (typeof TagsInput === "string") {
+        try {
+          const parsedTags = JSON.parse(TagsInput);
+          if (Array.isArray(parsedTags)) {
+            tagsArray = parsedTags
+              .map((tag) => {
+                if (typeof tag === "string") return tag.trim();
+                return null;
+              })
+              .filter(
+                (tag) => tag !== null && tag !== undefined && tag.length > 0
+              );
+          }
+        } catch (err) {
+          tagsArray = TagsInput.split(",")
+            .map((tag) => {
+              if (typeof tag === "string") return tag.trim();
+              return null;
+            })
+            .filter(
+              (tag) => tag !== null && tag !== undefined && tag.length > 0
+            );
+        }
       }
     }
 
@@ -80,8 +100,8 @@ const addProduct = async (req, res) => {
     const parsedBasePrice = parseFloat(BasePrice);
     const parsedDepositAmount = parseFloat(DepositAmount);
     const parsedCategoryId = new mongoose.Types.ObjectId(CategoryId);
-    const parsedConditionId = parseInt(ConditionId);
-    const parsedPriceUnitId = parseInt(PriceUnitId);
+    const parsedConditionId = parseInt(ConditionId); 
+    const parsedPriceUnitId = parseInt(PriceUnitId); 
     const parsedMinDuration = MinRentalDuration
       ? parseInt(MinRentalDuration)
       : null;
@@ -110,7 +130,6 @@ const addProduct = async (req, res) => {
       });
     }
 
-    // Validate references
     const category = await Categories.findById(parsedCategoryId);
     if (!category || !category.isActive)
       return res.status(400).json({
@@ -133,10 +152,7 @@ const addProduct = async (req, res) => {
         .json({ success: false, message: "Đơn vị giá không hợp lệ" });
 
     const owner = await User.findById(ownerId);
-    // Optional: check if owner can create product
-    // if (!owner || owner.IsDeleted || !owner.IsActive || owner.RoleId !== 2) return res.status(403).json({ success: false, message: "Unauthorized" });
-
-    // Create Item
+    
     const newItem = await Item.create({
       ItemGuid: uuidv4(),
       OwnerId: ownerId,
@@ -164,38 +180,54 @@ const addProduct = async (req, res) => {
       IsDeleted: false,
     });
 
-    // Handle ImageUrls
     let images = [];
     if (Array.isArray(ImageUrls) && ImageUrls.length > 0) {
       for (let i = 0; i < ImageUrls.length; i++) {
-        const { Url, IsPrimary, Ordinal, AltText } = ImageUrls[i];
+        const url = ImageUrls[i]; 
+        if (typeof url !== "string" || !url.trim()) continue; 
         const image = await ItemImages.create({
           ItemId: newItem._id,
-          Url,
-          IsPrimary: IsPrimary || i === 0,
-          Ordinal: Ordinal || i + 1,
-          AltText: AltText || `${Title} - Image ${i + 1}`,
+          Url: url.trim(),
+          IsPrimary: i === 0, 
+          Ordinal: i + 1,
+          AltText: `${Title} - Image ${i + 1}`,
           IsDeleted: false,
         });
         images.push(image);
       }
     }
 
-    // Handle Tags
+    // Handle Tags 
     let tagDocs = [];
     if (tagsArray.length > 0) {
-      for (let tagId of tagsArray) {
-        if (!mongoose.Types.ObjectId.isValid(tagId)) continue;
-        const parsedTagId = new mongoose.Types.ObjectId(tagId);
-        const tag = await Tags.findById(parsedTagId);
-        if (!tag || tag.IsDeleted) continue;
-
-        const itemTag = await ItemTag.create({
-          ItemId: newItem._id,
-          TagId: parsedTagId,
-          IsDeleted: false,
-        });
-        tagDocs.push(itemTag);
+      for (let tagName of tagsArray) {
+        if (
+          !tagName ||
+          typeof tagName !== "string" ||
+          tagName.trim().length === 0
+        )
+          continue;
+        const trimmedName = tagName.trim();
+        const tag = await Tags.findOneAndUpdate(
+          { Name: trimmedName, IsDeleted: false },
+          { Name: trimmedName, IsDeleted: false },
+          { upsert: true, new: true }
+        );
+        if (tag && mongoose.Types.ObjectId.isValid(tag._id)) {
+          const existingItemTag = await ItemTag.findOne({
+            ItemId: newItem._id,
+            TagId: tag._id,
+            IsDeleted: false,
+          });
+          if (!existingItemTag) {
+            const itemTag = await ItemTag.create({
+              ItemId: newItem._id,
+              TagId: tag._id,
+              IsDeleted: false,
+            });
+            tagDocs.push(itemTag);
+          }
+        }
       }
     }
 
