@@ -1,24 +1,31 @@
+"use client";
+
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import {
-  addProduct,
+  updateProduct,
   getConditions,
   getPriceUnits,
   uploadImages,
+  getProductById,
 } from "../../../../services/products/product.api";
 import { getCategories } from "../../../../services/products/category.api";
 import { useSelector } from "react-redux";
 import { Container } from "../../../../components/layout/Container";
 import Image from "next/image";
-import { toast } from "sonner";
+import { toast, Toaster } from "sonner";
 
-const AddProductPage: React.FC = () => {
+const UpdateProductPage: React.FC = () => {
   const router = useRouter();
+  const { id } = router.query;
   const [loading, setLoading] = useState(false);
+  const [fetchLoading, setFetchLoading] = useState(true);
   const [primaryPreview, setPrimaryPreview] = useState<string | null>(null);
   const [secondaryPreviews, setSecondaryPreviews] = useState<string[]>([]);
   const [primaryFile, setPrimaryFile] = useState<File | null>(null);
   const [secondaryFiles, setSecondaryFiles] = useState<File[]>([]);
+  const [existingImages, setExistingImages] = useState<any[]>([]);
+  const [selectedImages, setSelectedImages] = useState<any[]>([]);
 
   const [title, setTitle] = useState("");
   const [shortDescription, setShortDescription] = useState("");
@@ -58,6 +65,12 @@ const AddProductPage: React.FC = () => {
   }
 
   useEffect(() => {
+    if (id) {
+      fetchProductDetails(id as string);
+    }
+  }, [id]);
+
+  useEffect(() => {
     fetchInitialData();
   }, []);
 
@@ -76,6 +89,56 @@ const AddProductPage: React.FC = () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  const fetchProductDetails = async (productId: string) => {
+    setFetchLoading(true);
+    try {
+      const response = await getProductById(productId);
+      if (response.ok) {
+        const data = await response.json();
+        const product = data.data;
+        if (product) {
+          setTitle(product.Title || "");
+          setShortDescription(product.ShortDescription || "");
+          setDescription(product.Description || "");
+          setCategoryId(product.CategoryId?._id || product.CategoryId || "");
+          setConditionId(product.ConditionId?.toString() || "");
+          setBasePrice(product.BasePrice?.toString() || "");
+          setPriceUnitId(product.PriceUnitId?.toString() || "");
+          setDepositAmount(product.DepositAmount?.toString() || "");
+          setMinRentalDuration(product.MinRentalDuration?.toString() || "");
+          setMaxRentalDuration(product.MaxRentalDuration?.toString() || "");
+          setQuantity(product.Quantity?.toString() || "");
+          setAddress(product.Address || "");
+          setCity(product.City || "");
+          setDistrict(product.District || "");
+
+          const existingTags =
+            product.Tags?.map((t: any) => t.Tag?.name || t.name || "").filter(
+              Boolean
+            ) || [];
+          setTags(existingTags);
+
+          const existingImageUrls =
+            product.Images?.map((img: any) => img.Url) || [];
+          setExistingImages(product.Images || []);
+          setSelectedImages(product.Images || []);
+          setSecondaryPreviews(existingImageUrls);
+          if (existingImageUrls.length > 0) {
+            setPrimaryPreview(existingImageUrls[0]);
+          }
+        }
+      } else {
+        toast.error("Không thể tải thông tin sản phẩm");
+        router.push("/products/myproducts");
+      }
+    } catch (err: any) {
+      toast.error("Có lỗi khi tải thông tin sản phẩm");
+      router.push("/products/myproducts");
+    } finally {
+      setFetchLoading(false);
+    }
+  };
 
   const fetchInitialData = async () => {
     try {
@@ -110,6 +173,15 @@ const AddProductPage: React.FC = () => {
           ? priceUnitsJson
           : []
       );
+
+      if (categoryId) {
+        const selectedCat = categories.find((c) => c._id === categoryId);
+        if (selectedCat) {
+          setSelectedCategoryNameState(
+            selectedCat.name || selectedCat.Name || "Chọn danh mục"
+          );
+        }
+      }
     } catch (err: any) {
       toast.error("Không thể tải dữ liệu ban đầu");
     }
@@ -155,6 +227,19 @@ const AddProductPage: React.FC = () => {
     setSecondaryPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const removeExistingImage = (imageId: string) => {
+    setSelectedImages((prev) => prev.filter((img) => img._id !== imageId));
+    const remainingSelected = selectedImages.filter(
+      (img) => img._id !== imageId
+    );
+    const remainingUrls = remainingSelected.map((img) => img.Url);
+    setSecondaryPreviews(remainingUrls);
+
+    if (primaryPreview === remainingUrls[0] || primaryPreview === undefined) {
+      setPrimaryPreview(remainingUrls[0] || null);
+    }
+  };
+
   const handleTagsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTagsInput(e.target.value);
   };
@@ -166,7 +251,7 @@ const AddProductPage: React.FC = () => {
       if (currentValue && !tags.includes(currentValue)) {
         setTags((prev) => [...prev, currentValue]);
       }
-      setTagsInput(""); 
+      setTagsInput("");
     }
   };
 
@@ -241,7 +326,13 @@ const AddProductPage: React.FC = () => {
     if (!categoryId) return "Danh mục là bắt buộc";
     if (!conditionId) return "Tình trạng là bắt buộc";
     if (!priceUnitId) return "Đơn vị giá là bắt buộc";
-    if (!primaryFile) return "Hình ảnh chính là bắt buộc";
+    if (
+      selectedImages.length === 0 &&
+      secondaryPreviews.length === 0 &&
+      !primaryFile &&
+      secondaryFiles.length === 0
+    )
+      return "Phải có ít nhất một hình ảnh";
     if (secondaryFiles.length > 5) return "Tối đa 5 hình ảnh phụ được phép";
     const minDur = parseInt(minRentalDuration) || 0;
     const maxDur = parseInt(maxRentalDuration) || 0;
@@ -261,20 +352,25 @@ const AddProductPage: React.FC = () => {
     setLoading(true);
 
     try {
-      // Step 1: Upload images first (primary first, then secondary)
-      const imageFormData = new FormData();
-      if (primaryFile) {
-        imageFormData.append("images", primaryFile);
+      let imageUrls: string[] = selectedImages.map((img) => img.Url);
+
+      // Step 1: Upload new images if any
+      if (primaryFile || secondaryFiles.length > 0) {
+        const imageFormData = new FormData();
+        if (primaryFile) {
+          imageFormData.append("images", primaryFile);
+        }
+        secondaryFiles.forEach((file) => {
+          imageFormData.append("images", file);
+        });
+        const uploadRes = await uploadImages(imageFormData);
+        const uploadResult = await uploadRes.json();
+        if (!uploadResult.success) {
+          throw new Error(uploadResult.message || "Tải hình ảnh thất bại");
+        }
+        const newImageUrls = uploadResult.data.map((img: any) => img.Url) || [];
+        imageUrls = [...imageUrls, ...newImageUrls];
       }
-      secondaryFiles.forEach((file) => {
-        imageFormData.append("images", file);
-      });
-      const uploadRes = await uploadImages(imageFormData);
-      const uploadResult = await uploadRes.json();
-      if (!uploadResult.success) {
-        throw new Error(uploadResult.message || "Tải hình ảnh thất bại");
-      }
-      const imageUrls = uploadResult.data.map((img: any) => img.Url) || [];
 
       // Step 2: Prepare JSON body with image URLs - Clean tags to array
       const cleanTags = tags.filter((t) => t && t.trim().length > 0);
@@ -298,14 +394,14 @@ const AddProductPage: React.FC = () => {
         ImageUrls: imageUrls,
       };
 
-      // Step 3: Send JSON to addProduct
-      const addRes = await addProduct(productData);
-      const result = await addRes.json();
+      // Step 3: Send JSON to updateProduct
+      const updateRes = await updateProduct(id as string, productData);
+      const result = await updateRes.json();
       if (result.success) {
-        toast.success("Sản phẩm được thêm thành công!");
+        toast.success("Cập nhật sản phẩm thành công!");
         router.push("/products/myproducts");
       } else {
-        toast.error(result.message || "Thêm sản phẩm thất bại");
+        toast.error(result.message || "Cập nhật sản phẩm thất bại");
       }
     } catch (err: any) {
       toast.error(err.message || "Đã xảy ra lỗi");
@@ -314,19 +410,28 @@ const AddProductPage: React.FC = () => {
     }
   };
 
+  if (fetchLoading) {
+    return (
+      <Container>
+        <div className="flex justify-center items-center h-64">
+          <div className="text-lg">Đang tải thông tin sản phẩm...</div>
+        </div>
+      </Container>
+    );
+  }
+
   return (
     <Container>
+      <Toaster />
       <div className="max-w-6xl mx-auto p-6">
-        <h1 className="text-3xl font-bold mb-6">Thêm sản phẩm</h1>
+        <h1 className="text-3xl font-bold mb-6">Chỉnh sửa sản phẩm</h1>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
             <div className="lg:col-span-1 space-y-6">
               <div>
                 <div className="mb-6">
-                  <h3 className="text-lg font-medium mb-2">
-                    Hình ảnh chính (bắt buộc)
-                  </h3>
+                  <h3 className="text-lg font-medium mb-2">Hình ảnh chính</h3>
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
                     {primaryPreview ? (
                       <div className="relative">
@@ -372,7 +477,7 @@ const AddProductPage: React.FC = () => {
 
                 <div>
                   <h3 className="text-lg font-medium mb-2">
-                    Hình ảnh phụ (tối đa 5)
+                    Hình ảnh phụ (tối đa 5, nhấn × để xóa)
                   </h3>
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
                     <label
@@ -381,7 +486,7 @@ const AddProductPage: React.FC = () => {
                     >
                       <div className="text-3xl mb-2">📷</div>
                       <p className="text-gray-500">
-                        Click để upload hình ảnh phụ
+                        Click để upload hình ảnh phụ mới
                       </p>
                       <p className="text-sm text-gray-400">PNG, JPG dưới 5MB</p>
                     </label>
@@ -396,27 +501,40 @@ const AddProductPage: React.FC = () => {
                     />
                     {secondaryPreviews.length > 0 && (
                       <div className="grid grid-cols-3 gap-2 mb-4">
-                        {secondaryPreviews.map((preview, idx) => (
-                          <div key={idx} className="relative group">
-                            <Image
-                              src={preview}
-                              alt={`Hình ảnh phụ ${idx + 1}`}
-                              width={100}
-                              height={100}
-                              className="object-cover rounded"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removeSecondaryImage(idx)}
-                              className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600 opacity-0 group-hover:opacity-100"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
+                        {secondaryPreviews.map((preview, idx) => {
+                          const isExisting = selectedImages.some(
+                            (img) => img.Url === preview
+                          );
+                          const imageId = selectedImages.find(
+                            (img) => img.Url === preview
+                          )?._id;
+                          return (
+                            <div key={idx} className="relative group">
+                              <Image
+                                src={preview}
+                                alt={`Hình ảnh phụ ${idx + 1}`}
+                                width={100}
+                                height={100}
+                                className="object-cover rounded"
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  isExisting
+                                    ? removeExistingImage(imageId!)
+                                    : removeSecondaryImage(idx)
+                                }
+                                className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600 opacity-0 group-hover:opacity-100"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
-                    {secondaryFiles.length < 5 && (
+                    {(secondaryPreviews.length < 5 ||
+                      secondaryFiles.length < 5) && (
                       <div className="flex justify-center">
                         <button
                           type="button"
@@ -531,7 +649,6 @@ const AddProductPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Giá cả và thời gian */}
             <div className="lg:col-span-1">
               <h2 className="text-xl font-semibold mb-4">
                 Giá cả và thời gian
@@ -548,7 +665,7 @@ const AddProductPage: React.FC = () => {
                       value={basePrice}
                       onChange={(e) => setBasePrice(e.target.value)}
                       required
-                      placeholder="Nhập giá thuê"
+                      placeholder="100.000"
                       className="flex-1 p-2 border rounded"
                     />
                     <span className="text-gray-500">/</span>
@@ -710,7 +827,7 @@ const AddProductPage: React.FC = () => {
           <div className="flex space-x-4">
             <button
               type="button"
-              onClick={() => router.back()}
+              onClick={() => router.push("/products/myproducts")}
               className="flex-1 bg-gray-300 text-gray-700 p-2 rounded hover:bg-gray-400"
             >
               Hủy bỏ
@@ -720,7 +837,7 @@ const AddProductPage: React.FC = () => {
               disabled={loading}
               className="flex-1 bg-blue-500 text-white p-2 rounded disabled:opacity-50 hover:bg-blue-600"
             >
-              {loading ? "Đang lưu..." : "Lưu sản phẩm"}
+              {loading ? "Đang cập nhật..." : "Cập nhật sản phẩm"}
             </button>
           </div>
         </form>
@@ -729,4 +846,4 @@ const AddProductPage: React.FC = () => {
   );
 };
 
-export default AddProductPage;
+export default UpdateProductPage;

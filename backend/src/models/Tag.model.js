@@ -16,6 +16,7 @@ const TagSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    collection: "tags",
   }
 );
 
