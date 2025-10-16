@@ -15,6 +15,7 @@ import { DetailedInfoCard, DetailedInfoCardHandle } from '@/components/ui/detail
 import { QuickActionsCard } from '@/components/ui/quick-actions-card';
 import { EditProfileModal } from '@/components/ui/edit-profile-modal';
 import { ChangePasswordModal } from '@/components/ui/change-password-modal';
+import { AvatarUploadModal } from '@/components/ui/avatar-upload-modal';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -25,6 +26,7 @@ export default function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
 
   // Redirect nếu chưa đăng nhập
   useEffect(() => {
@@ -41,13 +43,7 @@ export default function ProfilePage() {
     setError(null);
 
     try {
-      const response = await getUserProfile();
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result: ProfileApiResponse = await response.json();
+      const result: ProfileApiResponse = await getUserProfile();
 
       if (result.code === 200) {
         setUserProfile((result.user as UserProfile) ?? (result.data as UserProfile) ?? null);
@@ -93,6 +89,25 @@ export default function ProfilePage() {
 
   const handleChangePasswordClick = () => {
     setShowChangePasswordModal(true);
+  };
+
+  const handleAvatarEditClick = () => {
+    setShowAvatarModal(true);
+  };
+
+  const handleAvatarUpdated = (newAvatarUrl: string) => {
+    if (userProfile) {
+      setUserProfile({
+        ...userProfile,
+        avatarUrl: newAvatarUrl
+      });
+    }
+  };
+
+  const handleRegisterRentalClick = () => {
+    toast.info('Tính năng đăng ký cho thuê đang được phát triển');
+    // TODO: Implement rental registration functionality
+    // router.push('/products/myproducts/create');
   };
 
   const handleProfileUpdate = (updatedProfile: UserProfile) => {
@@ -168,7 +183,11 @@ export default function ProfilePage() {
       <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-100 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-4000" />
 
       <div className="relative z-10">
-        <ProfileHeader userProfile={normalizedUserProfile} onEditClick={handleEditClick} />
+        <ProfileHeader 
+          userProfile={normalizedUserProfile} 
+          onEditClick={handleEditClick}
+          onAvatarEditClick={handleAvatarEditClick}
+        />
 
         <div className="container mx-auto px-4 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -189,6 +208,7 @@ export default function ProfilePage() {
               <QuickActionsCard 
                 onEditProfile={handleEditClick} 
                 onChangePassword={handleChangePasswordClick}
+                onRegisterRental={handleRegisterRentalClick}
               />
             </div>
           </div>
@@ -210,6 +230,16 @@ export default function ProfilePage() {
         open={showChangePasswordModal}
         onOpenChange={setShowChangePasswordModal}
       />
+
+      {/* Avatar Upload Modal */}
+      {userProfile && (
+        <AvatarUploadModal
+          userProfile={normalizedUserProfile}
+          isOpen={showAvatarModal}
+          onClose={() => setShowAvatarModal(false)}
+          onAvatarUpdated={handleAvatarUpdated}
+        />
+      )}
     </div>
   );
 }

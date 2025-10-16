@@ -1,8 +1,8 @@
 import instance from "../customizeAPI";
 import api from "../customizeAPI";
 
-export const getAllPosts = async () => {
-  const res = await instance.get("/post/posts");
+export const getAllPosts = async (page: number = 1, limit: number = 10) => {
+  const res = await instance.get(`/post/posts?page=${page}&limit=${limit}`);
   return await res.json();
 };
 

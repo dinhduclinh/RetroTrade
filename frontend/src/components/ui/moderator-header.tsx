@@ -18,7 +18,7 @@ import { RootState } from '@/store/redux_store'
 import { logout } from '@/store/auth/authReducer'
 import { jwtDecode } from 'jwt-decode'
 import { toast } from "sonner"
-import { useRouter } from "next/router"
+import { useRouter } from "next/navigation"
 
 interface DecodedToken {
   email: string;

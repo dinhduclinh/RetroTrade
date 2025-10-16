@@ -13,7 +13,7 @@ export default function UserManagementDashboard() {
   const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "requests" | "verification" | "blog">("users")
   const [activeBlogTab, setActiveBlogTab] = useState<"posts" | "categories" | "comments" | "tags">("posts")
 
-  const handleBlogTabChange = (tab: "posts" | "categories" | "comments") => {
+  const handleBlogTabChange = (tab: "posts" | "categories" | "comments" | "tags") => {
     setActiveBlogTab(tab)
     setActiveTab("blog")
   }
@@ -65,7 +65,7 @@ export default function UserManagementDashboard() {
           return "Tạo, chỉnh sửa và quản lý các bài viết trong hệ thống"
       }
     }
-    return "Theo dõi và quản lý tài khoản người dùng trong hệ thống"
+    return "Xem thông tin và quản lý quyền người dùng trong hệ thống"
   }
 
   return (

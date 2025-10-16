@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ShoppingBag, Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
-import { register, loginWithGoogle, loginWithFacebook } from "@/services/auth/auth.api"
+import { register, loginWithGoogle } from "@/services/auth/auth.api"
 import { useDispatch } from "react-redux"
 import { login as loginAction } from "@/store/auth/authReducer"
 import { useGoogleLogin } from "@react-oauth/google"
@@ -57,8 +57,15 @@ export function RegisterForm() {
       
       if (result.code === 200) {
         toast.success("Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.")
-        // Redirect to OTP verification page
-        router.push(`/auth/otp?email=${encodeURIComponent(email)}`)
+        // Redirect to OTP verification page (registration mode)
+        console.log("Redirecting to OTP page with email:", email)
+        const otpUrl = `/auth/register/otp?email=${encodeURIComponent(email)}&mode=register`
+        console.log("OTP URL:", otpUrl)
+        
+        // Use setTimeout to ensure toast is shown before redirect
+        setTimeout(() => {
+          router.push(otpUrl)
+        }, 1000)
       } else {
         toast.error(result.message || "Đăng ký thất bại")
       }

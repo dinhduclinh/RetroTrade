@@ -2,7 +2,6 @@
 
 import { Users, FileText, Shield, LogOut, BookOpen, Menu, X, ChevronDown, ChevronRight, LayoutDashboard } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useRouter } from "next/router"
 import { useState } from "react"
 
 interface ModeratorSidebarProps {
@@ -13,7 +12,6 @@ interface ModeratorSidebarProps {
 }
 
 export function ModeratorSidebar({ activeTab, activeBlogTab, onTabChange, onBlogTabChange }: ModeratorSidebarProps) {
-  const router = useRouter()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isBlogDropdownOpen, setIsBlogDropdownOpen] = useState(false)
   
@@ -81,18 +79,12 @@ export function ModeratorSidebar({ activeTab, activeBlogTab, onTabChange, onBlog
   // removed unused handleNavigation
 
   const handleTabChange = (tab: "dashboard" | "users" | "requests" | "verification" | "blog") => {
+    console.log("Sidebar handleTabChange called with:", tab)
     if (onTabChange) {
+      console.log("Calling onTabChange with:", tab)
       onTabChange(tab)
     } else {
-      // Fallback to navigation if onTabChange is not provided
-      const pathMap = {
-        dashboard: "/moderator/dashboard",
-        users: "/moderator/user-management",
-        requests: "/moderator/request-management", 
-        verification: "/moderator/verify-management",
-        blog: "/moderator/blog-management"
-      }
-      router.push(pathMap[tab])
+      console.log("onTabChange is not provided!")
     }
     
     // Đóng dropdown khi chuyển sang tab khác (không phải blog)
@@ -104,7 +96,13 @@ export function ModeratorSidebar({ activeTab, activeBlogTab, onTabChange, onBlog
   }
 
   const handleBlogTabChange = (tab: "posts" | "categories" | "comments" | "tags") => {
-    onBlogTabChange?.(tab)
+    console.log("Sidebar handleBlogTabChange called with:", tab)
+    if (onBlogTabChange) {
+      console.log("Calling onBlogTabChange with:", tab)
+      onBlogTabChange(tab)
+    } else {
+      console.log("onBlogTabChange is not provided!")
+    }
     // Không đóng dropdown khi chọn submenu
     setIsMobileMenuOpen(false)
   }

@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { getAllUsers } from "@/services/auth/user.api"
 import { ModeratorSidebar } from "@/components/ui/moderator-sidebar"
 import { ModeratorHeader } from "@/components/ui/moderator-header"
 import { ModeratorStats } from "@/components/ui/moderator-stats"
@@ -145,42 +146,92 @@ export default function ModeratorDashboard() {
 
 // Dashboard Overview Component
 function DashboardOverview() {
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    verifiedUsers: 0,
+    pendingUsers: 0,
+    totalPosts: 0
+  })
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchDashboardStats()
+  }, [])
+
+  const fetchDashboardStats = async () => {
+    try {
+      setLoading(true)
+      const response = await getAllUsers(1, 1) // Just get count
+      if (response && response.code === 200) {
+        const totalUsers = response.data?.totalItems || 0
+        // For now, we'll use mock data for other stats
+        // In a real app, you'd have separate APIs for these
+        setStats({
+          totalUsers,
+          verifiedUsers: Math.floor(totalUsers * 0.8), // Mock: 80% verified
+          pendingUsers: Math.floor(totalUsers * 0.1), // Mock: 10% pending
+          totalPosts: Math.floor(totalUsers * 2.5) // Mock: 2.5 posts per user
+        })
+      } else {
+        console.error("API Error:", response)
+        // Set default values if API fails
+        setStats({
+          totalUsers: 0,
+          verifiedUsers: 0,
+          pendingUsers: 0,
+          totalPosts: 0
+        })
+      }
+    } catch (error) {
+      console.error("Error fetching dashboard stats:", error)
+      // Set default values if API fails
+      setStats({
+        totalUsers: 0,
+        verifiedUsers: 0,
+        pendingUsers: 0,
+        totalPosts: 0
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const quickActions = [
     {
-      title: "Người dùng mới",
-      value: "24",
-      change: "+12%",
+      title: "Tổng người dùng",
+      value: loading ? "..." : stats.totalUsers.toString(),
+      change: "+5%",
       icon: Users,
       color: "text-blue-500",
       bgColor: "bg-blue-500/10",
-      description: "Trong 24h qua"
+      description: "Đã đăng ký"
     },
     {
-      title: "Bài viết chờ duyệt",
-      value: "8",
-      change: "+3",
-      icon: FileText,
-      color: "text-orange-500",
-      bgColor: "bg-orange-500/10",
-      description: "Cần xem xét"
-    },
-    {
-      title: "Báo cáo vi phạm",
-      value: "5",
-      change: "-2",
-      icon: AlertTriangle,
-      color: "text-red-500",
-      bgColor: "bg-red-500/10",
-      description: "Chưa xử lý"
-    },
-    {
-      title: "Hoạt động hệ thống",
-      value: "98%",
-      change: "+1%",
-      icon: Activity,
+      title: "Tài khoản xác thực",
+      value: loading ? "..." : stats.verifiedUsers.toString(),
+      change: "+8%",
+      icon: Shield,
       color: "text-green-500",
       bgColor: "bg-green-500/10",
-      description: "Uptime"
+      description: "Đã xác minh"
+    },
+    {
+      title: "Chờ xác minh",
+      value: loading ? "..." : stats.pendingUsers.toString(),
+      change: "-2",
+      icon: AlertTriangle,
+      color: "text-orange-500",
+      bgColor: "bg-orange-500/10",
+      description: "Cần xử lý"
+    },
+    {
+      title: "Tổng bài viết",
+      value: loading ? "..." : stats.totalPosts.toString(),
+      change: "+12%",
+      icon: FileText,
+      color: "text-purple-500",
+      bgColor: "bg-purple-500/10",
+      description: "Đã tạo"
     }
   ]
 
@@ -304,19 +355,19 @@ function DashboardOverview() {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-white/70">Tổng người dùng</span>
-                <span className="text-white font-semibold">1,234</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-white/70">Bài viết đã duyệt</span>
-                <span className="text-white font-semibold">856</span>
+                <span className="text-white font-semibold">{loading ? "..." : stats.totalUsers.toLocaleString()}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-white/70">Tài khoản xác thực</span>
-                <span className="text-white font-semibold">892</span>
+                <span className="text-white font-semibold">{loading ? "..." : stats.verifiedUsers.toLocaleString()}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-white/70">Báo cáo đã xử lý</span>
-                <span className="text-white font-semibold">156</span>
+                <span className="text-white/70">Chờ xác minh</span>
+                <span className="text-white font-semibold">{loading ? "..." : stats.pendingUsers.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-white/70">Tổng bài viết</span>
+                <span className="text-white font-semibold">{loading ? "..." : stats.totalPosts.toLocaleString()}</span>
               </div>
             </div>
           </CardContent>
