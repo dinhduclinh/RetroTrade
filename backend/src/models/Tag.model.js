@@ -2,14 +2,14 @@ const mongoose = require("mongoose");
 
 const TagSchema = new mongoose.Schema(
   {
-    Name: {
+    name: {
       type: String,
       required: true,
       unique: true,
       trim: true,
       maxlength: 200,
     },
-    IsDeleted: {
+    isDeleted: {
       type: Boolean,
       default: false,
     },

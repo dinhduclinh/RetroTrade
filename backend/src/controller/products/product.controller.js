@@ -20,7 +20,7 @@ const extractPublicId = (url) => {
 
   const afterUpload = parts[1].split("/").slice(1).join("/"); 
   const publicId = afterUpload ? afterUpload.split(".")[0] : null;
-  return publicId ? `retrotrade/${publicId}` : null; 
+  return publicId ? `retrotrade/${publicId}` : null; 00000000000000000000000000000
 };
 
 const addProduct = async (req, res) => {
