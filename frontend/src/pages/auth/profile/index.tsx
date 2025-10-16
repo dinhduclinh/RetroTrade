@@ -51,7 +51,6 @@ export default function ProfilePage() {
 
       if (result.code === 200) {
         setUserProfile((result.user as UserProfile) ?? (result.data as UserProfile) ?? null);
-        toast.success('Lấy thông tin thành công!');
       } else if (result.code === 401) {
         // Token expired or invalid - chỉ logout khi token thực sự hết hạn
         toast.error('Phiên đăng nhập đã hết hạn');
@@ -98,6 +97,7 @@ export default function ProfilePage() {
 
   const handleProfileUpdate = (updatedProfile: UserProfile) => {
     setUserProfile(updatedProfile);
+    toast.success('Cập nhật thông tin người dùng thành công');
   };
 
   // const handleTopUpClick = () => {

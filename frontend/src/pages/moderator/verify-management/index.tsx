@@ -3,18 +3,17 @@
 import { useState } from "react"
 import { ModeratorSidebar } from "@/components/ui/moderator-sidebar"
 import { ModeratorHeader } from "@/components/ui/moderator-header"
-import { ModeratorStats } from "@/components/ui/moderator-stats"
 import { VerificationQueue } from "@/components/ui/verification-queue"
-
-import { PostManagementTable } from "@/components/ui/post-management-table"
+import { TagManagementTable } from "@/components/ui/tag-management-table"
 import { CategoryManagementTable } from "@/components/ui/category-management-table"
+import { PostManagementTable } from "@/components/ui/post-management-table"
 import { CommentManagementTable } from "@/components/ui/comment-management-table"
 
 export default function VerificationManagementDashboard() {
   const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "requests" | "verification" | "blog">("verification")
-  const [activeBlogTab, setActiveBlogTab] = useState<"posts" | "categories" | "comments">("posts")
+  const [activeBlogTab, setActiveBlogTab] = useState<"posts" | "categories" | "comments" | "tags">("posts")
 
-  const handleBlogTabChange = (tab: "posts" | "categories" | "comments") => {
+  const handleBlogTabChange = (tab: "posts" | "categories" | "comments" | "tags") => {
     setActiveBlogTab(tab)
     setActiveTab("blog")
   }
@@ -28,6 +27,8 @@ export default function VerificationManagementDashboard() {
           return <CategoryManagementTable />
         case "comments":
           return <CommentManagementTable />
+        case "tags":
+          return <TagManagementTable />
         default:
           return <PostManagementTable />
       }
@@ -68,12 +69,12 @@ export default function VerificationManagementDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-800 via-purple-900 to-slate-800 relative overflow-hidden">
       {/* Animated background */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(120,119,198,0.3),rgba(255,255,255,0))] animate-pulse" />
-      <div className="absolute top-0 -left-4 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob" />
-      <div className="absolute top-0 -right-4 w-96 h-96 bg-indigo-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000" />
-      <div className="absolute -bottom-8 left-20 w-96 h-96 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(120,119,198,0.2),rgba(255,255,255,0))] animate-pulse" />
+      <div className="absolute top-0 -left-4 w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-15 animate-blob" />
+      <div className="absolute top-0 -right-4 w-96 h-96 bg-indigo-400 rounded-full mix-blend-multiply filter blur-3xl opacity-15 animate-blob animation-delay-2000" />
+      <div className="absolute -bottom-8 left-20 w-96 h-96 bg-pink-400 rounded-full mix-blend-multiply filter blur-3xl opacity-15 animate-blob animation-delay-4000" />
 
       <div className="relative z-10 flex">
         <ModeratorSidebar 
@@ -83,7 +84,7 @@ export default function VerificationManagementDashboard() {
           onBlogTabChange={handleBlogTabChange}
         />
 
-        <div className="flex-1 lg:ml-64">
+        <div className="flex-1 lg:ml-72">
           <ModeratorHeader />
 
           <main className="p-4 lg:p-8">
@@ -92,7 +93,7 @@ export default function VerificationManagementDashboard() {
               <p className="text-white/70">{getPageDescription()}</p>
             </div>
 
-            <ModeratorStats />
+            {/* Stats only on dashboard */}
 
             <div className="mt-8">
               {renderContent()}
