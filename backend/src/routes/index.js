@@ -5,7 +5,7 @@ const productRouter = require("../routes/products/product.router")
 const conditionsRouter = require("../routes/products/conditions.router");
 const priceUnitsRouter = require("../routes/products/priceUnits.router");
 
-const uploadproductRouter = require("../routes/products/upload.router");
+const uploadproductRouter = require("../routes/products/upload/upload.router");
 
 const userRouter = require("../routes/user/user.controller")
 const blogRoutes = require("../routes/blog/post.routes");

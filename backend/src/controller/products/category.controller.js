@@ -1,4 +1,4 @@
-const Category = require("../../models/Categories.model");
+const Category = require("../../models/Product/Categories.model");
 const slugify = require("slugify");
 
 const getCategories = async (req, res) => {
@@ -25,12 +25,10 @@ const addCategory = async (req, res) => {
         return res.status(404).json({ message: "danh mục lớn không tồn tại" });
       }
       if (!parentCategory.isActive) {
-        return res
-          .status(400)
-          .json({
-            message:
-              "Không thể thêm danh mục nhỏ khi danh mục lớn đang không hoạt động",
-          });
+        return res.status(400).json({
+          message:
+            "Không thể thêm danh mục nhỏ khi danh mục lớn đang không hoạt động",
+        });
       }
     }
     const category = new Category({
@@ -79,12 +77,10 @@ const updateCategory = async (req, res) => {
             .json({ message: "danh mục lớn không tồn tại" });
         }
         if (!parentCategory.isActive) {
-          return res
-            .status(400)
-            .json({
-              message:
-                "Không thể thay đổi danh mục lớn khi danh mục lớn đang không hoạt động",
-            });
+          return res.status(400).json({
+            message:
+              "Không thể thay đổi danh mục lớn khi danh mục lớn đang không hoạt động",
+          });
         }
         category.parentCategoryId = parentCategoryId;
         category.path = [...parentCategory.path, category.slug];
@@ -101,12 +97,10 @@ const updateCategory = async (req, res) => {
           category.parentCategoryId
         );
         if (!parentCategory || !parentCategory.isActive) {
-          return res
-            .status(400)
-            .json({
-              message:
-                "Không thể kích hoạt danh mục nhỏ khi danh mục lớn đang không hoạt động",
-            });
+          return res.status(400).json({
+            message:
+              "Không thể kích hoạt danh mục nhỏ khi danh mục lớn đang không hoạt động",
+          });
         }
       }
       category.isActive = isActive;
@@ -140,7 +134,6 @@ const deleteCategory = async (req, res) => {
     }
 
     if (category.isActive) {
- 
       const childCategories = await Category.find({
         parentCategoryId: id,
       });
@@ -148,7 +141,7 @@ const deleteCategory = async (req, res) => {
         return res.status(400).json({
           message:
             "Danh mục có danh mục nhỏ. Nếu bạn vô hiệu hóa danh mục lớn, tất cả danh mục nhỏ cũng sẽ bị vô hiệu hóa.",
-          requireCascade: true, 
+          requireCascade: true,
         });
       }
 
@@ -156,8 +149,7 @@ const deleteCategory = async (req, res) => {
       await category.save();
 
       return res.status(200).json({
-        message:
-          "Danh mục đã được chuyển sang trạng thái không hoạt động.",
+        message: "Danh mục đã được chuyển sang trạng thái không hoạt động.",
         id: category._id,
         isActive: false,
       });
@@ -165,8 +157,7 @@ const deleteCategory = async (req, res) => {
 
     await hardDeleteRecursive(id);
     return res.status(200).json({
-      message:
-        "Đã xóa danh mục vĩnh viễn khỏi hệ thống.",
+      message: "Đã xóa danh mục vĩnh viễn khỏi hệ thống.",
       id,
     });
   } catch (err) {
@@ -190,7 +181,7 @@ const cascadeDeactivateCategory = async (req, res) => {
       for (const child of children) {
         child.isActive = isActive;
         await child.save();
-        await deactivateChildren(child._id); 
+        await deactivateChildren(child._id);
       }
     };
 

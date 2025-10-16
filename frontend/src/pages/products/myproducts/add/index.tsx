@@ -5,12 +5,12 @@ import {
   getConditions,
   getPriceUnits,
   uploadImages,
-} from "../../../services/products/product.api";
-import { getCategories } from "../../../services/products/category.api";
+} from "../../../../services/products/product.api";
+import { getCategories } from "../../../../services/products/category.api";
 import { useSelector } from "react-redux";
-import { Container } from "../../../components/layout/Container";
+import { Container } from "../../../../components/layout/Container";
 import Image from "next/image";
-import { toast } from "sonner";
+import { toast, Toaster } from "sonner";
 
 const AddProductPage: React.FC = () => {
   const router = useRouter();
@@ -35,7 +35,7 @@ const AddProductPage: React.FC = () => {
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [district, setDistrict] = useState("");
-  const [tagsInput, setTagsInput] = useState(""); 
+  const [tagsInput, setTagsInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
 
   // Data for selects
@@ -53,6 +53,13 @@ const AddProductPage: React.FC = () => {
   const secondaryInputRef = useRef<HTMLInputElement>(null);
   const tagsInputRef = useRef<HTMLInputElement>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Auth check
+  const isAuthenticated = useSelector((state: any) => !!state.auth.accessToken);
+  if (!isAuthenticated) {
+    router.push("/auth/login");
+    return null;
+  }
 
   useEffect(() => {
     fetchInitialData();
@@ -273,7 +280,8 @@ const AddProductPage: React.FC = () => {
       }
       const imageUrls = uploadResult.data.map((img: any) => img.Url) || [];
 
-      // Step 2: Prepare JSON body with image URLs
+      // Step 2: Prepare JSON body with image URLs - Clean tags to array
+      const cleanTags = tags.filter((t) => t && t.trim().length > 0);
       const productData = {
         Title: title.trim(),
         ShortDescription: shortDescription.trim(),
@@ -290,7 +298,7 @@ const AddProductPage: React.FC = () => {
         Address: address.trim() || undefined,
         City: city.trim() || undefined,
         District: district.trim() || undefined,
-        Tags: tags.length > 0 ? tags : undefined,
+        Tags: cleanTags.length > 0 ? cleanTags : [], // Always array, no undefined
         ImageUrls: imageUrls,
       };
 
@@ -310,17 +318,11 @@ const AddProductPage: React.FC = () => {
     }
   };
 
-  //   // Auth check
-  //   const isAuthenticated = useSelector((state: any) => !!state.auth.accessToken);
-  //   if (!isAuthenticated) {
-  //     router.push("/auth/login");
-  //     return null;
-  //   }
-
   return (
     <Container>
+      <Toaster />
       <div className="max-w-6xl mx-auto p-6">
-       
+        
         <h1 className="text-3xl font-bold mb-6">Thêm sản phẩm</h1>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -328,7 +330,7 @@ const AddProductPage: React.FC = () => {
             {/* Hình ảnh sản phẩm */}
             <div className="lg:col-span-1 space-y-6">
               <div>
-               
+                
                 {/* Primary Image */}
                 <div className="mb-6">
                   <h3 className="text-lg font-medium mb-2">
@@ -548,7 +550,7 @@ const AddProductPage: React.FC = () => {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Đơn vị giá *
+                    Cho thuê theo *
                   </label>
                   <select
                     value={priceUnitId}
@@ -657,7 +659,7 @@ const AddProductPage: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Thành phố
+                    Tỉnh/Thành phố
                   </label>
                   <input
                     type="text"
