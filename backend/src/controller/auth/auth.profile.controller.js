@@ -89,3 +89,18 @@ module.exports.changePassword = async (req, res) => {
         return res.json({ code: 500, message: "Failed to change password", error: error.message });
     }
 }
+
+module.exports.uploadUserAvatar = async (req, res) => {
+    try {
+        const user = await User.findByIdAndUpdate(req.params.id, { avatar: req.file.path }, { new: true });
+        if (!user) {
+            return res.json({
+                code: 404,
+                message: "Không tìm thấy người dùng"
+            });
+        }
+        return res.json({ code: 200, message: "Cập nhật ảnh đại diện người dùng thành công", data: user });
+    } catch (error) {
+        return res.json({ code: 500, message: "Cập nhật ảnh đại diện người dùng thất bại", error: error.message });
+    }
+}

@@ -7,9 +7,9 @@ import { useState } from "react"
 
 interface ModeratorSidebarProps {
   activeTab: "dashboard" | "users" | "requests" | "verification" | "blog"
-  activeBlogTab?: "posts" | "categories" | "comments"
+  activeBlogTab?: "posts" | "categories" | "comments" | "tags"
   onTabChange?: (tab: "dashboard" | "users" | "requests" | "verification" | "blog") => void
-  onBlogTabChange?: (tab: "posts" | "categories" | "comments") => void
+  onBlogTabChange?: (tab: "posts" | "categories" | "comments" | "tags") => void
 }
 
 export function ModeratorSidebar({ activeTab, activeBlogTab, onTabChange, onBlogTabChange }: ModeratorSidebarProps) {
@@ -71,12 +71,14 @@ export function ModeratorSidebar({ activeTab, activeBlogTab, onTabChange, onBlog
       label: "Quản lý bình luận",
       description: "Kiểm duyệt bình luận"
     },
+    {
+      id: "tags" as const,
+      label: "Quản lý tag",
+      description: "Quản lý thẻ bài viết"
+    },
   ]
 
-  const handleNavigation = (path: string) => {
-    router.push(path)
-    setIsMobileMenuOpen(false)
-  }
+  // removed unused handleNavigation
 
   const handleTabChange = (tab: "dashboard" | "users" | "requests" | "verification" | "blog") => {
     if (onTabChange) {
@@ -101,7 +103,7 @@ export function ModeratorSidebar({ activeTab, activeBlogTab, onTabChange, onBlog
     setIsMobileMenuOpen(false)
   }
 
-  const handleBlogTabChange = (tab: "posts" | "categories" | "comments") => {
+  const handleBlogTabChange = (tab: "posts" | "categories" | "comments" | "tags") => {
     onBlogTabChange?.(tab)
     // Không đóng dropdown khi chọn submenu
     setIsMobileMenuOpen(false)
@@ -121,7 +123,7 @@ export function ModeratorSidebar({ activeTab, activeBlogTab, onTabChange, onBlog
 
       {/* Sidebar */}
       <div className={`
-        fixed left-0 top-0 h-full w-64 bg-white/10 backdrop-blur-md border-r border-white/20 z-20
+        fixed left-0 top-0 h-full w-72 bg-white/10 backdrop-blur-md border-r border-white/20 z-20
         transform transition-transform duration-300 ease-in-out
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:translate-x-0
