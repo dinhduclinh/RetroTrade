@@ -1,11 +1,11 @@
 const userAuthRouter = require("../routes/auth/auth.router");
 
-const categoryRouter = require("../routes/products/category.router");
-const productRouter = require("../routes/products/product.router")
-const conditionsRouter = require("../routes/products/conditions.router");
-const priceUnitsRouter = require("../routes/products/priceUnits.router");
+const categoryRouter = require("./products/category.routes");
+const productRouter = require("./products/product.routes")
+const conditionsRouter = require("./products/conditions.routes");
+const priceUnitsRouter = require("./products/priceUnits.routes");
 
-const uploadproductRouter = require("../routes/products/upload/upload.router");
+const uploadproductRouter = require("./products/upload/upload.routes");
 
 const userRouter = require("../routes/user/user.controller")
 const blogRoutes = require("../routes/blog/post.routes");
