@@ -11,6 +11,7 @@ router.post('/request-forgot-password', userAuthController.requestForgotPassword
 router.post('/forgot-password-otp', userAuthController.forgotPasswordOTP);
 router.post('/forgot-password', userAuthController.forgotPassword);
 router.post('/refresh-token', userAuthController.refreshToken);
-
+router.post('/login-with-google', userAuthController.loginWithGoogle);
+router.post('/login-with-facebook', userAuthController.loginWithFacebook);
 
 module.exports = router;

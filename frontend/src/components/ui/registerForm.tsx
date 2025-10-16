@@ -8,11 +8,16 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ShoppingBag, Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
-import { register } from "@/services/auth/auth.api"
-// i18n removed
+import { register, loginWithGoogle, loginWithFacebook } from "@/services/auth/auth.api"
+import { useDispatch } from "react-redux"
+import { login as loginAction } from "@/store/auth/authReducer"
+import { useGoogleLogin } from "@react-oauth/google"
+import Image from "next/image";
+import { validatePassword } from "@/lib/validation-password";
 
 export function RegisterForm() {
   const router = useRouter()
+  const dispatch = useDispatch()
   // i18n removed
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -21,6 +26,7 @@ export function RegisterForm() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -28,8 +34,17 @@ export function RegisterForm() {
       toast.error('Vui lòng nhập đầy đủ thông tin')
       return
     }
+    const validation = validatePassword(password)
+    if (!validation.isValid) {
+      toast.error(validation.message || 'Mật khẩu không hợp lệ')
+      return
+    }
     if (password !== confirmPassword) {
       toast.error('Mật khẩu không khớp')
+      return
+    }
+    if (!acceptedTerms) {
+      toast.error('Bạn phải đồng ý với Điều khoản dịch vụ để đăng ký')
       return
     }
     
@@ -55,27 +70,77 @@ export function RegisterForm() {
     }
   }
 
-  const handleGoogleLogin = () => {
-    toast.info("Đăng nhập với Google")
-  }
+  const googleRedirect = useGoogleLogin({
+    flow: "implicit",
+    scope: "openid email profile",
+    onSuccess: async (tokenResponse) => {
+      try {
+        const accessToken = tokenResponse.access_token;
+        if (!accessToken) {
+          toast.error("Không lấy được access_token từ Google")
+          return;
+        }
+        const profileRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!profileRes.ok) throw new Error(`Google userinfo HTTP ${profileRes.status}`);
+        const profile = await profileRes.json();
+        const email = profile?.email as string | undefined;
+        const fullName = profile?.name as string | undefined;
+        const avatarUrl = profile?.picture as string | undefined;
+
+        if (!email) {
+          toast.error("Không lấy được email từ Google")
+          return;
+        }
+
+        const response = await loginWithGoogle({ email, fullName, avatarUrl });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const result = await response.json();
+
+        if (result.code === 200) {
+          dispatch(loginAction({ accessToken: result.data.accessToken, refreshToken: result.data.refreshToken }))
+          toast.success("Đăng ký Google thành công!")
+          router.push("/")
+        } else {
+          toast.error(result.message || "Đăng ký Google thất bại")
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Lỗi đăng ký Google")
+      }
+    },
+    onError: () => toast.error("Google login bị hủy hoặc lỗi"),
+  })
 
   const handleFacebookLogin = () => {
-    toast.info("Đăng nhập với Facebook")
+    const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || "";
+    if (!appId) {
+      toast.error("Thiếu NEXT_PUBLIC_FACEBOOK_APP_ID");
+      return;
+    }
+    const redirectUri = (typeof window !== "undefined" ? window.location.origin : "") + "/auth/facebook";
+    const authUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${encodeURIComponent(appId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=email,public_profile`;
+    if (typeof window !== "undefined") {
+      window.location.href = authUrl;
+    }
   }
 
   return (
     <Card className="w-full max-w-md bg-white shadow-xl">
       <CardHeader className="text-center space-y-4 pb-4">
         <div className="flex justify-center">
-          <div className="relative w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-            <ShoppingBag className="w-8 h-8 text-white" strokeWidth={2.5} />
-            <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-indigo-400 rounded-full flex items-center justify-center">
-              <div className="w-3 h-3 bg-white rounded-full"></div>
-            </div>
-          </div>
+          <Image
+            src="/retrologo.png"
+            alt="Retro Trade Logo"
+            width={80}
+            height={80}
+            className="rounded-lg"
+          />
         </div>
         <div>
-          <CardTitle className="text-2xl font-bold text-gray-900">Retro Trade</CardTitle>
+          <CardTitle className="text-2xl font-bold text-gray-900">
+            Retro Trade
+          </CardTitle>
           <p className="text-sm text-gray-600 mt-2">Tạo tài khoản mới</p>
         </div>
       </CardHeader>
@@ -83,7 +148,12 @@ export function RegisterForm() {
       <CardContent className="space-y-4">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-sm font-medium text-gray-700">Email</Label>
+            <Label
+              htmlFor="email"
+              className="text-sm font-medium text-gray-700"
+            >
+              Email
+            </Label>
             <Input
               id="email"
               type="email"
@@ -96,7 +166,12 @@ export function RegisterForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="fullName" className="text-sm font-medium text-gray-700">Họ và tên</Label>
+            <Label
+              htmlFor="fullName"
+              className="text-sm font-medium text-gray-700"
+            >
+              Họ và tên
+            </Label>
             <Input
               id="fullName"
               type="text"
@@ -109,7 +184,12 @@ export function RegisterForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password" className="text-sm font-medium text-gray-700">Mật khẩu</Label>
+            <Label
+              htmlFor="password"
+              className="text-sm font-medium text-gray-700"
+            >
+              Mật khẩu
+            </Label>
             <div className="relative">
               <Input
                 id="password"
@@ -123,18 +203,29 @@ export function RegisterForm() {
               {password && password.length > 0 && (
                 <button
                   type="button"
-                  aria-label={showPassword ? "Ẩn mật khẩu" : "Hiển thị mật khẩu"}
+                  aria-label={
+                    showPassword ? "Ẩn mật khẩu" : "Hiển thị mật khẩu"
+                  }
                   onClick={() => setShowPassword((v) => !v)}
                   className="absolute inset-y-0 right-2 flex items-center text-gray-600 hover:text-gray-800"
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
                 </button>
               )}
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">Xác nhận mật khẩu</Label>
+            <Label
+              htmlFor="confirmPassword"
+              className="text-sm font-medium text-gray-700"
+            >
+              Xác nhận mật khẩu
+            </Label>
             <div className="relative">
               <Input
                 id="confirmPassword"
@@ -148,11 +239,17 @@ export function RegisterForm() {
               {confirmPassword && confirmPassword.length > 0 && (
                 <button
                   type="button"
-                  aria-label={showConfirmPassword ? "Ẩn mật khẩu" : "Hiển thị mật khẩu"}
+                  aria-label={
+                    showConfirmPassword ? "Ẩn mật khẩu" : "Hiển thị mật khẩu"
+                  }
                   onClick={() => setShowConfirmPassword((v) => !v)}
                   className="absolute inset-y-0 right-2 flex items-center text-gray-600 hover:text-gray-800"
                 >
-                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showConfirmPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
                 </button>
               )}
             </div>
@@ -167,6 +264,23 @@ export function RegisterForm() {
               Quên mật khẩu?
             </button>
           </div>
+
+        <div className="flex items-start gap-2">
+          <input
+            id="terms"
+            type="checkbox"
+            checked={acceptedTerms}
+            onChange={(e) => setAcceptedTerms(e.target.checked)}
+            className="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            aria-describedby="terms-description"
+          />
+          <Label htmlFor="terms" className="text-sm text-gray-700">
+            Tôi đồng ý với{' '}
+            <a href="/terms" className="text-blue-600 hover:text-blue-700 hover:underline">Điều khoản dịch vụ</a>
+            {' '}và các{' '}
+            <a href="/privacy" className="text-blue-600 hover:text-blue-700 hover:underline">chính sách liên quan</a>.
+          </Label>
+        </div>
 
           <Button
             type="submit"
@@ -191,7 +305,7 @@ export function RegisterForm() {
             type="button"
             variant="outline"
             className="w-full h-11 border-gray-300 hover:bg-gray-50 font-normal bg-transparent text-black"
-            onClick={handleGoogleLogin}
+            onClick={() => googleRedirect()}
           >
             <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
               <path
@@ -211,7 +325,7 @@ export function RegisterForm() {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            Đăng nhập với Google
+            Đăng ký với Google
           </Button>
 
           <Button
@@ -223,12 +337,12 @@ export function RegisterForm() {
             <svg className="w-5 h-5 mr-2" fill="#1877F2" viewBox="0 0 24 24">
               <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
             </svg>
-            Đăng nhập với Facebook
+            Đăng ký với Facebook
           </Button>
         </div>
 
         <p className="text-center text-sm text-gray-600">
-          Đã có tài khoản? {" "}
+          Đã có tài khoản?{" "}
           <button
             type="button"
             onClick={() => router.push("/auth/login")}
@@ -239,5 +353,5 @@ export function RegisterForm() {
         </p>
       </CardContent>
     </Card>
-  )
+  );
 }

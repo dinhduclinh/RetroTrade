@@ -1,23 +1,41 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/router"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ShoppingBag, Mail, ArrowLeft, Key } from "lucide-react"
+import { ShoppingBag, Mail, ArrowLeft, Key, Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
-import { requestForgotPassword, forgotPasswordOtp, forgotPassword } from "@/services/auth/auth.api"
+import { requestForgotPassword, forgotPasswordOtp, forgotPassword, resendOtp } from "@/services/auth/auth.api"
+import Image from "next/image"
+import { validatePassword } from "@/lib/validation-password"
 
 export default function ForgotPasswordPage() {
   const router = useRouter()
   const [step, setStep] = useState(1) // 1: email, 2: otp, 3: new password
   const [email, setEmail] = useState("")
-  const [otp, setOtp] = useState("")
+  const [otpDigits, setOtpDigits] = useState<string[]>(Array(8).fill(""))
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [isResending, setIsResending] = useState(false)
+  const [countdown, setCountdown] = useState(0)
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([])
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+
+  // Convert otpDigits array to string
+  const otp = otpDigits.join("")
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout
+    if (countdown > 0) {
+      timer = setTimeout(() => setCountdown(countdown - 1), 1000)
+    }
+    return () => clearTimeout(timer)
+  }, [countdown])
 
   const handleRequestReset = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,16 +43,17 @@ export default function ForgotPasswordPage() {
       toast.error("Vui lòng nhập email")
       return
     }
-    
+
     setIsLoading(true)
     toast.info("Đang gửi mã OTP...")
-    
+
     try {
       const response = await requestForgotPassword(email)
       const result = await response.json()
-      
+
       if (result.code === 200) {
         toast.success("Mã OTP đã được gửi đến email của bạn!")
+        setCountdown(60 * 3)
         setStep(2)
       } else {
         toast.error(result.message || "Không thể gửi mã OTP")
@@ -47,20 +66,60 @@ export default function ForgotPasswordPage() {
     }
   }
 
+  // Handle OTP digit input
+  const handleOtpChange = (index: number, value: string) => {
+    // Only allow single digit
+    if (value.length > 1) return
+
+    const newOtpDigits = [...otpDigits]
+    newOtpDigits[index] = value
+    setOtpDigits(newOtpDigits)
+
+    // Auto focus next input if value is entered
+    if (value && index < 7) {
+      inputRefs.current[index + 1]?.focus()
+    }
+  }
+
+  // Handle backspace
+  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus()
+    }
+  }
+
+  // Handle paste
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault()
+    const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 8)
+    const newOtpDigits = Array(8).fill("")
+
+    for (let i = 0; i < pastedData.length && i < 8; i++) {
+      newOtpDigits[i] = pastedData[i]
+    }
+
+    setOtpDigits(newOtpDigits)
+
+    // Focus the next empty input or the last input
+    const nextEmptyIndex = newOtpDigits.findIndex(digit => digit === "")
+    const focusIndex = nextEmptyIndex === -1 ? 7 : nextEmptyIndex
+    inputRefs.current[focusIndex]?.focus()
+  }
+
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!otp) {
       toast.error("Vui lòng nhập mã OTP")
       return
     }
-    
+
     setIsLoading(true)
     toast.info("Đang xác thực mã OTP...")
-    
+
     try {
       const response = await forgotPasswordOtp(email, otp)
       const result = await response.json()
-      
+
       if (result.code === 200) {
         toast.success("Mã OTP hợp lệ!")
         setStep(3)
@@ -75,24 +134,58 @@ export default function ForgotPasswordPage() {
     }
   }
 
+  const handleResendOtp = async () => {
+    if (!email) {
+      toast.error("Không tìm thấy email")
+      return
+    }
+
+    setIsResending(true)
+    toast.info("Đang gửi lại mã OTP...")
+
+    try {
+      const response = await resendOtp(email)
+      const result = await response.json()
+
+      if (result.code === 200) {
+        toast.success("Mã OTP đã được gửi lại!")
+        setCountdown(60) // 60 seconds countdown
+        setOtpDigits(Array(8).fill("")) // Clear OTP inputs
+        inputRefs.current[0]?.focus() // Focus first input
+      } else {
+        toast.error(result.message || "Không thể gửi lại mã OTP")
+      }
+    } catch (error) {
+      console.error("Resend OTP error:", error)
+      toast.error("Có lỗi xảy ra, vui lòng thử lại")
+    } finally {
+      setIsResending(false)
+    }
+  }
+
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newPassword || !confirmPassword) {
       toast.error("Vui lòng nhập đầy đủ thông tin")
       return
     }
+    const validation = validatePassword(newPassword)
+    if (!validation.isValid) {
+      toast.error(validation.message || "Mật khẩu không hợp lệ")
+      return
+    }
     if (newPassword !== confirmPassword) {
       toast.error("Mật khẩu không khớp")
       return
     }
-    
+
     setIsLoading(true)
     toast.info("Đang đặt lại mật khẩu...")
-    
+
     try {
       const response = await forgotPassword(email, newPassword)
       const result = await response.json()
-      
+
       if (result.code === 200) {
         toast.success("Đặt lại mật khẩu thành công!")
         router.push("/auth/login")
@@ -135,17 +228,27 @@ export default function ForgotPasswordPage() {
   const renderStep2 = () => (
     <form onSubmit={handleVerifyOtp} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="otp" className="text-sm font-medium text-gray-700">Mã OTP</Label>
-        <Input
-          id="otp"
-          type="text"
-          placeholder="Nhập mã OTP"
-          value={otp}
-          onChange={(e) => setOtp(e.target.value)}
-          className="h-11 bg-indigo-100 border-indigo-200 focus:border-indigo-400 focus:ring-indigo-400 text-black text-center text-lg tracking-widest"
-          maxLength={8}
-          required
-        />
+        <Label className="text-sm font-medium text-gray-700">Mã OTP</Label>
+        <div className="flex justify-center gap-2" onPaste={handlePaste}>
+          {otpDigits.map((digit, index) => (
+            <Input
+              key={index}
+              ref={(el) => { inputRefs.current[index] = el }}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={digit}
+              onChange={(e) => handleOtpChange(index, e.target.value)}
+              onKeyDown={(e) => handleKeyDown(index, e)}
+              className="w-12 h-12 text-center text-lg font-bold bg-indigo-100 border-indigo-200 focus:border-indigo-400 focus:ring-indigo-400 text-black"
+              maxLength={1}
+              required
+            />
+          ))}
+        </div>
+        <p className="text-xs text-gray-500 text-center">
+          Nhập mã OTP 8 chữ số đã được gửi đến email của bạn
+        </p>
       </div>
 
       <Button
@@ -155,6 +258,25 @@ export default function ForgotPasswordPage() {
       >
         {isLoading ? "Đang xác thực..." : "Xác thực"}
       </Button>
+
+      <div className="text-center space-y-2">
+        <p className="text-sm text-gray-600">
+          Không nhận được mã?{" "}
+          <button
+            type="button"
+            onClick={handleResendOtp}
+            disabled={isResending || countdown > 0}
+            className="text-blue-600 hover:text-blue-700 hover:underline font-medium disabled:opacity-50"
+          >
+            {countdown > 0 ? `Gửi lại sau ${countdown}s` : isResending ? "Đang gửi..." : "Gửi lại"}
+          </button>
+        </p>
+        {countdown > 0 && (
+          <p className="text-xs text-gray-500">
+            Mã OTP sẽ hết hạn sau {countdown} giây
+          </p>
+        )}
+      </div>
     </form>
   )
 
@@ -162,28 +284,52 @@ export default function ForgotPasswordPage() {
     <form onSubmit={handleResetPassword} className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="newPassword" className="text-sm font-medium text-gray-700">Mật khẩu mới</Label>
-        <Input
-          id="newPassword"
-          type="password"
-          placeholder="Nhập mật khẩu mới"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          className="h-11 bg-indigo-100 border-indigo-200 focus:border-indigo-400 focus:ring-indigo-400 text-black"
-          required
-        />
+        <div className="relative">
+          <Input
+            id="newPassword"
+            type={showNewPassword ? "text" : "password"}
+            placeholder="Nhập mật khẩu mới"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            className="h-11 bg-indigo-100 border-indigo-200 focus:border-indigo-400 focus:ring-indigo-400 text-black pr-10"
+            required
+          />
+          {newPassword && newPassword.length > 0 && (
+            <button
+              type="button"
+              aria-label={showNewPassword ? "Ẩn mật khẩu" : "Hiển thị mật khẩu"}
+              onClick={() => setShowNewPassword((v) => !v)}
+              className="absolute inset-y-0 right-2 flex items-center text-gray-600 hover:text-gray-800"
+            >
+              {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="space-y-2">
         <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">Xác nhận mật khẩu</Label>
-        <Input
-          id="confirmPassword"
-          type="password"
-          placeholder="Nhập lại mật khẩu mới"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          className="h-11 bg-indigo-100 border-indigo-200 focus:border-indigo-400 focus:ring-indigo-400 text-black"
-          required
-        />
+        <div className="relative">
+          <Input
+            id="confirmPassword"
+            type={showConfirmPassword ? "text" : "password"}
+            placeholder="Nhập lại mật khẩu mới"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            className="h-11 bg-indigo-100 border-indigo-200 focus:border-indigo-400 focus:ring-indigo-400 text-black pr-10"
+            required
+          />
+          {confirmPassword && confirmPassword.length > 0 && (
+            <button
+              type="button"
+              aria-label={showConfirmPassword ? "Ẩn mật khẩu" : "Hiển thị mật khẩu"}
+              onClick={() => setShowConfirmPassword((v) => !v)}
+              className="absolute inset-y-0 right-2 flex items-center text-gray-600 hover:text-gray-800"
+            >
+              {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
+          )}
+        </div>
       </div>
 
       <Button
@@ -199,43 +345,13 @@ export default function ForgotPasswordPage() {
   return (
     <div className="min-h-screen flex">
       {/* Left side - Illustration */}
-      <div className="hidden lg:flex lg:w-1/2 bg-[#f5e6d3] items-center justify-center p-12">
-        <div className="relative w-full max-w-lg">
-          <div className="absolute top-0 left-0 text-sm text-gray-500">forgot password</div>
-          <div className="absolute top-6 left-0 text-xs text-gray-600 border border-gray-400 px-2 py-1">
-            RESET
-          </div>
-
-          {/* Illustration container */}
-          <div className="relative">
-            {/* Key icon */}
-            <div className="absolute top-8 left-12 w-24 h-24">
-              <Key className="w-full h-full text-[#b8ddd4]" />
-            </div>
-
-            {/* Main envelope shape */}
-            <div className="relative bg-[#b8ddd4] rounded-3xl p-16 shadow-lg transform rotate-3">
-              <div className="absolute top-4 right-4 w-12 h-12 bg-[#f4d47c] rounded-full opacity-80"></div>
-            </div>
-
-            {/* Text overlay */}
-            <div className="relative text-center py-12">
-              <h1 className="text-4xl font-bold text-[#7ba3c5] mb-4 tracking-wide">RESET</h1>
-              <div className="flex items-center justify-center gap-8 mb-4">
-                <div className="w-32 h-32 bg-[#b8ddd4] rounded-full flex items-center justify-center">
-                  <span className="text-3xl font-bold text-white">KEY</span>
-                </div>
-              </div>
-              <h2 className="text-4xl font-bold text-[#f4d47c] tracking-wide">PASSWORD</h2>
-            </div>
-          </div>
-
-          <div className="mt-8 text-center text-xs text-gray-600 space-y-1">
-            <p>STEP {step} OF 3</p>
-            <p>RESET YOUR PASSWORD</p>
-            <p>SECURELY AND EASILY</p>
-          </div>
-        </div>
+      <div className="hidden lg:flex flex-1 bg-[#f2debe] relative p-8">
+        <Image
+          src="/share.png"
+          alt="Retro Trade Logo"
+          fill
+          className="object-contain object-center"
+        />
       </div>
 
       {/* Right side - Form */}
@@ -282,6 +398,6 @@ export default function ForgotPasswordPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </div >
   )
 }
