@@ -120,7 +120,7 @@ const customFetch = async (url: string, options: ExtendedRequestInit = {}): Prom
     }
 };
 
-// API methods using fetch
+
 const api = {
   get: (url: string, options: ExtendedRequestInit = {}) =>
     customFetch(`${BASE_URL}${url}`, { ...options, method: "GET" }),
