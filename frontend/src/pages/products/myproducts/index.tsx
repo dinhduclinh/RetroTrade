@@ -228,7 +228,6 @@ export default function MyProductsList() {
     <>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 p-6">
         <div className="max-w-7xl mx-auto">
-          {/* Header */}
           <div className="mb-6">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
@@ -249,10 +248,8 @@ export default function MyProductsList() {
             </div>
           </div>
 
-          {/* Stats */}
           <StatusStats />
 
-          {/* Filters */}
           <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1 relative">
@@ -285,7 +282,6 @@ export default function MyProductsList() {
             </div>
           </div>
 
-          {/* Products Grid */}
           {loading ? (
             <div className="text-center py-12">
               <div className="inline-block w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
@@ -319,7 +315,7 @@ export default function MyProductsList() {
                     key={product._id}
                     className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group"
                   >
-                    {/* Image */}
+
                     <div className="relative h-48 bg-gray-200 overflow-hidden">
                       {product.Images && product.Images.length > 0 ? (
                         <Image
@@ -334,7 +330,6 @@ export default function MyProductsList() {
                         </div>
                       )}
 
-                      {/* Status Badge */}
                       <div
                         className={`absolute top-3 left-3 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold ${statusInfo.color}`}
                       >
@@ -342,7 +337,6 @@ export default function MyProductsList() {
                         {statusInfo.label}
                       </div>
 
-                      {/* Available Badge */}
                       {product.AvailableQuantity === 0 && (
                         <div className="absolute top-3 right-3 bg-gray-900 text-white px-3 py-1.5 rounded-full text-xs font-semibold">
                           Đã cho thuê hết
@@ -350,7 +344,6 @@ export default function MyProductsList() {
                       )}
                     </div>
 
-                    {/* Content */}
                     <div className="p-4">
                       <h3 className="font-bold text-gray-900 text-lg mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
                         {product.Title}
@@ -360,17 +353,15 @@ export default function MyProductsList() {
                         {product.ShortDescription}
                       </p>
 
-                      {/* Category & Condition */}
                       <div className="flex items-center gap-2 mb-3 text-xs text-gray-500">
                         <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded">
-                          {product.CategoryId?.Name || "Chưa phân loại"}
+                          {product.Category?.name || "Chưa phân loại"}
                         </span>
                         <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded">
                           {getConditionName(product)}
                         </span>
                       </div>
 
-                      {/* Location */}
                       <div className="flex items-center gap-1 text-sm text-gray-600 mb-3">
                         <MapPin size={16} className="text-gray-400" />
                         <span className="truncate">
@@ -378,7 +369,6 @@ export default function MyProductsList() {
                         </span>
                       </div>
 
-                      {/* Price */}
                       <div className="bg-blue-50 rounded-lg p-3 mb-3">
                         <div className="flex items-center justify-between">
                           <div>
@@ -406,7 +396,6 @@ export default function MyProductsList() {
                         </div>
                       </div>
 
-                      {/* Stats */}
                       <div className="flex items-center justify-between text-xs text-gray-600 mb-4 pb-4 border-b border-gray-100">
                         <div className="flex items-center gap-1">
                           <Eye size={14} />
@@ -424,10 +413,9 @@ export default function MyProductsList() {
                         </div>
                       </div>
 
-                      {/* Actions */}
                       <div className="flex gap-2">
                         <Link
-                          href={`/products/myproducts/update/${product._id}`} // Sử dụng _id thay vì ItemGuid để khớp với backend
+                          href={`/products/myproducts/update/${product._id}`}
                           className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
                         >
                           <Edit2 size={16} />

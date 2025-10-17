@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/common/button";
 import { LogOut, User, Package, Settings, Shield, Crown, Users } from "lucide-react";
 import {
   DropdownMenu,
@@ -11,8 +11,8 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+} from '@/components/ui/common/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/common/avatar';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store/redux_store';
 import { logout } from '@/store/auth/authReducer';

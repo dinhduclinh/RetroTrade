@@ -20,6 +20,10 @@ export const getUserProducts = async (): Promise<Response> => {
   return await instance.get("/products/user");
 };
 
+export const getProductById = async (id: string): Promise<Response> => {
+  return await instance.get(`/products/${id}`);
+};
+
 export const updateProduct = async (id: string,productData: any): Promise<Response> => {
   return await instance.put(`/products/${id}`, productData);
 };

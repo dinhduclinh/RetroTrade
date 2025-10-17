@@ -1,10 +1,10 @@
 import Head from "next/head";
-import { AboutHero } from "@/components/ui/about-hero";
-import { AboutStory } from "@/components/ui/about-story";
-import { AboutValues } from "@/components/ui/about-values";
-import { AboutStats } from "@/components/ui/about-stats";
-import { AboutTeam } from "@/components/ui/about-team";
-import { CTASection } from "@/components/ui/cta-section";
+import { AboutHero } from "@/components/ui/home/about/about-hero";
+import { AboutStory } from "@/components/ui/home/about/about-story";
+import { AboutValues } from "@/components/ui/home/about/about-values";
+import { AboutStats } from "@/components/ui/home/about/about-stats";
+import { AboutTeam } from "@/components/ui/home/about/about-team";
+import { CTASection } from "@/components/ui/home/cta-section";
 
 export default function About() {
   return (

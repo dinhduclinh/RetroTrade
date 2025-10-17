@@ -5,7 +5,10 @@ module.exports.getAllUsers = async (req, res) => {
         const { skip = 0, limit = 10, page = 1 } = req.pagination || {};
 
         const [users, totalItems] = await Promise.all([
-            User.find().skip(skip).limit(limit),
+            User.find()
+                .select('userGuid email fullName displayName avatarUrl role isEmailConfirmed isPhoneConfirmed isIdVerified reputationScore points createdAt')
+                .skip(skip)
+                .limit(limit),
             User.countDocuments()
         ]);
 
@@ -24,7 +27,8 @@ module.exports.getAllUsers = async (req, res) => {
 
 module.exports.getUserById = async (req, res) => {
     try {
-        const user = await User.findById(req.params.id);
+        const user = await User.findById(req.params.id)
+            .select('userGuid email fullName displayName avatarUrl bio role isEmailConfirmed isPhoneConfirmed isIdVerified reputationScore points createdAt updatedAt');
         if (!user) return res.json({ code: 404, message: "Không tìm thấy người dùng" });
         return res.json({ code: 200, message: "Lấy thông tin người dùng thành công", data: user });
     } catch (error) {
@@ -90,6 +94,32 @@ module.exports.deleteUser = async (req, res) => {
 module.exports.updateUserRole = async (req, res) => {
     try {
         const { id, role } = req.body;
+        
+        // Validate input
+        if (!id || !role) {
+            return res.json({
+                code: 400,
+                message: "Thiếu thông tin id hoặc role"
+            });
+        }
+
+        // Validate role
+        const validRoles = ['user', 'owner', 'moderator', 'admin'];
+        if (!validRoles.includes(role)) {
+            return res.json({
+                code: 400,
+                message: "Role không hợp lệ"
+            });
+        }
+
+        // Prevent moderator from promoting to admin
+        if (req.user.role === 'moderator' && role === 'admin') {
+            return res.json({
+                code: 403,
+                message: "Moderator không có quyền nâng cấp thành admin"
+            });
+        }
+
         const user = await User.findByIdAndUpdate(id, { role }, { new: true });
         if (!user) {
             return res.json({

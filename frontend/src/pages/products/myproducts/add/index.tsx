@@ -10,7 +10,7 @@ import { getCategories } from "../../../../services/products/category.api";
 import { useSelector } from "react-redux";
 import { Container } from "../../../../components/layout/Container";
 import Image from "next/image";
-import { toast, Toaster } from "sonner";
+import { toast } from "sonner";
 
 const AddProductPage: React.FC = () => {
   const router = useRouter();
@@ -20,7 +20,6 @@ const AddProductPage: React.FC = () => {
   const [primaryFile, setPrimaryFile] = useState<File | null>(null);
   const [secondaryFiles, setSecondaryFiles] = useState<File[]>([]);
 
-  // Form states
   const [title, setTitle] = useState("");
   const [shortDescription, setShortDescription] = useState("");
   const [description, setDescription] = useState("");
@@ -38,12 +37,10 @@ const AddProductPage: React.FC = () => {
   const [tagsInput, setTagsInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
 
-  // Data for selects
   const [categories, setCategories] = useState<any[]>([]);
   const [conditions, setConditions] = useState<any[]>([]);
   const [priceUnits, setPriceUnits] = useState<any[]>([]);
 
-  // Category dropdown states
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedPath, setSelectedPath] = useState<string[]>([]);
   const [selectedCategoryNameState, setSelectedCategoryNameState] =
@@ -54,7 +51,6 @@ const AddProductPage: React.FC = () => {
   const tagsInputRef = useRef<HTMLInputElement>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Auth check
   const isAuthenticated = useSelector((state: any) => !!state.auth.accessToken);
   if (!isAuthenticated) {
     router.push("/auth/login");
@@ -160,7 +156,7 @@ const AddProductPage: React.FC = () => {
   };
 
   const handleTagsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setTagsInput(e.target.value); // Update input value directly
+    setTagsInput(e.target.value);
   };
 
   const handleTagsKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -170,7 +166,7 @@ const AddProductPage: React.FC = () => {
       if (currentValue && !tags.includes(currentValue)) {
         setTags((prev) => [...prev, currentValue]);
       }
-      setTagsInput(""); // Clear input after adding
+      setTagsInput(""); 
     }
   };
 
@@ -298,7 +294,7 @@ const AddProductPage: React.FC = () => {
         Address: address.trim() || undefined,
         City: city.trim() || undefined,
         District: district.trim() || undefined,
-        Tags: cleanTags.length > 0 ? cleanTags : [], // Always array, no undefined
+        Tags: cleanTags.length > 0 ? cleanTags : [],
         ImageUrls: imageUrls,
       };
 
@@ -307,7 +303,7 @@ const AddProductPage: React.FC = () => {
       const result = await addRes.json();
       if (result.success) {
         toast.success("Sản phẩm được thêm thành công!");
-        router.push("/product/manage");
+        router.push("/products/myproducts");
       } else {
         toast.error(result.message || "Thêm sản phẩm thất bại");
       }
@@ -320,18 +316,13 @@ const AddProductPage: React.FC = () => {
 
   return (
     <Container>
-      <Toaster />
       <div className="max-w-6xl mx-auto p-6">
-        
         <h1 className="text-3xl font-bold mb-6">Thêm sản phẩm</h1>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-            {/* Hình ảnh sản phẩm */}
             <div className="lg:col-span-1 space-y-6">
               <div>
-                
-                {/* Primary Image */}
                 <div className="mb-6">
                   <h3 className="text-lg font-medium mb-2">
                     Hình ảnh chính (bắt buộc)
@@ -379,7 +370,6 @@ const AddProductPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Secondary Images */}
                 <div>
                   <h3 className="text-lg font-medium mb-2">
                     Hình ảnh phụ (tối đa 5)
@@ -442,7 +432,6 @@ const AddProductPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Thông tin cơ bản */}
             <div className="lg:col-span-1">
               <h2 className="text-xl font-semibold mb-4">Thông tin cơ bản</h2>
               <div className="space-y-4">
@@ -550,38 +539,36 @@ const AddProductPage: React.FC = () => {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Cho thuê theo *
+                    Giá thuê (VND) theo đơn vị *
                   </label>
-                  <select
-                    value={priceUnitId}
-                    onChange={(e) => setPriceUnitId(e.target.value)}
-                    required
-                    className="w-full p-2 border rounded"
-                  >
-                    <option value="">Chọn đơn vị</option>
-                    {priceUnits.map((unit) => (
-                      <option
-                        key={unit.UnitId || unit._id}
-                        value={unit.UnitId || unit._id}
-                      >
-                        {unit.UnitName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Giá thuê (VND) *
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={basePrice}
-                    onChange={(e) => setBasePrice(e.target.value)}
-                    required
-                    className="w-full p-2 border rounded"
-                  />
+                  <div className="flex items-end space-x-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={basePrice}
+                      onChange={(e) => setBasePrice(e.target.value)}
+                      required
+                      placeholder="Nhập giá thuê"
+                      className="flex-1 p-2 border rounded"
+                    />
+                    <span className="text-gray-500">/</span>
+                    <select
+                      value={priceUnitId}
+                      onChange={(e) => setPriceUnitId(e.target.value)}
+                      required
+                      className="flex-1 p-2 border rounded"
+                    >
+                      <option value="">Chọn đơn vị</option>
+                      {priceUnits.map((unit) => (
+                        <option
+                          key={unit.UnitId || unit._id}
+                          value={unit.UnitId || unit._id}
+                        >
+                          {unit.UnitName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 <div>

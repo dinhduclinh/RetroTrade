@@ -10,7 +10,7 @@ const itemTagSchema = new mongoose.Schema(
     TagId: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,
-      ref: "Tags",
+      ref: "Tag",
     },
     IsDeleted: { type: Boolean, required: true, default: false },
   },

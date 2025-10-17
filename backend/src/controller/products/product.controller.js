@@ -18,7 +18,7 @@ const extractPublicId = (url) => {
   const parts = url.split("/upload/");
   if (parts.length !== 2) return null;
 
-  const afterUpload = parts[1].split("/").slice(1).join("/"); 
+  const afterUpload = parts[1].split("/").slice(1).join("/");
   const publicId = afterUpload ? afterUpload.split(".")[0] : null;
   return publicId ? `retrotrade/${publicId}` : null;
 };
@@ -27,6 +27,7 @@ const addProduct = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
   let success = false;
+  let committed = false;
   try {
     const ownerId = req.user._id;
     if (!ownerId || !mongoose.Types.ObjectId.isValid(ownerId)) {
@@ -204,49 +205,43 @@ const addProduct = async (req, res) => {
       }
     }
 
-    let tagDocs = [];
+    // Process tags
     if (tagsArray.length > 0) {
+      await ItemTag.deleteMany({ ItemId: item._id }, { session }); // Hard delete all existing ItemTags
+
       for (let tagName of tagsArray) {
         const trimmedName = tagName.trim();
-        if (!trimmedName || trimmedName.length === 0 || trimmedName === null) {
-          console.warn(`Skipping invalid tag: ${trimmedName}`);
+        if (!trimmedName || trimmedName.length === 0) {
           continue;
         }
 
         try {
-          const existingTag = await Tags.findOne({
-            Name: trimmedName,
-            IsDeleted: false,
+          let tag = await Tags.findOne({
+            name: trimmedName,
+            isDeleted: false,
           }).session(session);
-          let tag;
-          if (!existingTag) {
-            tag = await Tags.create([{ Name: trimmedName, IsDeleted: false }], {
-              session,
-            });
-            tag = tag[0];
-          } else {
-            tag = existingTag;
+
+          if (!tag) {
+            const newTag = await Tags.create(
+              [{ name: trimmedName, isDeleted: false }],
+              {
+                session,
+              }
+            );
+            tag = newTag[0];
           }
 
           if (tag && mongoose.Types.ObjectId.isValid(tag._id)) {
-            const existingItemTag = await ItemTag.findOne({
-              ItemId: item._id,
-              TagId: tag._id,
-              IsDeleted: false,
-            }).session(session);
-            if (!existingItemTag) {
-              const itemTag = await ItemTag.create(
-                [
-                  {
-                    ItemId: item._id,
-                    TagId: tag._id,
-                    IsDeleted: false,
-                  },
-                ],
-                { session }
-              );
-              tagDocs.push(itemTag[0]);
-            }
+            await ItemTag.create(
+              [
+                {
+                  ItemId: item._id,
+                  TagId: tag._id,
+                  IsDeleted: false,
+                },
+              ],
+              { session }
+            );
           }
         } catch (tagError) {
           console.warn(
@@ -276,14 +271,39 @@ const addProduct = async (req, res) => {
     }
 
     await session.commitTransaction();
+    committed = true;
+
+    // Fetch updated item with details including current tags
+    const updatedItemWithDetails = await Item.findById(item._id).session(
+      session
+    );
+    const categoryDetail = await Categories.findById(parsedCategoryId).session(
+      session
+    );
+    const conditionDetail = await ItemConditions.findOne({
+      ConditionId: parsedConditionId,
+    }).session(session);
+    const ownerDetail = await User.findById(ownerId).session(session);
+    const imagesDetail = await ItemImages.find({
+      ItemId: item._id,
+      IsDeleted: false,
+    })
+      .sort({ Ordinal: 1 })
+      .session(session);
+    const itemTagsDetail = await ItemTag.find({
+      ItemId: item._id,
+      IsDeleted: false,
+    })
+      .populate("TagId")
+      .session(session);
 
     const itemWithDetails = {
-      ...item.toObject(),
-      Category: category,
-      Condition: condition,
-      Owner: owner,
-      Images: images,
-      Tags: tagDocs,
+      ...updatedItemWithDetails.toObject(),
+      Category: categoryDetail,
+      Condition: conditionDetail,
+      Owner: ownerDetail,
+      Images: imagesDetail,
+      Tags: itemTagsDetail,
     };
 
     res.status(201).json({
@@ -292,7 +312,13 @@ const addProduct = async (req, res) => {
       data: itemWithDetails,
     });
   } catch (error) {
-    await session.abortTransaction();
+    if (!committed) {
+      try {
+        await session.abortTransaction();
+      } catch (abortError) {
+        console.error("Abort transaction error:", abortError);
+      }
+    }
     console.error("Lỗi khi tạo sản phẩm:", error);
     if (!success) {
       return res.status(500).json({
@@ -315,6 +341,7 @@ const updateProduct = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
   let success = false;
+  let committed = false;
   try {
     const { id } = req.params;
     const userId = req.user._id;
@@ -375,6 +402,7 @@ const updateProduct = async (req, res) => {
         .map((tag) => tag.trim())
         .filter((tag) => tag !== "" && tag.length > 0);
     }
+    console.log("Processed tagsArray for update:", tagsArray);
 
     if (
       !Title ||
@@ -455,7 +483,7 @@ const updateProduct = async (req, res) => {
       MaxRentalDuration: parsedMaxDuration,
       Currency,
       Quantity: parsedQuantity,
-      AvailableQuantity: parsedQuantity, 
+      AvailableQuantity: parsedQuantity,
       Address,
       City,
       District,
@@ -477,18 +505,13 @@ const updateProduct = async (req, res) => {
           IsDeleted: false,
         }).session(session);
         const deletePromises = oldImages.map(async (oldImage) => {
-          await ItemImages.findByIdAndUpdate(
-            oldImage._id,
-            { IsDeleted: true, UpdatedAt: new Date() },
-            { session }
-          );
+          await ItemImages.findByIdAndDelete(oldImage._id, { session });
 
           // Xóa khỏi Cloudinary
           const publicId = extractPublicId(oldImage.Url);
           if (publicId) {
             try {
               await cloudinary.uploader.destroy(publicId);
-              console.log(`Đã xóa hình ảnh cũ trên Cloudinary: ${publicId}`);
             } catch (cloudErr) {
               console.error(
                 "Lỗi xóa hình ảnh cũ trên Cloudinary:",
@@ -526,55 +549,44 @@ const updateProduct = async (req, res) => {
       }
     }
 
-    let tagDocs = [];
+    // Process tags
     if (tagsArray.length > 0) {
-      await ItemTag.updateMany(
-        { ItemId: updatedItem._id, IsDeleted: false },
-        { IsDeleted: true, UpdatedAt: new Date() },
-        { session }
-      );
+      // Hard delete all existing ItemTags
+      await ItemTag.deleteMany({ ItemId: updatedItem._id }, { session });
 
       for (let tagName of tagsArray) {
         const trimmedName = tagName.trim();
-        if (!trimmedName || trimmedName.length === 0 || trimmedName === null) {
-          console.warn(`Skipping invalid tag: ${trimmedName}`);
+        if (!trimmedName || trimmedName.length === 0) {
           continue;
         }
 
         try {
-          const existingTag = await Tags.findOne({
-            Name: trimmedName,
-            IsDeleted: false,
+          let tag = await Tags.findOne({
+            name: trimmedName,
+            isDeleted: false,
           }).session(session);
-          let tag;
-          if (!existingTag) {
-            tag = await Tags.create([{ Name: trimmedName, IsDeleted: false }], {
-              session,
-            });
-            tag = tag[0];
-          } else {
-            tag = existingTag;
+
+          if (!tag) {
+            const newTag = await Tags.create(
+              [{ name: trimmedName, isDeleted: false }],
+              {
+                session,
+              }
+            );
+            tag = newTag[0];
           }
 
           if (tag && mongoose.Types.ObjectId.isValid(tag._id)) {
-            const existingItemTag = await ItemTag.findOne({
-              ItemId: updatedItem._id,
-              TagId: tag._id,
-              IsDeleted: false,
-            }).session(session);
-            if (!existingItemTag) {
-              const itemTag = await ItemTag.create(
-                [
-                  {
-                    ItemId: updatedItem._id,
-                    TagId: tag._id,
-                    IsDeleted: false,
-                  },
-                ],
-                { session }
-              );
-              tagDocs.push(itemTag[0]);
-            }
+            await ItemTag.create(
+              [
+                {
+                  ItemId: updatedItem._id,
+                  TagId: tag._id,
+                  IsDeleted: false,
+                },
+              ],
+              { session }
+            );
           }
         } catch (tagError) {
           console.warn(
@@ -583,6 +595,16 @@ const updateProduct = async (req, res) => {
           );
         }
       }
+    } else {
+      // If no tags, remove all active ItemTags
+      await ItemTag.updateMany(
+        {
+          ItemId: updatedItem._id,
+          IsDeleted: false,
+        },
+        { IsDeleted: true },
+        { session }
+      );
     }
 
     // Audit log
@@ -604,14 +626,39 @@ const updateProduct = async (req, res) => {
     }
 
     await session.commitTransaction();
+    committed = true;
+
+    // Fetch updated item with details including current tags
+    const updatedItemWithDetails = await Item.findById(updatedItem._id).session(
+      session
+    );
+    const categoryDetail = await Categories.findById(parsedCategoryId).session(
+      session
+    );
+    const conditionDetail = await ItemConditions.findOne({
+      ConditionId: parsedConditionId,
+    }).session(session);
+    const ownerDetail = await User.findById(userId).session(session);
+    const imagesDetail = await ItemImages.find({
+      ItemId: updatedItem._id,
+      IsDeleted: false,
+    })
+      .sort({ Ordinal: 1 })
+      .session(session);
+    const itemTagsDetail = await ItemTag.find({
+      ItemId: updatedItem._id,
+      IsDeleted: false,
+    })
+      .populate("TagId")
+      .session(session);
 
     const itemWithDetails = {
-      ...updatedItem.toObject(),
-      Category: category,
-      Condition: condition,
-      Owner: owner,
-      Images: images.length > 0 ? images : [], 
-      Tags: tagDocs.length > 0 ? tagDocs : [],
+      ...updatedItemWithDetails.toObject(),
+      Category: categoryDetail,
+      Condition: conditionDetail,
+      Owner: ownerDetail,
+      Images: imagesDetail || images, // Fallback to new images if query fails
+      Tags: itemTagsDetail,
     };
 
     res.status(200).json({
@@ -620,7 +667,13 @@ const updateProduct = async (req, res) => {
       data: itemWithDetails,
     });
   } catch (error) {
-    await session.abortTransaction();
+    if (!committed) {
+      try {
+        await session.abortTransaction();
+      } catch (abortError) {
+        console.error("Abort transaction error:", abortError);
+      }
+    }
     console.error("Lỗi cập nhật sản phẩm:", error);
     if (!success) {
       return res.status(500).json({
@@ -643,6 +696,7 @@ const deleteProduct = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
   let success = false;
+  let committed = false;
   try {
     const { id } = req.params;
     const userId = req.user._id;
@@ -672,12 +726,7 @@ const deleteProduct = async (req, res) => {
       IsDeleted: false,
     }).session(session);
     const deletePromises = images.map(async (image) => {
-
-      await ItemImages.findByIdAndUpdate(
-        image._id,
-        { IsDeleted: true, UpdatedAt: new Date() },
-        { session }
-      );
+      await ItemImages.findByIdAndDelete(image._id, { session });
 
       // Xóa khỏi Cloudinary
       const publicId = extractPublicId(image.Url);
@@ -692,11 +741,7 @@ const deleteProduct = async (req, res) => {
     });
     await Promise.all(deletePromises);
 
-    await ItemTag.updateMany(
-      { ItemId: id, IsDeleted: false },
-      { IsDeleted: true, UpdatedAt: new Date() },
-      { session }
-    );
+    await ItemTag.deleteMany({ ItemId: id }, { session });
 
     // Audit log
     try {
@@ -717,6 +762,7 @@ const deleteProduct = async (req, res) => {
     }
 
     await session.commitTransaction();
+    committed = true;
 
     res.status(200).json({
       success: true,
@@ -724,7 +770,13 @@ const deleteProduct = async (req, res) => {
       data: { deletedItemId: id },
     });
   } catch (error) {
-    await session.abortTransaction();
+    if (!committed) {
+      try {
+        await session.abortTransaction();
+      } catch (abortError) {
+        console.error("Abort transaction error:", abortError);
+      }
+    }
     console.error("Lỗi xóa sản phẩm:", error);
     if (!success) {
       return res.status(500).json({
@@ -763,41 +815,47 @@ const getUserProducts = async (req, res) => {
         message: "Không có sản phẩm nào",
         data: {
           items: [],
-          total: 0
+          total: 0,
         },
       });
     }
 
-    const itemIds = items.map(item => item._id);
+    const itemIds = items.map((item) => item._id);
 
-    const allImages = await ItemImages.find({ 
-      ItemId: { $in: itemIds }, 
-      IsDeleted: false 
-    }).sort({ Ordinal: 1 }).lean();
+    const allImages = await ItemImages.find({
+      ItemId: { $in: itemIds },
+      IsDeleted: false,
+    })
+      .sort({ Ordinal: 1 })
+      .lean();
 
-    const allItemTags = await ItemTag.find({ 
-      ItemId: { $in: itemIds }, 
-      IsDeleted: false 
+    const allItemTags = await ItemTag.find({
+      ItemId: { $in: itemIds },
+      IsDeleted: false,
     }).lean();
-    const tagIds = allItemTags.map(tag => tag.TagId);
-    const allTags = await Tags.find({ 
-      _id: { $in: tagIds }, 
-      IsDeleted: false 
-    }).lean();
-
-    const categoryIds = [...new Set(items.map(item => item.CategoryId))];
-    const categories = await Categories.find({ 
-      _id: { $in: categoryIds }, 
-      isActive: true 
+    const tagIds = allItemTags.map((tag) => tag.TagId);
+    const allTags = await Tags.find({
+      _id: { $in: tagIds },
+      isDeleted: false,
     }).lean();
 
-    const allConditions = await ItemConditions.find({ IsDeleted: false }).lean();
+    const categoryIds = [...new Set(items.map((item) => item.CategoryId))];
+    const categories = await Categories.find({
+      _id: { $in: categoryIds },
+      isActive: true,
+    }).lean();
+
+    const allConditions = await ItemConditions.find({
+      IsDeleted: false,
+    }).lean();
     const allPriceUnits = await PriceUnits.find({ IsDeleted: false }).lean();
 
-    const owner = await User.findById(userId).select('FullName DisplayName AvatarUrl').lean();
+    const owner = await User.findById(userId)
+      .select("FullName DisplayName AvatarUrl")
+      .lean();
 
     const imagesMap = {};
-    allImages.forEach(img => {
+    allImages.forEach((img) => {
       if (!imagesMap[img.ItemId.toString()]) {
         imagesMap[img.ItemId.toString()] = [];
       }
@@ -806,36 +864,38 @@ const getUserProducts = async (req, res) => {
 
     const tagsMap = {};
     const tagMapById = {};
-    allTags.forEach(tag => {
+    allTags.forEach((tag) => {
       tagMapById[tag._id.toString()] = tag;
     });
-    allItemTags.forEach(itemTag => {
+    allItemTags.forEach((itemTag) => {
       if (!tagsMap[itemTag.ItemId.toString()]) {
         tagsMap[itemTag.ItemId.toString()] = [];
       }
       const fullTag = {
         ...itemTag,
-        Tag: tagMapById[itemTag.TagId.toString()]
+        Tag: tagMapById[itemTag.TagId.toString()],
       };
       tagsMap[itemTag.ItemId.toString()].push(fullTag);
     });
 
-    // Map category theo item
     const categoryMap = {};
-    categories.forEach(cat => {
+    categories.forEach((cat) => {
       categoryMap[cat._id.toString()] = cat;
     });
 
-    // Map items với chi tiết đầy đủ
-    const itemsWithDetails = items.map(item => ({
-      ...item,
-      Category: categoryMap[item.CategoryId.toString()],
-      Condition: allConditions.find(c => c.ConditionId === item.ConditionId),
-      PriceUnit: allPriceUnits.find(p => p.UnitId === item.PriceUnitId),
-      Owner: owner,
-      Images: imagesMap[item._id.toString()] || [],
-      Tags: tagsMap[item._id.toString()] || [],
-    })).filter(item => item.Category); 
+    const itemsWithDetails = items
+      .map((item) => ({
+        ...item,
+        Category: categoryMap[item.CategoryId.toString()],
+        Condition: allConditions.find(
+          (c) => c.ConditionId === item.ConditionId
+        ),
+        PriceUnit: allPriceUnits.find((p) => p.UnitId === item.PriceUnitId),
+        Owner: owner,
+        Images: imagesMap[item._id.toString()] || [],
+        Tags: tagsMap[item._id.toString()] || [],
+      }))
+      .filter((item) => item.Category);
 
     success = true;
 
@@ -844,7 +904,7 @@ const getUserProducts = async (req, res) => {
       message: "Lấy danh sách sản phẩm của người dùng thành công",
       data: {
         items: itemsWithDetails,
-        total: itemsWithDetails.length
+        total: itemsWithDetails.length,
       },
     });
   } catch (error) {
@@ -857,8 +917,104 @@ const getUserProducts = async (req, res) => {
     }
     res.status(200).json({
       success: true,
-      message: "Lấy sản phẩm một phần thành công, một số phụ kiện có vấn đề nhỏ.",
+      message:
+        "Lấy sản phẩm một phần thành công, một số phụ kiện có vấn đề nhỏ.",
       data: { items: [] },
+    });
+  }
+};
+
+const getProductById = async (req, res) => {
+  let success = false;
+  try {
+    const { id } = req.params;
+    const userId = req.user._id;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new Error("ID sản phẩm không hợp lệ");
+    }
+
+    const item = await Item.findOne({
+      _id: id,
+      OwnerId: userId,
+      IsDeleted: false,
+    }).lean();
+
+    if (!item) {
+      return res.status(404).json({
+        success: false,
+        message: "Sản phẩm không tồn tại hoặc bạn không có quyền xem",
+      });
+    }
+
+    const images = await ItemImages.find({
+      ItemId: id,
+      IsDeleted: false,
+    })
+      .sort({ Ordinal: 1 })
+      .lean();
+
+    const itemTags = await ItemTag.find({
+      ItemId: id,
+      IsDeleted: false,
+    }).lean();
+    const tagIds = itemTags.map((tag) => tag.TagId);
+    const tags = await Tags.find({
+      _id: { $in: tagIds },
+      isDeleted: false,
+    }).lean();
+    const category = await Categories.findOne({
+      _id: item.CategoryId,
+      isActive: true,
+    }).lean();
+
+    const condition = await ItemConditions.findOne({
+      ConditionId: item.ConditionId,
+      IsDeleted: false,
+    }).lean();
+    const priceUnit = await PriceUnits.findOne({
+      UnitId: item.PriceUnitId,
+      IsDeleted: false,
+    }).lean();
+
+    const owner = await User.findById(userId)
+      .select("FullName DisplayName AvatarUrl")
+      .lean();
+
+    const fullTags = itemTags.map((itemTag) => ({
+      ...itemTag,
+      Tag: tags.find((t) => t._id.toString() === itemTag.TagId.toString()),
+    }));
+
+    const productWithDetails = {
+      ...item,
+      Category: category,
+      Condition: condition,
+      PriceUnit: priceUnit,
+      Owner: owner,
+      Images: images,
+      Tags: fullTags,
+    };
+
+    success = true;
+
+    res.status(200).json({
+      success: true,
+      message: "Lấy chi tiết sản phẩm thành công",
+      data: productWithDetails,
+    });
+  } catch (error) {
+    console.error("Lỗi lấy chi tiết sản phẩm:", error);
+    if (!success) {
+      return res.status(500).json({
+        success: false,
+        message: error.message || "Lỗi server khi lấy chi tiết sản phẩm",
+      });
+    }
+    res.status(200).json({
+      success: true,
+      message: "Lấy chi tiết sản phẩm một phần thành công.",
+      data: null,
     });
   }
 };
@@ -868,4 +1024,5 @@ module.exports = {
   updateProduct,
   deleteProduct,
   getUserProducts,
+  getProductById,
 };

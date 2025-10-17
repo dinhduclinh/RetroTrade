@@ -1,72 +1,75 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { ModeratorSidebar } from "@/components/ui/moderator-sidebar"
-import { ModeratorHeader } from "@/components/ui/moderator-header"
-import { VerificationQueue } from "@/components/ui/verification-queue"
-import { TagManagementTable } from "@/components/ui/tag-management-table"
-import { CategoryManagementTable } from "@/components/ui/category-management-table"
-import { PostManagementTable } from "@/components/ui/post-management-table"
-import { CommentManagementTable } from "@/components/ui/comment-management-table"
+import { useState } from "react";
+import { ModeratorSidebar } from "@/components/ui/moderator/moderator-sidebar";
+import { ModeratorHeader } from "@/components/ui/moderator/moderator-header";
+import { ModeratorStats } from "@/components/ui/moderator/moderator-stats";
+import { VerificationQueue } from "@/components/ui/moderator/verification-queue";
+
+import { BlogManagementTable } from "@/components/ui/moderator/blog/blog-management-table";
+import { CategoryManagementTable } from "@/components/ui/moderator/blog/category-management-table";
+import { CommentManagementTable } from "@/components/ui/moderator/blog/comment-management-table";
 
 export default function VerificationManagementDashboard() {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "requests" | "verification" | "blog">("verification")
-  const [activeBlogTab, setActiveBlogTab] = useState<"posts" | "categories" | "comments" | "tags">("posts")
+  const [activeTab, setActiveTab] = useState<
+    "dashboard" | "users" | "requests" | "verification" | "blog"
+  >("verification");
+  const [activeBlogTab, setActiveBlogTab] = useState<
+    "posts" | "categories" | "comments"
+  >("posts");
 
-  const handleBlogTabChange = (tab: "posts" | "categories" | "comments" | "tags") => {
-    setActiveBlogTab(tab)
-    setActiveTab("blog")
-  }
+  const handleBlogTabChange = (tab: "posts" | "categories" | "comments") => {
+    setActiveBlogTab(tab);
+    setActiveTab("blog");
+  };
 
   const renderContent = () => {
     if (activeTab === "blog") {
       switch (activeBlogTab) {
         case "posts":
-          return <PostManagementTable />
+          return <BlogManagementTable />;
         case "categories":
-          return <CategoryManagementTable />
+          return <CategoryManagementTable />;
         case "comments":
-          return <CommentManagementTable />
-        case "tags":
-          return <TagManagementTable />
+          return <CommentManagementTable />;
         default:
-          return <PostManagementTable />
+          return <BlogManagementTable />;
       }
     }
-    return <VerificationQueue />
-  }
+    return <VerificationQueue />;
+  };
 
   const getPageTitle = () => {
     if (activeTab === "blog") {
       switch (activeBlogTab) {
         case "posts":
-          return "Quản lý bài viết"
+          return "Quản lý bài viết";
         case "categories":
-          return "Quản lý danh mục"
+          return "Quản lý danh mục";
         case "comments":
-          return "Quản lý bình luận"
+          return "Quản lý bình luận";
         default:
-          return "Quản lý bài viết"
+          return "Quản lý bài viết";
       }
     }
-    return "Xác thực tài khoản"
-  }
+    return "Xác thực tài khoản";
+  };
 
   const getPageDescription = () => {
     if (activeTab === "blog") {
       switch (activeBlogTab) {
         case "posts":
-          return "Tạo, chỉnh sửa và quản lý các bài viết trong hệ thống"
+          return "Tạo, chỉnh sửa và quản lý các bài viết trong hệ thống";
         case "categories":
-          return "Quản lý các danh mục và phân loại bài viết"
+          return "Quản lý các danh mục và phân loại bài viết";
         case "comments":
-          return "Kiểm duyệt và quản lý bình luận từ người dùng"
+          return "Kiểm duyệt và quản lý bình luận từ người dùng";
         default:
-          return "Tạo, chỉnh sửa và quản lý các bài viết trong hệ thống"
+          return "Tạo, chỉnh sửa và quản lý các bài viết trong hệ thống";
       }
     }
-    return "Xác thực danh tính và thông tin người dùng"
-  }
+    return "Xác thực danh tính và thông tin người dùng";
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-800 via-purple-900 to-slate-800 relative overflow-hidden">
@@ -77,8 +80,8 @@ export default function VerificationManagementDashboard() {
       <div className="absolute -bottom-8 left-20 w-96 h-96 bg-pink-400 rounded-full mix-blend-multiply filter blur-3xl opacity-15 animate-blob animation-delay-4000" />
 
       <div className="relative z-10 flex">
-        <ModeratorSidebar 
-          activeTab={activeTab} 
+        <ModeratorSidebar
+          activeTab={activeTab}
           activeBlogTab={activeBlogTab}
           onTabChange={setActiveTab}
           onBlogTabChange={handleBlogTabChange}
@@ -89,18 +92,18 @@ export default function VerificationManagementDashboard() {
 
           <main className="p-4 lg:p-8">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-white mb-2">{getPageTitle()}</h2>
+              <h2 className="text-2xl font-bold text-white mb-2">
+                {getPageTitle()}
+              </h2>
               <p className="text-white/70">{getPageDescription()}</p>
             </div>
 
             {/* Stats only on dashboard */}
 
-            <div className="mt-8">
-              {renderContent()}
-            </div>
+            <div className="mt-8">{renderContent()}</div>
           </main>
         </div>
       </div>
     </div>
-  )
+  );
 }

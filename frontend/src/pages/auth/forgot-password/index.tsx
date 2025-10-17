@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/router"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ShoppingBag, Mail, ArrowLeft, Key, Eye, EyeOff } from "lucide-react"
+import { Button } from "@/components/ui/common/button"
+import { Input } from "@/components/ui/common/input"
+import { Label } from "@/components/ui/common/label"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/common/card"
+import { ArrowLeft, Key, Eye, EyeOff } from "lucide-react"
 import { toast } from "sonner"
 import { requestForgotPassword, forgotPasswordOtp, forgotPassword, resendOtp } from "@/services/auth/auth.api"
 import Image from "next/image"
@@ -36,6 +36,19 @@ export default function ForgotPasswordPage() {
     }
     return () => clearTimeout(timer)
   }, [countdown])
+
+  // Handle URL parameters for step and email
+  useEffect(() => {
+    if (router.query.step) {
+      const stepParam = parseInt(router.query.step as string)
+      if (stepParam >= 1 && stepParam <= 3) {
+        setStep(stepParam)
+      }
+    }
+    if (router.query.email) {
+      setEmail(router.query.email as string)
+    }
+  }, [router.query])
 
   const handleRequestReset = async (e: React.FormEvent) => {
     e.preventDefault()

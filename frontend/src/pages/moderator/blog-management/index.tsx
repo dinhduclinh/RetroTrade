@@ -1,16 +1,19 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { BlogSidebar } from "@/components/ui/blog-sidebar"
-import { BlogHeader } from "@/components/ui/blog-header"
-import { BlogStats } from "@/components/ui/blog-stats"
-import { PostManagementTable } from "@/components/ui/post-management-table"
-import { CategoryManagementTable } from "@/components/ui/category-management-table"
-import { CommentManagementTable } from "@/components/ui/comment-management-table"
-import { TagManagementTable } from "@/components/ui/tag-management-table"
+import { useState } from "react";
+import { BlogSidebar } from "@/components/ui/moderator/blog/blog-sidebar";
+import { BlogHeader } from "@/components/ui/moderator/blog/blog-header";
+import { BlogStats } from "@/components/ui/moderator/blog/blog-stats";
+import { BlogManagementTable } from "@/components/ui/moderator/blog/blog-management-table";
+import { CategoryManagementTable } from "@/components/ui/moderator/blog/category-management-table";
+import { CommentManagementTable } from "@/components/ui/moderator/blog/comment-management-table";
+import  { TagManagementTable } from "@/components/ui/moderator/blog/tag-management";
+
 
 export default function BlogManagementDashboard() {
-  const [activeTab, setActiveTab] = useState<"posts" | "categories" | "comments" | "tags">("posts")
+  const [activeTab, setActiveTab] = useState<
+    "posts" | "categories" | "comments" | "tags"
+  >("posts");
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-900 via-teal-900 to-cyan-900 relative overflow-hidden">
@@ -30,14 +33,14 @@ export default function BlogManagementDashboard() {
             <BlogStats />
 
             <div className="mt-8">
-              {activeTab === "posts" && <PostManagementTable />}
+              {activeTab === "posts" && <BlogManagementTable />}
               {activeTab === "categories" && <CategoryManagementTable />}
               {activeTab === "comments" && <CommentManagementTable />}
-              {activeTab === "tags" && <TagManagementTable />}
+              {activeTab === "tags" && <TagManagementTable/>}
             </div>
           </main>
         </div>
       </div>
     </div>
-  )
+  );
 }
