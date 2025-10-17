@@ -1,70 +1,74 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { ModeratorSidebar } from "@/components/ui/moderator-sidebar"
-import { ModeratorHeader } from "@/components/ui/moderator-header"
-import { ModeratorStats } from "@/components/ui/moderator-stats"
-import { UserManagementTable } from "@/components/ui/user-management-table"
-import { PostManagementTable } from "@/components/ui/post-management-table"
-import { CategoryManagementTable } from "@/components/ui/category-management-table"
-import { CommentManagementTable } from "@/components/ui/comment-management-table"
+import { useState } from "react";
+import { ModeratorSidebar } from "@/components/ui/moderator-sidebar";
+import { ModeratorHeader } from "@/components/ui/moderator-header";
+import { ModeratorStats } from "@/components/ui/moderator-stats";
+import { UserManagementTable } from "@/components/ui/user-management-table";
+import { PostManagementTable } from "@/components/ui/post-management-table";
+import { CategoryManagementTable } from "@/components/ui/blog/category-management-table";
+import { CommentManagementTable } from "@/components/ui/blog/comment-management-table";
 
 export default function UserManagementDashboard() {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "requests" | "verification" | "blog">("users")
-  const [activeBlogTab, setActiveBlogTab] = useState<"posts" | "categories" | "comments">("posts")
+  const [activeTab, setActiveTab] = useState<
+    "dashboard" | "users" | "requests" | "verification" | "blog"
+  >("users");
+  const [activeBlogTab, setActiveBlogTab] = useState<
+    "posts" | "categories" | "comments"
+  >("posts");
 
   const handleBlogTabChange = (tab: "posts" | "categories" | "comments") => {
-    setActiveBlogTab(tab)
-    setActiveTab("blog")
-  }
+    setActiveBlogTab(tab);
+    setActiveTab("blog");
+  };
 
   const renderContent = () => {
     if (activeTab === "blog") {
       switch (activeBlogTab) {
         case "posts":
-          return <PostManagementTable />
+          return <PostManagementTable />;
         case "categories":
-          return <CategoryManagementTable />
+          return <CategoryManagementTable />;
         case "comments":
-          return <CommentManagementTable />
+          return <CommentManagementTable />;
         default:
-          return <PostManagementTable />
+          return <PostManagementTable />;
       }
     }
-    return <UserManagementTable />
-  }
+    return <UserManagementTable />;
+  };
 
   const getPageTitle = () => {
     if (activeTab === "blog") {
       switch (activeBlogTab) {
         case "posts":
-          return "Quản lý bài viết"
+          return "Quản lý bài viết";
         case "categories":
-          return "Quản lý danh mục"
+          return "Quản lý danh mục";
         case "comments":
-          return "Quản lý bình luận"
+          return "Quản lý bình luận";
         default:
-          return "Quản lý bài viết"
+          return "Quản lý bài viết";
       }
     }
-    return "Quản lý người dùng"
-  }
+    return "Quản lý người dùng";
+  };
 
   const getPageDescription = () => {
     if (activeTab === "blog") {
       switch (activeBlogTab) {
         case "posts":
-          return "Tạo, chỉnh sửa và quản lý các bài viết trong hệ thống"
+          return "Tạo, chỉnh sửa và quản lý các bài viết trong hệ thống";
         case "categories":
-          return "Quản lý các danh mục và phân loại bài viết"
+          return "Quản lý các danh mục và phân loại bài viết";
         case "comments":
-          return "Kiểm duyệt và quản lý bình luận từ người dùng"
+          return "Kiểm duyệt và quản lý bình luận từ người dùng";
         default:
-          return "Tạo, chỉnh sửa và quản lý các bài viết trong hệ thống"
+          return "Tạo, chỉnh sửa và quản lý các bài viết trong hệ thống";
       }
     }
-    return "Theo dõi và quản lý tài khoản người dùng trong hệ thống"
-  }
+    return "Theo dõi và quản lý tài khoản người dùng trong hệ thống";
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
@@ -75,8 +79,8 @@ export default function UserManagementDashboard() {
       <div className="absolute -bottom-8 left-20 w-96 h-96 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000" />
 
       <div className="relative z-10 flex">
-        <ModeratorSidebar 
-          activeTab={activeTab} 
+        <ModeratorSidebar
+          activeTab={activeTab}
           activeBlogTab={activeBlogTab}
           onTabChange={setActiveTab}
           onBlogTabChange={handleBlogTabChange}
@@ -87,18 +91,18 @@ export default function UserManagementDashboard() {
 
           <main className="p-4 lg:p-8">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-white mb-2">{getPageTitle()}</h2>
+              <h2 className="text-2xl font-bold text-white mb-2">
+                {getPageTitle()}
+              </h2>
               <p className="text-white/70">{getPageDescription()}</p>
             </div>
 
             <ModeratorStats />
 
-            <div className="mt-8">
-              {renderContent()}
-            </div>
+            <div className="mt-8">{renderContent()}</div>
           </main>
         </div>
       </div>
     </div>
-  )
+  );
 }

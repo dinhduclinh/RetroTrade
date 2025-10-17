@@ -7,9 +7,9 @@ import { useState } from "react"
 
 interface ModeratorSidebarProps {
   activeTab: "dashboard" | "users" | "requests" | "verification" | "blog"
-  activeBlogTab?: "posts" | "categories" | "comments"
+  activeBlogTab?: "posts" | "categories" | "comments" | "tags"
   onTabChange?: (tab: "dashboard" | "users" | "requests" | "verification" | "blog") => void
-  onBlogTabChange?: (tab: "posts" | "categories" | "comments") => void
+  onBlogTabChange?: (tab: "posts" | "categories" | "comments" | "tags") => void
 }
 
 export function ModeratorSidebar({ activeTab, activeBlogTab, onTabChange, onBlogTabChange }: ModeratorSidebarProps) {
@@ -53,25 +53,32 @@ export function ModeratorSidebar({ activeTab, activeBlogTab, onTabChange, onBlog
       description: "Quản lý bài viết và nội dung",
       hasSubmenu: true
     },
+    
+
   ]
 
   const blogSubmenuItems = [
     {
       id: "posts" as const,
       label: "Quản lý bài viết",
-      description: "Tạo, sửa, xóa bài viết"
+      description: "Tạo, sửa, xóa bài viết",
     },
     {
       id: "categories" as const,
       label: "Quản lý danh mục",
-      description: "Quản lý các danh mục bài viết"
+      description: "Quản lý các danh mục bài viết",
     },
     {
       id: "comments" as const,
       label: "Quản lý bình luận",
-      description: "Kiểm duyệt bình luận"
+      description: "Kiểm duyệt bình luận",
     },
-  ]
+    {
+      id: "tags" as const,
+      label: "Quản lý thẻ",
+      description: "Kiểm duyệt thẻ",
+    },
+  ];
 
   const handleNavigation = (path: string) => {
     router.push(path)
@@ -93,7 +100,7 @@ export function ModeratorSidebar({ activeTab, activeBlogTab, onTabChange, onBlog
       router.push(pathMap[tab])
     }
     
-    // Đóng dropdown khi chuyển sang tab khác (không phải blog)
+   
     if (tab !== "blog") {
       setIsBlogDropdownOpen(false)
     }
@@ -101,7 +108,7 @@ export function ModeratorSidebar({ activeTab, activeBlogTab, onTabChange, onBlog
     setIsMobileMenuOpen(false)
   }
 
-  const handleBlogTabChange = (tab: "posts" | "categories" | "comments") => {
+  const handleBlogTabChange = (tab: "posts" | "categories" | "comments" | "tags") => {
     onBlogTabChange?.(tab)
     // Không đóng dropdown khi chọn submenu
     setIsMobileMenuOpen(false)

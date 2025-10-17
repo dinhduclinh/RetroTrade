@@ -4,8 +4,8 @@ import { FileText, FolderOpen, MessageSquare, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface BlogSidebarProps {
-  activeTab: "posts" | "categories" | "comments"
-  onTabChange: (tab: "posts" | "categories" | "comments") => void
+  activeTab: "posts" | "categories" | "comments" | "tags"
+  onTabChange: (tab: "posts" | "categories" | "comments" | "tags") => void
 }
 
 export function BlogSidebar({ activeTab, onTabChange }: BlogSidebarProps) {
@@ -25,7 +25,12 @@ export function BlogSidebar({ activeTab, onTabChange }: BlogSidebarProps) {
       label: "Quản lý bình luận",
       icon: MessageSquare,
     },
-  ]
+    {
+      id: "tags" as const,
+      label: "Quản lý thẻ",
+      icon: MessageSquare,
+    },
+  ];
 
   return (
     <div className="fixed left-0 top-0 h-full w-64 bg-white/10 backdrop-blur-md border-r border-white/20 z-20">
