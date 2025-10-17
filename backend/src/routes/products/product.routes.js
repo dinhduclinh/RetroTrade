@@ -24,6 +24,6 @@ router.put(
 router.delete("/:id", authenticateToken, deleteProduct);
 
 //product public
-router.get("/product", listAllItems);
+router.get("/product/public", listAllItems);
 
 module.exports = router;
