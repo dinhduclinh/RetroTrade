@@ -1,10 +1,10 @@
 import Head from "next/head";
 import Image from "next/image";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/common/button";
+import { Badge } from "@/components/ui/common/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/common/card";
 import { Container } from "@/components/layout/Container";
-import { SectionHeading } from "@/components/ui/section-heading";
+import { SectionHeading } from "@/components/ui/common/section-heading";
 import { 
   ArrowRight, 
   Shield, 

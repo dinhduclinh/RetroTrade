@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/common/button"
 import { Home, Search, ArrowLeft } from "lucide-react"
 import { useEffect, useRef } from "react"
 import * as THREE from "three"

@@ -7,15 +7,15 @@ import { toast } from 'sonner';
 import type { UserProfile, ProfileApiResponse } from '@iService';
 
 // Import components
-import { ProfileHeader } from '@/components/ui/profile-header';
-import { AccountStatusCard } from '@/components/ui/account-status-card';
+import { ProfileHeader } from '@/components/ui/auth/profile/profile-header';
+import { AccountStatusCard } from '@/components/ui/auth/account-status-card';
 // import { WalletCard } from '@/components/ui/wallet-card';
-import { StatisticsCard } from '@/components/ui/statistics-card';
-import { DetailedInfoCard, DetailedInfoCardHandle } from '@/components/ui/detailed-info-card';
-import { QuickActionsCard } from '@/components/ui/quick-actions-card';
-import { EditProfileModal } from '@/components/ui/edit-profile-modal';
-import { ChangePasswordModal } from '@/components/ui/change-password-modal';
-import { AvatarUploadModal } from '@/components/ui/avatar-upload-modal';
+import { StatisticsCard } from '@/components/ui/auth/profile/statistics-card';
+import { DetailedInfoCard, DetailedInfoCardHandle } from '@/components/ui/auth/profile/detailed-info-card';
+import { QuickActionsCard } from '@/components/ui/auth/profile/quick-actions-card';
+import { EditProfileModal } from '@/components/ui/auth/edit-profile-modal';
+import { ChangePasswordModal } from '@/components/ui/auth/change-password-modal';
+import { AvatarUploadModal } from '@/components/ui/auth/avatar-upload-modal';
 
 export default function ProfilePage() {
   const router = useRouter();

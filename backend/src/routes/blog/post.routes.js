@@ -11,7 +11,7 @@ const router = express.Router();
 router.get("/posts", PostController.getAllPosts);
 router.get("/posts/:id", PostController.getBlogDetail);
 router.get("/posts/category/:categoryId", PostController.getPostsByCategory);
-router.get("/postS/tag/:tagId", PostController.getPostsByTag);
+router.get("/posts/tag/:tagId", PostController.getPostsByTag);
 router.get("/categories", PostCategoryController.getAllCategories);
 router.get("/tags", TagController.getAllTags);
 router.get("/comments/:postId", CommentController.getCommentsByPost);

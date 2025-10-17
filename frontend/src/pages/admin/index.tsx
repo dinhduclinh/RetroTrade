@@ -1,6 +1,6 @@
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/common/card";
+import { Button } from "@/components/ui/common/button";
 import { Crown, Users, Package, BarChart3, Settings } from "lucide-react";
 import Link from "next/link";
 

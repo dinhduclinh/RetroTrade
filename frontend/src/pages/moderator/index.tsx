@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -6,17 +6,17 @@ import { useSelector } from "react-redux"
 import { RootState } from "@/store/redux_store"
 import { jwtDecode } from "jwt-decode"
 import { toast } from "sonner"
-import { ModeratorSidebar } from "@/components/ui/moderator-sidebar"
-import { ModeratorHeader } from "@/components/ui/moderator-header"
-import { ModeratorStats } from "@/components/ui/moderator-stats"
-import { UserManagementTable } from "@/components/ui/user-management-table"
-import { RequestManagementTable } from "@/components/ui/request-management-table"
-import { VerificationQueue } from "@/components/ui/verification-queue"
-import { PostManagementTable } from "@/components/ui/post-management-table"
-import { CategoryManagementTable } from "@/components/ui/category-management-table"
-import { CommentManagementTable } from "@/components/ui/comment-management-table"
-import { TagManagementTable } from "@/components/ui/tag-management-table"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ModeratorSidebar } from "@/components/ui/moderator/moderator-sidebar"
+import { ModeratorHeader } from "@/components/ui/moderator/moderator-header"
+import { ModeratorStats } from "@/components/ui/moderator/moderator-stats"
+import { UserManagementTable } from "@/components/ui/moderator/user-management-table"
+import { RequestManagementTable } from "@/components/ui/moderator/request-management-table"
+import { VerificationQueue } from "@/components/ui/moderator/verification-queue"
+import { BlogManagementTable } from "@/components/ui/moderator/blog/blog-management-table"
+import { CategoryManagementTable } from "@/components/ui/moderator/blog/category-management-table"
+import { CommentManagementTable } from "@/components/ui/moderator/blog/comment-management-table"
+import { TagManagementTable } from "@/components/ui/moderator/blog/tag-management"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/common/card"
 import { BarChart3, TrendingUp, Users, FileText, Shield, AlertTriangle, Activity } from "lucide-react"
 
 // JWT token payload interface
@@ -134,15 +134,15 @@ export default function ModeratorDashboard() {
       console.log("Rendering blog content for tab:", activeBlogTab)
       switch (activeBlogTab) {
         case "posts":
-          return <PostManagementTable />
+          return <BlogManagementTable />;
         case "categories":
-          return <CategoryManagementTable />
+          return <CategoryManagementTable />;
         case "comments":
           return <CommentManagementTable />
         case "tags":
           return <TagManagementTable />
         default:
-          return <PostManagementTable />
+          return <BlogManagementTable />;
       }
     }
     
@@ -164,63 +164,63 @@ export default function ModeratorDashboard() {
         console.log("⚠️ Rendering default DashboardOverview")
         return <DashboardOverview />
     }
-  }
+  };
 
   const getPageTitle = () => {
     if (activeTab === "blog") {
       switch (activeBlogTab) {
         case "posts":
-          return "Quản lý bài viết"
+          return "Quản lý bài viết";
         case "categories":
-          return "Quản lý danh mục"
+          return "Quản lý danh mục";
         case "comments":
-          return "Quản lý bình luận"
+          return "Quản lý bình luận";
         default:
-          return "Quản lý bài viết"
+          return "Quản lý bài viết";
       }
     }
-    
+
     switch (activeTab) {
       case "dashboard":
-        return "Dashboard Tổng quan"
+        return "Dashboard Tổng quan";
       case "users":
-        return "Quản lý người dùng"
+        return "Quản lý người dùng";
       case "requests":
-        return "Yêu cầu kiểm duyệt"
+        return "Yêu cầu kiểm duyệt";
       case "verification":
-        return "Xác thực tài khoản"
+        return "Xác thực tài khoản";
       default:
-        return "Dashboard Tổng quan"
+        return "Dashboard Tổng quan";
     }
-  }
+  };
 
   const getPageDescription = () => {
     if (activeTab === "blog") {
       switch (activeBlogTab) {
         case "posts":
-          return "Tạo, chỉnh sửa và quản lý các bài viết trong hệ thống"
+          return "Tạo, chỉnh sửa và quản lý các bài viết trong hệ thống";
         case "categories":
-          return "Quản lý các danh mục và phân loại bài viết"
+          return "Quản lý các danh mục và phân loại bài viết";
         case "comments":
-          return "Kiểm duyệt và quản lý bình luận từ người dùng"
+          return "Kiểm duyệt và quản lý bình luận từ người dùng";
         default:
-          return "Tạo, chỉnh sửa và quản lý các bài viết trong hệ thống"
+          return "Tạo, chỉnh sửa và quản lý các bài viết trong hệ thống";
       }
     }
-    
+
     switch (activeTab) {
       case "dashboard":
-        return "Tổng quan về hoạt động và thống kê hệ thống"
+        return "Tổng quan về hoạt động và thống kê hệ thống";
       case "users":
-        return "Theo dõi và quản lý tài khoản người dùng trong hệ thống"
+        return "Theo dõi và quản lý tài khoản người dùng trong hệ thống";
       case "requests":
-        return "Duyệt và phê duyệt các yêu cầu từ người dùng"
+        return "Duyệt và phê duyệt các yêu cầu từ người dùng";
       case "verification":
-        return "Xác thực danh tính và thông tin người dùng"
+        return "Xác thực danh tính và thông tin người dùng";
       default:
-        return "Tổng quan về hoạt động và thống kê hệ thống"
+        return "Tổng quan về hoạt động và thống kê hệ thống";
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-800 via-purple-900 to-slate-800 relative overflow-hidden">
@@ -231,8 +231,8 @@ export default function ModeratorDashboard() {
       <div className="absolute -bottom-8 left-20 w-96 h-96 bg-pink-400 rounded-full mix-blend-multiply filter blur-3xl opacity-15 animate-blob animation-delay-4000" />
 
       <div className="relative z-10 flex">
-        <ModeratorSidebar 
-          activeTab={activeTab} 
+        <ModeratorSidebar
+          activeTab={activeTab}
           activeBlogTab={activeBlogTab}
           onTabChange={handleTabChange}
           onBlogTabChange={handleBlogTabChange}
@@ -243,20 +243,20 @@ export default function ModeratorDashboard() {
 
           <main className="p-4 lg:p-8">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-white mb-2">{getPageTitle()}</h2>
+              <h2 className="text-2xl font-bold text-white mb-2">
+                {getPageTitle()}
+              </h2>
               <p className="text-white/70">{getPageDescription()}</p>
             </div>
 
             {activeTab === "dashboard" && <ModeratorStats />}
 
-            <div className="mt-8">
-              {renderContent()}
-            </div>
+            <div className="mt-8">{renderContent()}</div>
           </main>
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 // Dashboard Overview Component
@@ -269,7 +269,7 @@ function DashboardOverview() {
       icon: Users,
       color: "text-blue-500",
       bgColor: "bg-blue-500/10",
-      description: "Trong 24h qua"
+      description: "Trong 24h qua",
     },
     {
       title: "Bài viết chờ duyệt",
@@ -278,7 +278,7 @@ function DashboardOverview() {
       icon: FileText,
       color: "text-orange-500",
       bgColor: "bg-orange-500/10",
-      description: "Cần xem xét"
+      description: "Cần xem xét",
     },
     {
       title: "Báo cáo vi phạm",
@@ -287,7 +287,7 @@ function DashboardOverview() {
       icon: AlertTriangle,
       color: "text-red-500",
       bgColor: "bg-red-500/10",
-      description: "Chưa xử lý"
+      description: "Chưa xử lý",
     },
     {
       title: "Hoạt động hệ thống",
@@ -296,9 +296,9 @@ function DashboardOverview() {
       icon: Activity,
       color: "text-green-500",
       bgColor: "bg-green-500/10",
-      description: "Uptime"
-    }
-  ]
+      description: "Uptime",
+    },
+  ];
 
   const recentActivities = [
     {
@@ -307,7 +307,7 @@ function DashboardOverview() {
       action: "Người dùng mới đăng ký",
       user: "Nguyễn Văn A",
       time: "5 phút trước",
-      status: "success"
+      status: "success",
     },
     {
       id: 2,
@@ -315,7 +315,7 @@ function DashboardOverview() {
       action: "Bài viết mới được tạo",
       user: "Trần Thị B",
       time: "12 phút trước",
-      status: "pending"
+      status: "pending",
     },
     {
       id: 3,
@@ -323,7 +323,7 @@ function DashboardOverview() {
       action: "Báo cáo vi phạm mới",
       user: "Lê Văn C",
       time: "25 phút trước",
-      status: "warning"
+      status: "warning",
     },
     {
       id: 4,
@@ -331,19 +331,19 @@ function DashboardOverview() {
       action: "Tài khoản được xác thực",
       user: "Phạm Thị D",
       time: "1 giờ trước",
-      status: "success"
-    }
-  ]
+      status: "success",
+    },
+  ];
 
   return (
     <div className="space-y-6">
       {/* Quick Actions */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {quickActions.map((action, index) => {
-          const Icon = action.icon
+          const Icon = action.icon;
           return (
-            <Card 
-              key={index} 
+            <Card
+              key={index}
               className="bg-white/10 backdrop-blur-md border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover-lift group cursor-pointer"
             >
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
@@ -355,8 +355,12 @@ function DashboardOverview() {
                     {action.description}
                   </p>
                 </div>
-                <div className={`p-3 rounded-xl transition-all duration-300 group-hover:scale-110 ${action.bgColor} group-hover:bg-white/20`}>
-                  <Icon className={`w-5 h-5 ${action.color} group-hover:text-white transition-colors duration-200`} />
+                <div
+                  className={`p-3 rounded-xl transition-all duration-300 group-hover:scale-110 ${action.bgColor} group-hover:bg-white/20`}
+                >
+                  <Icon
+                    className={`w-5 h-5 ${action.color} group-hover:text-white transition-colors duration-200`}
+                  />
                 </div>
               </CardHeader>
               <CardContent>
@@ -364,11 +368,12 @@ function DashboardOverview() {
                   {action.value}
                 </div>
                 <p className="text-xs text-white/70 mt-1">
-                  <span className="text-green-400">{action.change}</span> so với hôm qua
+                  <span className="text-green-400">{action.change}</span> so với
+                  hôm qua
                 </p>
               </CardContent>
             </Card>
-          )
+          );
         })}
       </div>
 
@@ -383,24 +388,33 @@ function DashboardOverview() {
         <CardContent>
           <div className="space-y-4">
             {recentActivities.map((activity) => (
-              <div key={activity.id} className="flex items-center gap-4 p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors duration-200">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                  activity.status === 'success' ? 'bg-green-500/20 text-green-400' :
-                  activity.status === 'warning' ? 'bg-orange-500/20 text-orange-400' :
-                  'bg-blue-500/20 text-blue-400'
-                }`}>
-                  {activity.type === 'user' && <Users className="w-5 h-5" />}
-                  {activity.type === 'post' && <FileText className="w-5 h-5" />}
-                  {activity.type === 'report' && <AlertTriangle className="w-5 h-5" />}
-                  {activity.type === 'verification' && <Shield className="w-5 h-5" />}
+              <div
+                key={activity.id}
+                className="flex items-center gap-4 p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors duration-200"
+              >
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    activity.status === "success"
+                      ? "bg-green-500/20 text-green-400"
+                      : activity.status === "warning"
+                      ? "bg-orange-500/20 text-orange-400"
+                      : "bg-blue-500/20 text-blue-400"
+                  }`}
+                >
+                  {activity.type === "user" && <Users className="w-5 h-5" />}
+                  {activity.type === "post" && <FileText className="w-5 h-5" />}
+                  {activity.type === "report" && (
+                    <AlertTriangle className="w-5 h-5" />
+                  )}
+                  {activity.type === "verification" && (
+                    <Shield className="w-5 h-5" />
+                  )}
                 </div>
                 <div className="flex-1">
                   <p className="text-white font-medium">{activity.action}</p>
                   <p className="text-white/70 text-sm">{activity.user}</p>
                 </div>
-                <div className="text-white/60 text-sm">
-                  {activity.time}
-                </div>
+                <div className="text-white/60 text-sm">{activity.time}</div>
               </div>
             ))}
           </div>
@@ -468,5 +482,5 @@ function DashboardOverview() {
         </Card>
       </div>
     </div>
-  )
+  );
 }
