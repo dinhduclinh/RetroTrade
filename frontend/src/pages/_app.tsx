@@ -19,7 +19,7 @@ export default function App({ Component, pageProps }: AppProps) {
 
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
 
-  // Check if current page is a management page
+  // Check if current page is a management page (specific management pages only)
   const isManagementPage = router.pathname.startsWith('/admin') || 
                           router.pathname.startsWith('/moderator') || 
                           router.pathname.startsWith('/owner');

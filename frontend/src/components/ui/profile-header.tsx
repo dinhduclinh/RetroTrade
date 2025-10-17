@@ -3,15 +3,16 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Star, Edit, Sparkles } from "lucide-react"
+import { Star, Edit, Sparkles, Camera } from "lucide-react"
 import type { UserProfile } from "@iService"
 
 interface ProfileHeaderProps {
   userProfile: UserProfile;
   onEditClick?: () => void;
+  onAvatarEditClick?: () => void;
 }
 
-export function ProfileHeader({ userProfile, onEditClick }: ProfileHeaderProps) {
+export function ProfileHeader({ userProfile, onEditClick, onAvatarEditClick }: ProfileHeaderProps) {
   return (
     <div className="relative backdrop-blur-xl bg-gradient-to-r from-purple-600/80 via-indigo-600/80 to-purple-700/80 text-white border-b border-white/10">
       {/* Floating particles effect */}
@@ -35,9 +36,15 @@ export function ProfileHeader({ userProfile, onEditClick }: ProfileHeaderProps) 
                   {userProfile.email.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-green-500 rounded-full border-4 border-purple-600 z-20 flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-white" />
-              </div>
+              
+              {/* Edit Avatar Button - thay thế nút Sparkles */}
+              <button
+                onClick={onAvatarEditClick}
+                className="absolute -bottom-2 -right-2 w-8 h-8 bg-blue-500 hover:bg-blue-600 rounded-full border-2 border-white shadow-lg flex items-center justify-center transition-all duration-300 hover:scale-110 z-30"
+                title="Chỉnh sửa avatar"
+              >
+                <Camera className="w-4 h-4 text-white" />
+              </button>
             </div>
 
             {/* User Info */}

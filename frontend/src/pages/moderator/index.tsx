@@ -1,6 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store/redux_store";
+import { jwtDecode } from "jwt-decode";
+import { toast } from "sonner";
 import { ModeratorSidebar } from "@/components/ui/moderator-sidebar";
 import { ModeratorHeader } from "@/components/ui/moderator-header";
 import { ModeratorStats } from "@/components/ui/moderator-stats";
@@ -10,6 +15,7 @@ import { VerificationQueue } from "@/components/ui/verification-queue";
 import { PostManagementTable } from "@/components/ui/post-management-table";
 import { CategoryManagementTable } from "@/components/ui/blog/category-management-table";
 import { CommentManagementTable } from "@/components/ui/blog/comment-management-table";
+import { TagManagementTable } from "@/components/ui/tag-management-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   BarChart3,
@@ -21,21 +27,140 @@ import {
   Activity,
 } from "lucide-react";
 
+// JWT token payload interface
+interface JwtPayload {
+  _id?: string;
+  email: string;
+  userGuid?: string;
+  avatarUrl?: string;
+  role?: string;
+  fullName?: string;
+  exp: number;
+  iat: number;
+}
+
 export default function ModeratorDashboard() {
+  console.log(
+    "🚀 ModeratorDashboard component loaded at:",
+    new Date().toISOString()
+  );
+
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { accessToken } = useSelector((state: RootState) => state.auth);
   const [activeTab, setActiveTab] = useState<
     "dashboard" | "users" | "requests" | "verification" | "blog"
   >("dashboard");
   const [activeBlogTab, setActiveBlogTab] = useState<
-    "posts" | "categories" | "comments"
+    "posts" | "categories" | "comments" | "tags"
   >("posts");
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleBlogTabChange = (tab: "posts" | "categories" | "comments") => {
+  const handleTabChange = (
+    tab: "dashboard" | "users" | "requests" | "verification" | "blog"
+  ) => {
+    console.log("Moderator handleTabChange called with:", tab);
+    setActiveTab(tab);
+    console.log("State updated: activeTab=", tab);
+  };
+
+  // Debug: Track state changes
+  useEffect(() => {
+    console.log(
+      "State changed - activeTab:",
+      activeTab,
+      "activeBlogTab:",
+      activeBlogTab
+    );
+  }, [activeTab, activeBlogTab]);
+
+  // Check URL query parameter for tab navigation
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    console.log("URL query parameter 'tab':", tab);
+
+    if (
+      tab &&
+      ["dashboard", "users", "requests", "verification", "blog"].includes(tab)
+    ) {
+      console.log("Setting activeTab from URL query parameter:", tab);
+      setActiveTab(
+        tab as "dashboard" | "users" | "requests" | "verification" | "blog"
+      );
+    }
+  }, [searchParams]);
+
+  // Check authorization on mount
+  useEffect(() => {
+    if (!accessToken) {
+      toast.error("Bạn cần đăng nhập để truy cập trang này");
+      router.push("/auth/login");
+      return;
+    }
+
+    try {
+      const decoded = jwtDecode<JwtPayload>(accessToken);
+
+      // Check if token is expired
+      const currentTime = Date.now() / 1000;
+      if (decoded.exp && decoded.exp < currentTime) {
+        toast.error("Phiên đăng nhập đã hết hạn");
+        router.push("/auth/login");
+        return;
+      }
+
+      // Check if user has moderator role
+      if (decoded.role !== "moderator" && decoded.role !== "admin") {
+        toast.error("Bạn không có quyền truy cập trang moderator");
+        router.push("/home");
+        return;
+      }
+
+      setIsAuthorized(true);
+    } catch (error) {
+      console.error("Token decode error:", error);
+      toast.error("Token không hợp lệ");
+      router.push("/auth/login");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [accessToken, router]);
+
+  // Show loading while checking authorization
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-800 via-purple-900 to-slate-800 flex items-center justify-center">
+        <div className="text-center text-white">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-400 mx-auto mb-4"></div>
+          <p className="text-lg">Đang kiểm tra quyền truy cập...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if not authorized
+  if (!isAuthorized) {
+    return null;
+  }
+
+  const handleBlogTabChange = (
+    tab: "posts" | "categories" | "comments" | "tags"
+  ) => {
+    console.log("Moderator handleBlogTabChange called with:", tab);
     setActiveBlogTab(tab);
     setActiveTab("blog");
+    console.log("State updated: activeTab=blog, activeBlogTab=", tab);
   };
 
   const renderContent = () => {
+    console.log("=== RENDER DEBUG ===");
+    console.log("activeTab:", activeTab);
+    console.log("activeBlogTab:", activeBlogTab);
+    console.log("Current time:", new Date().toISOString());
+
     if (activeTab === "blog") {
+      console.log("Rendering blog content for tab:", activeBlogTab);
       switch (activeBlogTab) {
         case "posts":
           return <PostManagementTable />;
@@ -43,21 +168,29 @@ export default function ModeratorDashboard() {
           return <CategoryManagementTable />;
         case "comments":
           return <CommentManagementTable />;
+        case "tags":
+          return <TagManagementTable />;
         default:
           return <PostManagementTable />;
       }
     }
 
+    console.log("Rendering main content for tab:", activeTab);
     switch (activeTab) {
       case "dashboard":
+        console.log("✅ Rendering DashboardOverview");
         return <DashboardOverview />;
       case "users":
+        console.log("✅ Rendering UserManagementTable");
         return <UserManagementTable />;
       case "requests":
+        console.log("✅ Rendering RequestManagementTable");
         return <RequestManagementTable />;
       case "verification":
+        console.log("✅ Rendering VerificationQueue");
         return <VerificationQueue />;
       default:
+        console.log("⚠️ Rendering default DashboardOverview");
         return <DashboardOverview />;
     }
   };
@@ -119,22 +252,22 @@ export default function ModeratorDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-800 via-purple-900 to-slate-800 relative overflow-hidden">
       {/* Animated background */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(120,119,198,0.3),rgba(255,255,255,0))] animate-pulse" />
-      <div className="absolute top-0 -left-4 w-96 h-96 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob" />
-      <div className="absolute top-0 -right-4 w-96 h-96 bg-indigo-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000" />
-      <div className="absolute -bottom-8 left-20 w-96 h-96 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(120,119,198,0.2),rgba(255,255,255,0))] animate-pulse" />
+      <div className="absolute top-0 -left-4 w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-15 animate-blob" />
+      <div className="absolute top-0 -right-4 w-96 h-96 bg-indigo-400 rounded-full mix-blend-multiply filter blur-3xl opacity-15 animate-blob animation-delay-2000" />
+      <div className="absolute -bottom-8 left-20 w-96 h-96 bg-pink-400 rounded-full mix-blend-multiply filter blur-3xl opacity-15 animate-blob animation-delay-4000" />
 
       <div className="relative z-10 flex">
         <ModeratorSidebar
           activeTab={activeTab}
           activeBlogTab={activeBlogTab}
-          onTabChange={setActiveTab}
+          onTabChange={handleTabChange}
           onBlogTabChange={handleBlogTabChange}
         />
 
-        <div className="flex-1 lg:ml-64">
+        <div className="flex-1 lg:ml-72">
           <ModeratorHeader />
 
           <main className="p-4 lg:p-8">
@@ -145,7 +278,7 @@ export default function ModeratorDashboard() {
               <p className="text-white/70">{getPageDescription()}</p>
             </div>
 
-            <ModeratorStats />
+            {activeTab === "dashboard" && <ModeratorStats />}
 
             <div className="mt-8">{renderContent()}</div>
           </main>

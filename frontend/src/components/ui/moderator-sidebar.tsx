@@ -2,7 +2,6 @@
 
 import { Users, FileText, Shield, LogOut, BookOpen, Menu, X, ChevronDown, ChevronRight, LayoutDashboard } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useRouter } from "next/router"
 import { useState } from "react"
 
 interface ModeratorSidebarProps {
@@ -13,7 +12,6 @@ interface ModeratorSidebarProps {
 }
 
 export function ModeratorSidebar({ activeTab, activeBlogTab, onTabChange, onBlogTabChange }: ModeratorSidebarProps) {
-  const router = useRouter()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isBlogDropdownOpen, setIsBlogDropdownOpen] = useState(false)
   
@@ -80,24 +78,15 @@ export function ModeratorSidebar({ activeTab, activeBlogTab, onTabChange, onBlog
     },
   ];
 
-  const handleNavigation = (path: string) => {
-    router.push(path)
-    setIsMobileMenuOpen(false)
-  }
+  // removed unused handleNavigation
 
   const handleTabChange = (tab: "dashboard" | "users" | "requests" | "verification" | "blog") => {
+    console.log("Sidebar handleTabChange called with:", tab)
     if (onTabChange) {
+      console.log("Calling onTabChange with:", tab)
       onTabChange(tab)
     } else {
-      // Fallback to navigation if onTabChange is not provided
-      const pathMap = {
-        dashboard: "/moderator/dashboard",
-        users: "/moderator/user-management",
-        requests: "/moderator/request-management", 
-        verification: "/moderator/verify-management",
-        blog: "/moderator/blog-management"
-      }
-      router.push(pathMap[tab])
+      console.log("onTabChange is not provided!")
     }
     
    
@@ -128,7 +117,7 @@ export function ModeratorSidebar({ activeTab, activeBlogTab, onTabChange, onBlog
 
       {/* Sidebar */}
       <div className={`
-        fixed left-0 top-0 h-full w-64 bg-white/10 backdrop-blur-md border-r border-white/20 z-20
+        fixed left-0 top-0 h-full w-72 bg-white/10 backdrop-blur-md border-r border-white/20 z-20
         transform transition-transform duration-300 ease-in-out
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:translate-x-0

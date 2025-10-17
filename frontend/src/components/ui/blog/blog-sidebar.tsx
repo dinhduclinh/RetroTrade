@@ -1,11 +1,11 @@
-"use client"
+"use client";
 
-import { FileText, FolderOpen, MessageSquare, LogOut } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { FileText, FolderOpen, MessageSquare, LogOut, Tag } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface BlogSidebarProps {
-  activeTab: "posts" | "categories" | "comments" | "tags"
-  onTabChange: (tab: "posts" | "categories" | "comments" | "tags") => void
+  activeTab: "posts" | "categories" | "comments" | "tags";
+  onTabChange: (tab: "posts" | "categories" | "comments" | "tags") => void;
 }
 
 export function BlogSidebar({ activeTab, onTabChange }: BlogSidebarProps) {
@@ -33,7 +33,7 @@ export function BlogSidebar({ activeTab, onTabChange }: BlogSidebarProps) {
   ];
 
   return (
-    <div className="fixed left-0 top-0 h-full w-64 bg-white/10 backdrop-blur-md border-r border-white/20 z-20">
+    <div className="fixed left-0 top-0 h-full w-72 bg-white/10 backdrop-blur-md border-r border-white/20 z-20">
       <div className="p-6">
         <div className="flex items-center gap-3 mb-8">
           <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg flex items-center justify-center">
@@ -47,9 +47,9 @@ export function BlogSidebar({ activeTab, onTabChange }: BlogSidebarProps) {
 
         <nav className="space-y-2">
           {menuItems.map((item) => {
-            const Icon = item.icon
-            const isActive = activeTab === item.id
-            
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+
             return (
               <Button
                 key={item.id}
@@ -64,7 +64,7 @@ export function BlogSidebar({ activeTab, onTabChange }: BlogSidebarProps) {
                 <Icon className="w-5 h-5 mr-3" />
                 {item.label}
               </Button>
-            )
+            );
           })}
         </nav>
 
@@ -79,5 +79,5 @@ export function BlogSidebar({ activeTab, onTabChange }: BlogSidebarProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }

@@ -2,17 +2,19 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Edit, Shield, Wallet, Settings, ChevronRight, Key } from "lucide-react"
+import { Edit, Shield, Wallet, Settings, ChevronRight, Key, Store } from "lucide-react"
 
 interface QuickActionsCardProps {
   onEditProfile?: () => void;
   onChangePassword?: () => void;
+  onRegisterRental?: () => void;
 }
 
-export function QuickActionsCard({ onEditProfile, onChangePassword }: QuickActionsCardProps) {
+export function QuickActionsCard({ onEditProfile, onChangePassword, onRegisterRental }: QuickActionsCardProps) {
   const actions = [
     { icon: Edit, label: "Chỉnh sửa hồ sơ", color: "from-blue-500/20 to-cyan-500/20", iconColor: "text-blue-600", action: onEditProfile },
     { icon: Key, label: "Đổi mật khẩu", color: "from-green-500/20 to-emerald-500/20", iconColor: "text-green-600", action: onChangePassword },
+    { icon: Store, label: "Đăng ký cho thuê", color: "from-indigo-500/20 to-purple-500/20", iconColor: "text-indigo-600", action: onRegisterRental },
     {
       icon: Shield,
       label: "Xác thực danh tính",
