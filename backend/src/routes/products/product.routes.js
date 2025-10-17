@@ -5,6 +5,7 @@ const {
   deleteProduct,
   getUserProducts,
 } = require("../../controller/products/product.controller");
+const {listAllItems} = require("../../controller/products/productPublic.controller");
 const { upload } = require("../../middleware/upload.middleware");
 const { authenticateToken } = require("../../middleware/auth");
 
@@ -19,5 +20,8 @@ router.put(
   updateProduct
 );
 router.delete("/:id", authenticateToken, deleteProduct);
+
+//product public
+router.get("/product", listAllItems);
 
 module.exports = router;
