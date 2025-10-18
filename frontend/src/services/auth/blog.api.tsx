@@ -1,5 +1,4 @@
 import instance from "../customizeAPI";
-import api from "../customizeAPI";
 
 const handleResponse = async (res: Response) => {
   const data = await res.json().catch(() => ({}));
@@ -41,7 +40,7 @@ export const getAllTags = async () => {
 
 
 export const getPostsByCategory = async (id: string, page = 1, limit = 6) => {
-  const res = await api.get(
+  const res = await instance.get(
     `/post/posts/category/${id}?page=${page}&limit=${limit}`
   );
   return handleResponse(res);
@@ -49,7 +48,7 @@ export const getPostsByCategory = async (id: string, page = 1, limit = 6) => {
 
 
 export const getPostsByTag = async (id: string, page = 1, limit = 6) => {
-  const res = await api.get(
+  const res = await instance.get(
     `/post/posts/tag/${id}?page=${page}&limit=${limit}`
   );
   return handleResponse(res);
@@ -73,12 +72,12 @@ export const deleteTag = async (id: string) => {
 
 
 export const createCategory = async (data: any) => {
-  const res = await api.post(`/post/categories`, data);
+  const res = await instance.post(`/post/categories`, data);
   return handleResponse(res);
 };
 
 export const updateCategory = async (id: string, data: any) => {
-  const res = await api.put(`/post/categories/${id}`, data);
+  const res = await instance.put(`/post/categories/${id}`, data);
   return handleResponse(res);
 };
 
@@ -88,13 +87,13 @@ export const deleteCategory = async (id: string) => {
 };
 
 export const createPost = async (formData: FormData) => {
-  const res = await api.post(`/post/posts`, formData); 
+  const res = await instance.post(`/post/posts`, formData);
   return handleResponse(res);
 };
 
 
 export const updatePost = async (id: string, formData: FormData) => {
-  const res = await api.put(`/post/posts/${id}`, formData);
+  const res = await instance.put(`/post/posts/${id}`, formData);
   return handleResponse(res);
 };
 

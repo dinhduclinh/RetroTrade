@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { Button } from "@/components/ui/common/button";
-import { LogOut, User, Package, Settings, Shield, Crown, Users } from "lucide-react";
+import { LogOut, User, Package, Settings, Shield, Crown, Moon, Sun } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +15,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/common/avatar';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store/redux_store';
-import { logout } from '@/store/auth/authReducer';
+import { logout, toggleDarkMode } from '@/store/auth/authReducer';
 import { jwtDecode } from 'jwt-decode';
 import { toast } from "sonner";
 import Image from "next/image";
@@ -36,7 +36,7 @@ export function Header() {
   const router = useRouter();
   const dispatch = useDispatch();
 
-  const { accessToken } = useSelector((state: RootState) => state.auth);
+  const { accessToken, isDarkMode } = useSelector((state: RootState) => state.auth);
 
   // Decode JWT token để lấy thông tin user
   const decodedUser = React.useMemo(() => {
@@ -59,17 +59,13 @@ export function Header() {
       if (decodedUser.exp && decodedUser.exp > currentTime) {
         setIsLoggedIn(true);
         setUserInfo(decodedUser);
-        
+
         // Chuyển hướng dựa trên role
         const currentPath = router.pathname;
-        const userRole = decodedUser.role || 'user';
-        
-        // Chỉ chuyển hướng nếu không phải trang admin/moderator/owner và user có role đặc biệt
-        if (userRole !== 'user' && !currentPath.startsWith(`/${userRole}`)) {
-          // Kiểm tra xem có đang ở trang chính không để tránh redirect loop
-          if (currentPath === '/' || currentPath === '/home') {
-            router.push(`/${userRole}`);
-          }
+
+        // Redirect logic dựa trên role
+        if (currentPath === '/') {
+          router.push('/home');
         }
       } else {
         // Token hết hạn
@@ -82,7 +78,20 @@ export function Header() {
       setIsLoggedIn(false);
       setUserInfo(null);
     }
-  }, [decodedUser, dispatch, router]);
+  }, [decodedUser, dispatch, router, isLoggedIn]);
+
+  // Apply dark mode to document
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
+
+  const handleToggleDarkMode = () => {
+    dispatch(toggleDarkMode());
+  };
 
   const handleLogout = () => {
     setIsLoggedIn(false);
@@ -128,7 +137,7 @@ export function Header() {
             onClick={handleGoToAdminPanel}
           >
             <Crown className="mr-2 h-4 w-4" />
-            <span>Admin Panel</span>
+            <span>Bảng điều khiển Admin</span>
           </DropdownMenuItem>
         );
         break;
@@ -140,7 +149,7 @@ export function Header() {
             onClick={handleGoToModeratorPanel}
           >
             <Shield className="mr-2 h-4 w-4" />
-            <span>Moderator Panel</span>
+            <span>Bảng điều khiển Điều hành viên</span>
           </DropdownMenuItem>
         );
         break;
@@ -152,7 +161,7 @@ export function Header() {
             onClick={handleGoToOwnerPanel}
           >
             <Settings className="mr-2 h-4 w-4" />
-            <span>Owner Panel</span>
+            <span>Bảng điều khiển Chủ sở hữu</span>
           </DropdownMenuItem>
         );
         break;
@@ -162,7 +171,7 @@ export function Header() {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-sm border-b border-gray-100">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-100 dark:border-gray-800">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
@@ -173,38 +182,38 @@ export function Header() {
               height={60}
               className="rounded-lg"
             />
-            <span className="text-xl font-bold text-gray-900">Retro Trade</span>
+            <span className="text-xl font-bold text-gray-900 dark:text-white">Retro Trade</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
             <Link
               href="/home"
-              className="text-gray-700 hover:text-indigo-600 transition-colors"
+              className="text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
             >
-              Home
+              Trang chủ
             </Link>
             <Link
               href="/products"
-              className="text-gray-700 hover:text-indigo-600 transition-colors"
+              className="text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
             >
-              Product
+              Sản phẩm
             </Link>
             <Link
               href="/blog"
-              className="text-gray-700 hover:text-indigo-600 transition-colors"
+              className="text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
             >
               Blog
             </Link>
             <Link
               href="/about"
-              className="text-gray-700 hover:text-indigo-600 transition-colors"
+              className="text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
             >
-              About & Contact
+              Giới thiệu & Liên hệ
             </Link>
           </nav>
 
           <div className="flex items-center gap-4">
-            {/* Shopping Cart */}
+            {/* Giỏ hàng */}
             <Button
               onClick={() => router.push("/cart")}
               variant="ghost"
@@ -218,7 +227,7 @@ export function Header() {
                 height={25}
                 className="rounded-lg"
               />
-              {/* Badge count sẽ được thêm sau khi có cart system */}
+              {/* Số lượng sản phẩm sẽ được thêm sau khi có hệ thống giỏ hàng */}
             </Button>
 
             {isLoggedIn && userInfo ? (
@@ -242,10 +251,28 @@ export function Header() {
                       {userInfo.email ?? ""}
                     </p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      {userInfo.role ?? 'user'}
+                      {userInfo.role === 'renter' ? 'Người thuê' :
+                        userInfo.role === 'owner' ? 'Chủ sở hữu' :
+                          userInfo.role === 'admin' ? 'Quản trị viên' :
+                            userInfo.role === 'moderator' ? 'Điều hành viên' : 'Người dùng'}
                     </p>
                   </div>
                   <DropdownMenuSeparator />
+
+                  {/* Dark Mode Toggle */}
+                  <DropdownMenuItem
+                    className="cursor-pointer"
+                    onClick={handleToggleDarkMode}
+                  >
+                    {isDarkMode ? (
+                      <Sun className="mr-2 h-4 w-4 text-yellow-500" />
+                    ) : (
+                      <Moon className="mr-2 h-4 w-4 text-gray-600" />
+                    )}
+                    <span>{isDarkMode ? 'Chế độ sáng' : 'Chế độ tối'}</span>
+                  </DropdownMenuItem>
+
+
                   <DropdownMenuItem
                     className="cursor-pointer"
                     onClick={handleGoToProfile}
@@ -260,10 +287,11 @@ export function Header() {
                     <Package className="mr-2 h-4 w-4" />
                     <span>Đơn hàng của tôi</span>
                   </DropdownMenuItem>
-                  
+
+
                   {/* Render role-specific menu items */}
                   {renderRoleSpecificMenuItems()}
-                  
+
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="cursor-pointer text-red-600 focus:text-red-600"
@@ -278,7 +306,7 @@ export function Header() {
               <>
                 <Link
                   href="/auth/login"
-                  className="text-gray-700 hover:text-indigo-600 transition-colors"
+                  className="text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
                 >
                   Đăng nhập
                 </Link>

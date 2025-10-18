@@ -22,7 +22,14 @@ const createNoopStorage = () => {
 
 const storage = typeof window !== 'undefined' ? createWebStorage('local') : createNoopStorage();
 
-// Cấu hình persist
+// Cấu hình persist cho auth
+const authPersistConfig = {
+    key: 'auth',
+    storage,
+    whitelist: ['accessToken', 'refreshToken'], // Chỉ persist token
+};
+
+// Cấu hình persist cho root
 const persistConfig = {
     key: 'root',
     storage,
@@ -30,7 +37,7 @@ const persistConfig = {
 
 // Combine reducers nếu có nhiều slice
 const rootReducer = combineReducers({
-    auth: authReducer,
+    auth: persistReducer(authPersistConfig, authReducer),
     
     // thêm các slice khác ở đây
 });
@@ -44,7 +51,14 @@ export const store = configureStore({
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({
             serializableCheck: {
-                ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE'],
+                ignoredActions: [
+                    'persist/PERSIST', 
+                    'persist/REHYDRATE',
+                    'persist/REGISTER',
+                    'persist/FLUSH',
+                    'persist/PAUSE',
+                    'persist/PURGE'
+                ],
             },
         }),
 });

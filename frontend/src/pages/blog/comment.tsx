@@ -79,7 +79,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
           <li key={c._id} className="bg-gray-50 p-3 rounded-lg">
             <div className="flex items-center gap-2 mb-1">
               <img
-                src={c.userId?.avatarUrl || "/default-avatar.png"}
+                src={c.userId?.avatar || "/user.png"}
                 alt={c.userId?.fullName || "User"}
                 className="w-6 h-6 rounded-full"
               />
