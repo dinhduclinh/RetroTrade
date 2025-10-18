@@ -28,12 +28,10 @@ export  function BlogManagementTable() {
 
   const fetchPosts = async () => {
     try {
-      setLoading(true);
+      setLoading(true); 
       const res = await getAllPosts(1, 20);
-      console.log("Kết quả từ API:", res);
       setPosts(Array.isArray(res) ? res : res?.data || []);
     } catch (error) {
-      console.error("Lỗi khi tải bài viết:", error);
       toast.error("Không thể tải danh sách bài viết!");
     } finally {
       setLoading(false);
@@ -51,7 +49,6 @@ export  function BlogManagementTable() {
       toast.success("Xóa bài viết thành công!");
       fetchPosts();
     } catch (error) {
-      console.error("Lỗi khi xóa bài viết:", error);
       toast.error("Không thể xóa bài viết. Vui lòng thử lại.");
     }
   };

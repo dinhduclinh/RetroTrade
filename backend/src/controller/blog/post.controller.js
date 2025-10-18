@@ -26,13 +26,13 @@ const getBlogDetail = async (req, res) => {
       .populate("authorId", "fullName email avatar")
       .populate("categoryId", "name description")
       .populate("tags", "name")
-      .lean(); 
+      .lean();
 
     if (!post) {
       return res.status(404).json({ message: "Bài viết không tồn tại" });
     }
 
- 
+
     // const comments = await Comment.find({
     //   postId: post._id,
     //   isDeleted: false,
@@ -42,7 +42,7 @@ const getBlogDetail = async (req, res) => {
     //   .sort({ createdAt: -1 })
     //   .lean();
 
-  
+
     const blogDetail = {
       ...post,
       // comments,
@@ -60,18 +60,18 @@ const getBlogDetail = async (req, res) => {
 
 const createPost = async (req, res) => {
   try {
-   console.log("👉 BODY:", req.body);
-   console.log("👉 FILES:", req.files);
-   console.log("👉 USER:", req.user);
+    console.log("👉 BODY:", req.body);
+    console.log("👉 FILES:", req.files);
+    console.log("👉 USER:", req.user);
     const authorId = req.user._id;
-    
-      if (typeof req.body.tags === "string") {
-        req.body.tags = JSON.parse(req.body.tags);
-      }
+
+    if (typeof req.body.tags === "string") {
+      req.body.tags = JSON.parse(req.body.tags);
+    }
     let thumbnailUrl = null;
     if (req.files && req.files.length > 0) {
       const uploadedImages = await uploadToCloudinary(req.files);
-      thumbnailUrl = uploadedImages[0].Url; 
+      thumbnailUrl = uploadedImages[0].Url;
     }
 
     const post = await Post.create({
@@ -91,8 +91,6 @@ const createPost = async (req, res) => {
 
 const updatePost = async (req, res) => {
   try {
-      console.log("MULTER FILES:", req.files);
-      console.log("BODY RAW:", req.body);
     const { id: postId } = req.params;
     const { _id: userId, role: userRole } = req.user;
 
@@ -100,10 +98,10 @@ const updatePost = async (req, res) => {
     if (!post)
       return res.status(404).json({ message: "Bài viết không tồn tại" });
 
-    if (post.authorId.toString() !== userId && userRole !== "admin") {
+    // Cho phép admin và moderator edit tất cả posts, hoặc author edit post của mình
+    if (post.authorId.toString() !== userId && userRole !== "admin" && userRole !== "moderator") {
       return res.status(403).json({ message: "Không có quyền truy cập" });
     }
-
     if (typeof req.body.tags === "string") {
       try {
         req.body.tags = JSON.parse(req.body.tags);
@@ -134,20 +132,17 @@ const updatePost = async (req, res) => {
     const updatedPost = await Post.findByIdAndUpdate(postId, updateData, {
       new: true,
     })
-      .populate("authorId", "fullName email avatar")
+      .populate( "authorId", "fullName email avatar")
       .populate("categoryId", "name description")
       .populate("tags", "name");
 
     res.status(200).json(updatedPost);
   } catch (error) {
-    console.error("Lỗi cập nhật bài viết:", error);
     res
       .status(500)
       .json({ message: "Cập nhật bài viết thất bại", error: error.message });
   }
 };
-
-module.exports = updatePost;
 
 const deletePost = async (req, res) => {
   try {

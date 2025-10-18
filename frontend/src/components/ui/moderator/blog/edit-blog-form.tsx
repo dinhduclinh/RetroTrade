@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
 import {
   Dialog,
   DialogContent,
@@ -60,7 +61,7 @@ const EditBlogForm: React.FC<EditBlogFormProps> = ({
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
 
-  // 🧩 Load danh mục, tag, và dữ liệu bài viết
+  // Load danh mục, tag, và dữ liệu bài viết
   useEffect(() => {
     if (open && postId) {
       fetchCategories();
@@ -111,7 +112,7 @@ const EditBlogForm: React.FC<EditBlogFormProps> = ({
     }
   };
 
-  // 🧠 Cập nhật input
+  // Cập nhật input
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -121,7 +122,7 @@ const EditBlogForm: React.FC<EditBlogFormProps> = ({
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  // 🖼️ Upload ảnh mới
+  // Upload ảnh mới
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     setForm((prev) => ({
@@ -130,7 +131,7 @@ const EditBlogForm: React.FC<EditBlogFormProps> = ({
     }));
   };
 
-  // 🏷️ Chọn tag
+  // Chọn tag
   const handleTagToggle = (tagId: string) => {
     setForm((prev) => ({
       ...prev,
@@ -152,26 +153,41 @@ const EditBlogForm: React.FC<EditBlogFormProps> = ({
     try {
       setLoading(true);
 
+      // Tạo FormData giống như backend expect
       const formData = new FormData();
+      
+      // Thêm các field text
       formData.append("title", form.title);
       formData.append("shortDescription", form.shortDescription || "");
       formData.append("content", form.content);
-      if (form.categoryId) formData.append("categoryId", form.categoryId);
-      if (form.tags.length > 0)
+      
+      // Thêm categoryId nếu có
+      if (form.categoryId) {
+        formData.append("categoryId", form.categoryId);
+      }
+      
+      // Thêm tags dưới dạng JSON string
+      if (form.tags.length > 0) {
         formData.append("tags", JSON.stringify(form.tags));
+      }
+      
+      // Thêm boolean fields
       formData.append("isActive", String(form.isActive));
       formData.append("isFeatured", String(form.isFeatured));
-      form.images.forEach((file) => formData.append("images", file));
+      
+      // Thêm files nếu có
+      form.images.forEach((file) => {
+        formData.append("images", file);
+      });
 
-      const updatedPost = await updatePost(postId, formData);
+      const response = await updatePost(postId, formData);
 
-      if (updatedPost && !updatedPost.error && updatedPost._id) {
+      if (response && !response.error) {
         toast.success("Cập nhật bài viết thành công!");
-       
-        onSuccess?.(updatedPost);
+        onSuccess?.(response);
         onClose();
       } else {
-        toast.error(updatedPost?.message || "Không thể cập nhật bài viết");
+        toast.error(response?.message || "Không thể cập nhật bài viết");
       }
     } catch (err) {
       console.error(err);
@@ -180,7 +196,6 @@ const EditBlogForm: React.FC<EditBlogFormProps> = ({
       setLoading(false);
     }
   };
-
 
   if (!open) return null;
 

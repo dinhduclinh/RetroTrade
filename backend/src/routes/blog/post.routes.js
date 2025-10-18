@@ -20,8 +20,8 @@ router.get("/comments", CommentController.getAllComment);
 router.get("/comments/:postId", CommentController.getCommentsByPost);
 
 router.post("/posts", authenticateToken, authorizeRoles("moderator", "admin"), upload.array("images", 5), PostController.createPost);
-router.put("/posts/:id",authenticateToken,authorizeRoles("moderator", "admin"), upload.array("images", 5),  PostController.updatePost);
-router.delete("/posts/:id",authenticateToken,authorizeRoles("moderator", "admin"), PostController.deletePost);
+router.put("/posts/:id", authenticateToken, authorizeRoles("moderator", "admin"), upload.array("images", 5), PostController.updatePost);
+router.delete("/posts/:id", authenticateToken, authorizeRoles("moderator", "admin"), PostController.deletePost);
 
 router.post("/categories", PostCategoryController.createCategory);
 router.put("/categories/:id", PostCategoryController.updateCategory);
@@ -31,7 +31,7 @@ router.post("/tags", TagController.createTag);
 router.put("/tags/:id", TagController.updateTag);
 router.delete("/tags/:id", TagController.deleteTag);
 
-router.post("/comments/:postId", authenticateToken,CommentController.addComment);
+router.post("/comments/:postId", authenticateToken, CommentController.addComment);
 router.delete("/comments/:id", CommentController.deleteComment);
 
 module.exports = router; 
