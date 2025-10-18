@@ -107,3 +107,29 @@ export const getAllComment = async () => {
   const res = await instance.get(`/post/comments`);
   return handleResponse(res);
 };
+
+export const deleteComment = async (id: string) => {
+  const res = await instance.delete(`/post/comments/${id}`);
+  return handleResponse(res);
+};
+export const banComment = async (id: string) => {
+  const res = await instance.patch(`/post/comments/ban/${id}`);
+  return handleResponse(res);
+};
+
+export const getCommentDetail = async (id: string) => {
+  const res = await instance.get(`/post/comments/${id}`);
+  return handleResponse(res);
+};
+
+
+export const getCommentsByPost = async (id: string) => {
+  const res = await instance.get(`/post/comment/${id}`);
+  return handleResponse(res);
+};
+
+// Thêm comment mới
+export const addComment = async (id: string, data: { content: string; parentCommentId?: string }) => {
+  const res = await instance.post(`/post/comments/${id}`, data);
+  return handleResponse(res);
+};

@@ -17,7 +17,8 @@ router.get("/posts/tag/:tagId", PostController.getPostsByTag);
 router.get("/categories", PostCategoryController.getAllCategories);
 router.get("/tags", TagController.getAllTags);
 router.get("/comments", CommentController.getAllComment);
-router.get("/comments/:postId", CommentController.getCommentsByPost);
+router.get("/comments/:id", CommentController.getCommentDetail);
+router.get("/comment/:postId", CommentController.getCommentsByPost);
 
 router.post("/posts", authenticateToken, authorizeRoles("moderator", "admin"), upload.array("images", 5), PostController.createPost);
 router.put("/posts/:id",authenticateToken,authorizeRoles("moderator", "admin"), upload.array("images", 5),  PostController.updatePost);
@@ -33,5 +34,5 @@ router.delete("/tags/:id", TagController.deleteTag);
 
 router.post("/comments/:postId", authenticateToken,CommentController.addComment);
 router.delete("/comments/:id", CommentController.deleteComment);
-
+router.patch("/comments/ban/:id", CommentController.banComment);
 module.exports = router; 

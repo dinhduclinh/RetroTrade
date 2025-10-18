@@ -12,7 +12,7 @@ import {
 } from "@/services/auth/blog.api";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-
+import CommentSection from "./comment";
 export default function BlogDetailPage() {
   const router = useRouter();
   const [id, setId] = useState<string | null>(null);
@@ -24,13 +24,11 @@ export default function BlogDetailPage() {
   const [filterType, setFilterType] = useState<"category" | "tag" | null>(null);
   const [filterName, setFilterName] = useState<string>("");
 
-
   useEffect(() => {
     const path = window.location.pathname.split("/");
     const postId = path[path.length - 1];
     setId(postId);
   }, []);
-
 
   useEffect(() => {
     if (!id) return;
@@ -57,7 +55,6 @@ export default function BlogDetailPage() {
     })();
   }, [id]);
 
- 
   const handleCategoryClick = async (cateId: string, name: string) => {
     try {
       const posts = await getPostsByCategory(cateId);
@@ -68,7 +65,6 @@ export default function BlogDetailPage() {
       console.error("Lỗi khi lọc theo danh mục:", err);
     }
   };
-
 
   const handleTagClick = async (tagId: string, name: string) => {
     try {
@@ -81,7 +77,6 @@ export default function BlogDetailPage() {
     }
   };
 
-
   const resetFilter = () => {
     setFilterType(null);
     setFilterName("");
@@ -92,9 +87,7 @@ export default function BlogDetailPage() {
 
   return (
     <div className="max-w-6xl mx-auto py-10 px-4 flex flex-col md:flex-row gap-8">
-     
       <div className="flex-1">
-       
         <nav className="text-sm text-gray-500 mb-4 flex items-center flex-wrap">
           <Link href="/" className="hover:text-blue-600">
             Trang chủ
@@ -109,10 +102,8 @@ export default function BlogDetailPage() {
           </span>
         </nav>
 
-     
         <h1 className="text-3xl font-bold mb-3">{post.title}</h1>
 
-      
         <div className="flex items-center gap-2 text-gray-500 text-sm mb-5">
           <img
             src="/avatar-default.png"
@@ -124,7 +115,6 @@ export default function BlogDetailPage() {
           <span>5 phút đọc</span>
         </div>
 
-       
         <img
           src={post.thumbnail || "/placeholder.jpg"}
           alt={post.title}
@@ -138,11 +128,10 @@ export default function BlogDetailPage() {
           className="prose prose-blue max-w-none"
           dangerouslySetInnerHTML={{ __html: post.content }}
         />
+        {post && <CommentSection postId={post._id} />}
       </div>
 
-      
       <aside className="w-full md:w-60 space-y-6">
-       
         <div className="bg-white shadow rounded-2xl p-5">
           <div className="flex justify-between items-center mb-3">
             <h3 className="font-semibold">
