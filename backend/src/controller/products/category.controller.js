@@ -204,3 +204,10 @@ module.exports = {
   deleteCategory,
   cascadeDeactivateCategory,
 };
+
+// COMPLETED FUNCTIONS:
+// 1. getCategories - Get all categories
+// 2. addCategory - Create new category with slug generation
+// 3. updateCategory - Update category with slug validation
+// 4. deleteCategory - Soft delete or hard delete category
+// 5. cascadeDeactivateCategory - Cascade deactivate category and children

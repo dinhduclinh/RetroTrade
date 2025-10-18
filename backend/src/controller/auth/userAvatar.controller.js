@@ -20,7 +20,7 @@ module.exports.uploadUserAvatar = async (req, res) => {
 
         // Verify user exists
         const user = await User.findById(userId);
-        
+
         if (!user) {
             return res.status(404).json({
                 code: 404,
@@ -36,7 +36,7 @@ module.exports.uploadUserAvatar = async (req, res) => {
         if (req.file) {
             // Upload to Cloudinary
             const uploadResult = await uploadToCloudinaryUserAvatar(req.file);
-            
+
             if (!uploadResult.success) {
                 return res.status(400).json({
                     code: 400,
@@ -59,10 +59,10 @@ module.exports.uploadUserAvatar = async (req, res) => {
 
         // Update user avatar in database
         const updatedUser = await User.findByIdAndUpdate(
-            userId, 
-            { 
+            userId,
+            {
                 avatarUrl: finalAvatarUrl
-            }, 
+            },
             { new: true }
         ).select("userGuid email fullName displayName avatarUrl bio phone isEmailConfirmed isPhoneConfirmed isIdVerified reputationScore points role wallet lastLoginAt createdAt updatedAt");
 
@@ -84,3 +84,6 @@ module.exports.uploadUserAvatar = async (req, res) => {
         });
     }
 };
+
+// COMPLETED FUNCTIONS:
+// 1. uploadUserAvatar - Upload user avatar (file upload + URL update)

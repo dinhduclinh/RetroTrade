@@ -21,3 +21,6 @@ const getConditions = async (req, res) => {
 };
 
 module.exports = { getConditions };
+
+// COMPLETED FUNCTIONS:
+// 1. getConditions - Get all active item conditions

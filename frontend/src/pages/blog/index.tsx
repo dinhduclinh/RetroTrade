@@ -102,7 +102,7 @@ export default function BlogPage() {
     p.title.toLowerCase().includes(search.toLowerCase())
   );
 
-  const featuredPosts = allPosts.filter((p) => p.thumbnail).slice(0, 3);
+  const featuredPosts = allPosts.slice(0, 3);
 
   return (
     <div className="container mx-auto py-10 flex gap-6">
@@ -110,7 +110,7 @@ export default function BlogPage() {
       <aside className="w-1/4 space-y-6">
        
         <div className="bg-white shadow rounded-2xl p-4">
-          <h3 className="font-semibold mb-2">Tìm kiếm</h3>
+          <h3 className="font-semibold mb-2 text-black">Tìm kiếm</h3>
           <input
             type="text"
             placeholder="Tìm kiếm bài viết..."
@@ -123,7 +123,7 @@ export default function BlogPage() {
         
         <div className="bg-white shadow rounded-2xl p-4">
           <div className="flex justify-between items-center mb-3">
-            <h3 className="font-semibold">Danh mục</h3>
+            <h3 className="font-semibold text-black">Danh mục</h3>
             {filterType === "category" && (
               <button
                 onClick={resetFilter}
@@ -158,7 +158,7 @@ export default function BlogPage() {
        
         <div className="bg-white shadow rounded-2xl p-4">
           <div className="flex justify-between items-center mb-3">
-            <h3 className="font-semibold">Tag phổ biến</h3>
+            <h3 className="font-semibold text-black">Tag phổ biến</h3>
             {filterType === "tag" && (
               <button
                 onClick={resetFilter}
@@ -192,7 +192,7 @@ export default function BlogPage() {
 
       
         <div className="bg-white shadow rounded-2xl p-4">
-          <h3 className="font-semibold mb-3">Bài viết nổi bật</h3>
+          <h3 className="font-semibold mb-3 text-black">Bài viết nổi bật</h3>
           <ul className="space-y-3">
             {featuredPosts.length > 0 ? (
               featuredPosts.map((post) => (
@@ -201,11 +201,17 @@ export default function BlogPage() {
                   onClick={() => router.push(`/blog/${post._id}`)}
                   className="flex gap-3 items-center cursor-pointer hover:opacity-80 transition"
                 >
-                  <img
-                    src={post.thumbnail || "/placeholder.jpg"}
-                    alt={post.title}
-                    className="w-12 h-12 rounded-lg object-cover"
-                  />
+                  {post.thumbnail ? (
+                    <img
+                      src={post.thumbnail}
+                      alt={post.title}
+                      className="w-12 h-12 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
+                      <span className="text-lg">📝</span>
+                    </div>
+                  )}
                   <div className="text-sm">
                     <p className="font-medium leading-snug line-clamp-2">
                       {post.title}
@@ -226,7 +232,7 @@ export default function BlogPage() {
      
       <main className="flex-1">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">
+          <h1 className="text-3xl font-bold text-black">
             {filterType
               ? `Bài viết theo ${
                   filterType === "category" ? "danh mục" : "tag"
@@ -242,11 +248,20 @@ export default function BlogPage() {
                 key={post._id}
                 className="bg-white rounded-2xl shadow p-4 flex gap-4 hover:shadow-lg transition"
               >
-                <img
-                  src={post.thumbnail || "/placeholder.jpg"}
-                  alt={post.title}
-                  className="w-40 h-32 object-cover rounded-lg"
-                />
+                {post.thumbnail ? (
+                  <img
+                    src={post.thumbnail}
+                    alt={post.title}
+                    className="w-40 h-32 object-cover rounded-lg"
+                  />
+                ) : (
+                  <div className="w-40 h-32 bg-gray-200 rounded-lg flex items-center justify-center">
+                    <div className="text-center text-gray-500">
+                      <div className="text-2xl mb-1">📝</div>
+                      <div className="text-xs">Không có ảnh</div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex flex-col justify-between flex-1">
                   <div>
@@ -271,7 +286,7 @@ export default function BlogPage() {
                       )}
                     </div>
 
-                    <h2 className="text-lg font-semibold mb-1">{post.title}</h2>
+                    <h2 className="text-lg font-semibold mb-1 text-black">{post.title}</h2>
                     <p className="text-gray-600 text-sm line-clamp-2">
                       {post.shortDescription}
                     </p>

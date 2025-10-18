@@ -15,8 +15,8 @@ import {
   Filter,
   MapPin,
   Package,
-  DollarSign,
-  X,
+  Settings,
+  LucideIcon,
 } from "lucide-react";
 import {
   getUserProducts,
@@ -24,13 +24,33 @@ import {
 } from "@/services/products/product.api";
 import { toast } from "sonner";
 
-export default function MyProductsList() {
-  const [products, setProducts] = useState([]);
-  const [filteredProducts, setFilteredProducts] = useState([]);
+interface Product {
+  _id: string;
+  Title: string;
+  ShortDescription?: string;
+  StatusId: number;
+  Images?: Array<{ Url: string }>;
+  Category?: { name: string };
+  Condition?: { ConditionName: string };
+  PriceUnit?: { UnitName: string };
+  BasePrice: number;
+  Currency: string;
+  DepositAmount: number;
+  District: string;
+  City: string;
+  ViewCount: number;
+  RentCount: number;
+  AvailableQuantity: number;
+  Quantity: number;
+}
+
+export default function OwnerPanel() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [productToDelete, setProductToDelete] = useState(null);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,13 +83,13 @@ export default function MyProductsList() {
 
     if (statusFilter !== "all") {
       filtered = filtered.filter(
-        (p: any) => p.StatusId === parseInt(statusFilter)
+        (p: Product) => p.StatusId === parseInt(statusFilter)
       );
     }
 
     if (searchTerm) {
       filtered = filtered.filter(
-        (p: any) =>
+        (p: Product) =>
           p.Title.toLowerCase().includes(searchTerm.toLowerCase()) ||
           p.ShortDescription?.toLowerCase().includes(searchTerm.toLowerCase())
       );
@@ -79,7 +99,7 @@ export default function MyProductsList() {
   }, [statusFilter, searchTerm, products]);
 
   const getStatusInfo = (statusId: number) => {
-    const statuses = {
+    const statuses: Record<number, { label: string; color: string; icon: LucideIcon }> = {
       1: {
         label: "Chờ duyệt",
         color: "bg-yellow-100 text-yellow-800",
@@ -99,11 +119,11 @@ export default function MyProductsList() {
     return statuses[statusId] || statuses[1];
   };
 
-  const getConditionName = (product: any) => {
+  const getConditionName = (product: Product) => {
     return product.Condition?.ConditionName || "Không rõ";
   };
 
-  const getPriceUnitName = (product: any) => {
+  const getPriceUnitName = (product: Product) => {
     return product.PriceUnit?.UnitName || "ngày";
   };
 
@@ -114,7 +134,7 @@ export default function MyProductsList() {
     return `$${price}`;
   };
 
-  const handleDeleteClick = (product: any) => {
+  const handleDeleteClick = (product: Product) => {
     setProductToDelete(product);
     setShowDeleteModal(true);
   };
@@ -125,9 +145,9 @@ export default function MyProductsList() {
     try {
       const response = await deleteProduct(productToDelete._id);
       if (response.ok) {
-        setProducts(products.filter((p: any) => p._id !== productToDelete._id));
+        setProducts(products.filter((p: Product) => p._id !== productToDelete._id));
         setFilteredProducts(
-          filteredProducts.filter((p: any) => p._id !== productToDelete._id)
+          filteredProducts.filter((p: Product) => p._id !== productToDelete._id)
         );
         setShowDeleteModal(false);
         setProductToDelete(null);
@@ -143,9 +163,9 @@ export default function MyProductsList() {
   };
 
   const StatusStats = () => {
-    const pending = products.filter((p: any) => p.StatusId === 1).length;
-    const approved = products.filter((p: any) => p.StatusId === 2).length;
-    const rejected = products.filter((p: any) => p.StatusId === 3).length;
+    const pending = products.filter((p: Product) => p.StatusId === 1).length;
+    const approved = products.filter((p: Product) => p.StatusId === 2).length;
+    const rejected = products.filter((p: Product) => p.StatusId === 3).length;
 
     return (
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -231,15 +251,16 @@ export default function MyProductsList() {
           <div className="mb-6">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                  Sản phẩm của tôi
+                <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
+                  <Settings className="w-8 h-8 text-indigo-600" />
+                  Bảng điều khiển Owner
                 </h1>
                 <p className="text-gray-600">
                   Quản lý và theo dõi các sản phẩm cho thuê của bạn
                 </p>
               </div>
               <Link
-                href="/products/myproducts/add"
+                href="/owner/myproducts/add"
                 className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg hover:-translate-y-0.5 transition-all"
               >
                 <Plus size={20} />
@@ -297,7 +318,7 @@ export default function MyProductsList() {
                 Hãy đăng sản phẩm đầu tiên của bạn!
               </p>
               <Link
-                href="/products/myproducts/add"
+                href="/owner/myproducts/add"
                 className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
               >
                 <Plus size={20} />
@@ -306,7 +327,7 @@ export default function MyProductsList() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredProducts.map((product: any) => {
+              {filteredProducts.map((product: Product) => {
                 const statusInfo = getStatusInfo(product.StatusId);
                 const StatusIcon = statusInfo.icon;
 
@@ -315,7 +336,6 @@ export default function MyProductsList() {
                     key={product._id}
                     className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group"
                   >
-
                     <div className="relative h-48 bg-gray-200 overflow-hidden">
                       {product.Images && product.Images.length > 0 ? (
                         <Image
@@ -415,7 +435,7 @@ export default function MyProductsList() {
 
                       <div className="flex gap-2">
                         <Link
-                          href={`/products/myproducts/update/${product._id}`}
+                          href={`/owner/myproducts/update/${product._id}`}
                           className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
                         >
                           <Edit2 size={16} />
@@ -450,7 +470,7 @@ export default function MyProductsList() {
                 <p className="text-gray-600 text-center mb-6">
                   Bạn có chắc chắn muốn xóa sản phẩm{" "}
                   <span className="font-semibold">
-                    "{productToDelete?.Title}"
+                    &quot;{productToDelete?.Title}&quot;
                   </span>
                   ? Hành động này không thể hoàn tác.
                 </p>

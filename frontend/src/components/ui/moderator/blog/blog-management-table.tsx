@@ -1,134 +1,233 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/common/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/common/table"
-import { Badge } from "@/components/ui/common/badge"
-import { Button } from "@/components/ui/common/button"
-import { FileText, Edit, Trash2, Eye, Calendar, MessageSquare } from "lucide-react"
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { getAllPosts, deletePost } from "@/services/auth/blog.api";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from "@/components/ui/common/card";
+import { Button } from "@/components/ui/common/button";
+import { Input } from "@/components/ui/common/input";
+import { FileText, Edit, Trash2, Eye, Search } from "lucide-react";
+import BlogDetail from "@/components/ui/moderator/blog/blog-details";
+import AddPostDialog from "@/components/ui/moderator/blog/add-blog-form";
+import EditBlogForm from "@/components/ui/moderator/blog/edit-blog-form";
 
-export function BlogManagementTable() {
-  const [posts] = useState([
-    {
-      id: 1,
-      title: "Hướng dẫn sử dụng RetroTrade",
-      author: "Admin",
-      category: "Hướng dẫn",
-      status: "published",
-      views: 1234,
-      comments: 56,
-      createdAt: "2024-01-20",
-      updatedAt: "2024-01-20",
-    },
-    {
-      id: 2,
-      title: "Cách bán sản phẩm hiệu quả",
-      author: "Moderator",
-      category: "Tips & Tricks",
-      status: "draft",
-      views: 0,
-      comments: 0,
-      createdAt: "2024-01-19",
-      updatedAt: "2024-01-19",
-    },
-    {
-      id: 3,
-      title: "Tin tức công nghệ mới nhất",
-      author: "Editor",
-      category: "Tin tức",
-      status: "published",
-      views: 2341,
-      comments: 89,
-      createdAt: "2024-01-18",
-      updatedAt: "2024-01-18",
-    },
-    {
-      id: 4,
-      title: "Bài viết chờ duyệt",
-      author: "User",
-      category: "Khác",
-      status: "pending",
-      views: 0,
-      comments: 0,
-      createdAt: "2024-01-17",
-      updatedAt: "2024-01-17",
-    },
-  ])
+export  function BlogManagementTable() {
+  const [posts, setPosts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState("");
+  const [selectedBlogId, setSelectedBlogId] = useState<string | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [openAdd, setOpenAdd] = useState(false);
+  const [openEdit, setOpenEdit] = useState(false);
+  const [editBlogId, setEditBlogId] = useState<string | null>(null); 
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "published":
-        return <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">Đã xuất bản</Badge>
-      case "draft":
-        return <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">Bản nháp</Badge>
-      case "pending":
-        return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">Chờ duyệt</Badge>
-      case "archived":
-        return <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30">Lưu trữ</Badge>
-      default:
-        return <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30">Không xác định</Badge>
+  const fetchPosts = async () => {
+    try {
+      setLoading(true); 
+      const res = await getAllPosts(1, 20);
+      setPosts(Array.isArray(res) ? res : res?.data || []);
+    } catch (error) {
+      toast.error("Không thể tải danh sách bài viết!");
+    } finally {
+      setLoading(false);
     }
-  }
+  };
+
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Bạn có chắc muốn xóa bài viết này?")) return;
+    try {
+      await deletePost(id);
+      toast.success("Xóa bài viết thành công!");
+      fetchPosts();
+    } catch (error) {
+      toast.error("Không thể xóa bài viết. Vui lòng thử lại.");
+    }
+  };
+
+  const filtered = posts.filter((p) =>
+    p.title.toLowerCase().includes(query.toLowerCase())
+  );
+  const handleEditClick = (id: string) => {
+    setEditBlogId(id);
+    setOpenEdit(true);
+  };
+
+ 
+  const handleCloseEdit = () => {
+    setOpenEdit(false);
+    setEditBlogId(null);
+  };
 
   return (
-    <Card className="bg-white/10 backdrop-blur-md border-white/20">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-white">
-          <FileText className="w-5 h-5" />
-          Quản lý Blog
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-white/20">
-                <TableHead className="text-white/70">Tiêu đề</TableHead>
-                <TableHead className="text-white/70">Tác giả</TableHead>
-                <TableHead className="text-white/70">Danh mục</TableHead>
-                <TableHead className="text-white/70">Trạng thái</TableHead>
-                <TableHead className="text-white/70">Lượt xem</TableHead>
-                <TableHead className="text-white/70">Bình luận</TableHead>
-                <TableHead className="text-white/70">Ngày tạo</TableHead>
-                <TableHead className="text-white/70">Hành động</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {posts.map((post) => (
-                <TableRow key={post.id} className="border-white/20">
-                  <TableCell className="text-white font-medium max-w-xs truncate">
-                    {post.title}
-                  </TableCell>
-                  <TableCell className="text-white/70">{post.author}</TableCell>
-                  <TableCell className="text-white/70">{post.category}</TableCell>
-                  <TableCell>{getStatusBadge(post.status)}</TableCell>
-                  <TableCell className="text-white/70">{post.views.toLocaleString()}</TableCell>
-                  <TableCell className="text-white/70">{post.comments}</TableCell>
-                  <TableCell className="text-white/70">{post.createdAt}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="ghost" className="text-blue-400 hover:bg-blue-500/10">
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost" className="text-emerald-400 hover:bg-emerald-500/10">
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      {post.status === "pending" && (
-                        <Button size="sm" variant="ghost" className="text-green-400 hover:bg-green-500/10">
-                          <MessageSquare className="w-4 h-4" />
-                        </Button>
-                      )}
-                      <Button size="sm" variant="ghost" className="text-red-400 hover:bg-red-500/10">
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-    </Card>
-  )
+    <>
+      <Card className="bg-white/10 backdrop-blur-md border-white/20">
+        <CardHeader>
+          <div className="flex items-center justify-between gap-4">
+            <CardTitle className="text-white">Quản lý bài viết</CardTitle>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/60" />
+                <Input
+                  placeholder="Tìm theo tiêu đề..."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="pl-9 bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                />
+              </div>
+
+              <Button
+                className="bg-emerald-600 hover:bg-emerald-500"
+                onClick={() => setOpenAdd(true)}
+              >
+                + Thêm bài viết
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent>
+          <div className="overflow-x-auto rounded-lg border border-white/10">
+            <table className="min-w-full text-sm">
+              <thead className="bg-white/5 text-white/70">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium">Tiêu đề</th>
+                
+                  <th className="px-4 py-3 text-left font-medium">Danh mục</th>
+                  <th className="px-4 py-3 text-left font-medium">Thẻ</th>
+                  <th className="px-4 py-3 text-center font-medium">Nổi bật</th>
+                  <th className="px-4 py-3 text-center font-medium">
+                    Trạng thái
+                  </th>
+                  <th className="px-4 py-3 text-center font-medium">
+                    Ngày tạo
+                  </th>
+                  <th className="px-4 py-3 text-center font-medium">
+                    Hành động
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-white/10">
+                {loading ? (
+                  <tr>
+                    <td
+                      colSpan={8}
+                      className="px-4 py-3 text-center text-white/60"
+                    >
+                      Đang tải dữ liệu...
+                    </td>
+                  </tr>
+                ) : filtered.length > 0 ? (
+                  filtered.map((post) => (
+                    <tr key={post._id} className="hover:bg-white/5">
+                      <td className="px-4 py-3 text-white font-medium max-w-xs truncate">
+                        {post.title}
+                      </td>
+                      
+                      <td className="px-4 py-3 text-white/70">
+                        {post.categoryId?.name || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-white/70">
+                        {post.tags?.length
+                          ? post.tags.map((tag: any) => tag.name).join(", ")
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-center text-white/70">
+                        {post.isFeatured ? "⭐ Có" : "Không"}
+                      </td>
+                      <td className="px-4 py-3 text-center text-white/70">
+                        {post.isActive ? "Hoạt động" : "Ẩn"}
+                      </td>
+                      <td className="px-4 py-3 text-center text-white/70">
+                        {new Date(post.createdAt).toLocaleDateString("vi-VN")}
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <div className="flex justify-center gap-2">
+                          <Button
+                            variant="ghost"
+                            onClick={() => {
+                              setSelectedBlogId(post._id);
+                              setIsDetailOpen(true);
+                            }}
+                            className="text-blue-400 hover:bg-white/10"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+
+                          <Button
+                            variant="ghost"
+                            onClick={() => handleEditClick(post._id)}
+                            className="text-emerald-400 hover:bg-white/10"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+
+                          <Button
+                            variant="ghost"
+                            onClick={() => handleDelete(post._id)}
+                            className="text-red-400 hover:bg-red-500/10"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={8}
+                      className="px-4 py-3 text-center text-white/60 italic"
+                    >
+                      {query
+                        ? `Không tìm thấy bài viết nào khớp với "${query}"`
+                        : "Không có bài viết nào."}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+      <BlogDetail
+        open={isDetailOpen}
+        onClose={() => setIsDetailOpen(false)}
+        blogId={selectedBlogId}
+      />
+      <AddPostDialog
+        open={openAdd}
+        onClose={() => setOpenAdd(false)}
+        onSuccess={() => {
+          toast.success("Làm mới danh sách bài viết!");
+          fetchPosts();
+        }}
+      />
+      {openEdit && editBlogId && (
+        <EditBlogForm
+          open={openEdit}
+          postId={editBlogId}
+          onClose={handleCloseEdit}
+          onSuccess={(updatedPost) => {
+            toast.success("Cập nhật bài viết thành công!");
+           
+            setPosts((prev) =>
+              prev.map((p) => (p._id === updatedPost._id ? updatedPost : p))
+            );
+          }}
+        />
+      )}
+    </>
+  );
+ 
 }

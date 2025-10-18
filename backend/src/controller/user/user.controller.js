@@ -104,7 +104,7 @@ module.exports.updateUserRole = async (req, res) => {
         }
 
         // Validate role
-        const validRoles = ['user', 'owner', 'moderator', 'admin'];
+        const validRoles = ['renter', 'owner', 'moderator', 'admin'];
         if (!validRoles.includes(role)) {
             return res.json({
                 code: 400,
@@ -132,4 +132,13 @@ module.exports.updateUserRole = async (req, res) => {
         return res.json({ code: 500, message: "Cập nhật vai trò người dùng thất bại", error: error.message });
     }
 };
+
+// COMPLETED FUNCTIONS:
+// 1. getAllUsers - Get all users with pagination
+// 2. getUserById - Get user by ID
+// 3. getProfile - Get current user profile
+// 4. createUser - Create new user
+// 5. updateUser - Update user
+// 6. deleteUser - Delete user
+// 7. updateUserRole - Update user role with validation
 

@@ -105,3 +105,10 @@ module.exports.uploadUserAvatar = async (req, res) => {
     }
 }
 
+// COMPLETED FUNCTIONS:
+// 1. getProfile - Get user profile information
+// 2. updateProfile - Update user profile (fullName, displayName, bio)
+// 3. updateAvatar - Update user avatar URL
+// 4. changePassword - Change user password with current password validation
+// 5. uploadUserAvatar - Upload user avatar file
+
