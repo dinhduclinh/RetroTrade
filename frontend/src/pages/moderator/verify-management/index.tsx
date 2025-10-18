@@ -15,7 +15,7 @@ export default function VerificationManagementDashboard() {
     "dashboard" | "users" | "requests" | "verification" | "blog"
   >("verification");
   const [activeBlogTab, setActiveBlogTab] = useState<
-    "posts" | "categories" | "comments"
+    "posts" | "categories" | "comments" | "tags"
   >("posts");
 
   const handleBlogTabChange = (tab: "posts" | "categories" | "comments") => {

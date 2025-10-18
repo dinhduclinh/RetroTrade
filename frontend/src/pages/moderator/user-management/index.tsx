@@ -14,10 +14,12 @@ export default function UserManagementDashboard() {
     "dashboard" | "users" | "requests" | "verification" | "blog"
   >("users");
   const [activeBlogTab, setActiveBlogTab] = useState<
-    "posts" | "categories" | "comments"
+    "posts" | "categories" | "comments" | "tags"
   >("posts");
 
-  const handleBlogTabChange = (tab: "posts" | "categories" | "comments") => {
+  const handleBlogTabChange = (
+    tab: "posts" | "categories" | "comments" | "tags"
+  ) => {
     setActiveBlogTab(tab);
     setActiveTab("blog");
   };

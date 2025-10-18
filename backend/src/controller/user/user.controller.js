@@ -104,7 +104,7 @@ module.exports.updateUserRole = async (req, res) => {
         }
 
         // Validate role
-        const validRoles = ['user', 'owner', 'moderator', 'admin'];
+        const validRoles = ['renter', 'owner', 'moderator', 'admin'];
         if (!validRoles.includes(role)) {
             return res.json({
                 code: 400,

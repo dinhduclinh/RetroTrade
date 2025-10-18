@@ -1,45 +1,108 @@
 import instance from "../customizeAPI";
-import api from "../customizeAPI";
 
-export const getAllPosts = async (page: number = 1, limit: number = 10) => {
-  const res = await instance.get(`/post/posts?page=${page}&limit=${limit}`);
-  return await res.json();
+const handleResponse = async (res: Response) => {
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    return {
+      error: true,
+      message: data.message || `HTTP error! status: ${res.status}`,
+    };
+  }
+
+  return data;
 };
+
+
+
+export const getAllPosts = async (page = 1, limit = 10) => {
+  const res = await instance.get(`/post/posts?page=${page}&limit=${limit}`);
+  return handleResponse(res);
+};
+
 
 export const getBlogDetail = async (id: string) => {
   const res = await instance.get(`/post/posts/${id}`);
-  return await res.json();
+  return handleResponse(res);
 };
+
 
 export const getAllCategories = async () => {
   const res = await instance.get(`/post/categories`);
-  return await res.json();
+  return handleResponse(res);
 };
+
 
 export const getAllTags = async () => {
   const res = await instance.get(`/post/tags`);
-  return await res.json();
+  return handleResponse(res);
 };
 
-export const getPostsByCategory = async (
-  id: string,
-  page: number = 1,
-  limit: number = 6
-) => {
-  const res = await api.get(
+
+export const getPostsByCategory = async (id: string, page = 1, limit = 6) => {
+  const res = await instance.get(
     `/post/posts/category/${id}?page=${page}&limit=${limit}`
   );
-  return await res.json();
+  return handleResponse(res);
 };
 
 
-export const getPostsByTag = async (
-  id: string,
-  page: number = 1,
-  limit: number = 6
-) => {
-  const res = await api.get(
+export const getPostsByTag = async (id: string, page = 1, limit = 6) => {
+  const res = await instance.get(
     `/post/posts/tag/${id}?page=${page}&limit=${limit}`
   );
-  return await res.json();
+  return handleResponse(res);
+};
+
+
+export const createTag = async (data: any) => {
+  const res = await instance.post(`/post/tags`, data);
+  return handleResponse(res);
+};
+
+export const updateTag = async (id: string, data: any) => {
+  const res = await instance.put(`/post/tags/${id}`, data);
+  return handleResponse(res);
+};
+
+export const deleteTag = async (id: string) => {
+  const res = await instance.delete(`/post/tags/${id}`);
+  return handleResponse(res);
+};
+
+
+export const createCategory = async (data: any) => {
+  const res = await instance.post(`/post/categories`, data);
+  return handleResponse(res);
+};
+
+export const updateCategory = async (id: string, data: any) => {
+  const res = await instance.put(`/post/categories/${id}`, data);
+  return handleResponse(res);
+};
+
+export const deleteCategory = async (id: string) => {
+  const res = await instance.delete(`/post/categories/${id}`);
+  return handleResponse(res);
+};
+
+export const createPost = async (formData: FormData) => {
+  const res = await instance.post(`/post/posts`, formData);
+  return handleResponse(res);
+};
+
+
+export const updatePost = async (id: string, formData: FormData) => {
+  const res = await instance.put(`/post/posts/${id}`, formData);
+  return handleResponse(res);
+};
+
+export const deletePost = async (id: string) => {
+  const res = await instance.delete(`/post/posts/${id}`);
+  return handleResponse(res);
+};
+
+export const getAllComment = async () => {
+  const res = await instance.get(`/post/comments`);
+  return handleResponse(res);
 };

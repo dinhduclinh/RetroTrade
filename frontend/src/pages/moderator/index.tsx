@@ -32,73 +32,92 @@ interface JwtPayload {
 }
 
 export default function ModeratorDashboard() {
-  console.log("🚀 ModeratorDashboard component loaded at:", new Date().toISOString())
-  
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const { accessToken } = useSelector((state: RootState) => state.auth)
-  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "requests" | "verification" | "blog">("dashboard")
-  const [activeBlogTab, setActiveBlogTab] = useState<"posts" | "categories" | "comments" | "tags">("posts")
-  const [isAuthorized, setIsAuthorized] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
+  console.log(
+    "🚀 ModeratorDashboard component loaded at:",
+    new Date().toISOString()
+  );
 
-  const handleTabChange = (tab: "dashboard" | "users" | "requests" | "verification" | "blog") => {
-    console.log("Moderator handleTabChange called with:", tab)
-    setActiveTab(tab)
-    console.log("State updated: activeTab=", tab)
-  }
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { accessToken } = useSelector((state: RootState) => state.auth);
+  const [activeTab, setActiveTab] = useState<
+    "dashboard" | "users" | "requests" | "verification" | "blog"
+  >("dashboard");
+  const [activeBlogTab, setActiveBlogTab] = useState<
+    "posts" | "categories" | "comments" | "tags"
+  >("posts");
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const handleTabChange = (
+    tab: "dashboard" | "users" | "requests" | "verification" | "blog"
+  ) => {
+    console.log("Moderator handleTabChange called with:", tab);
+    setActiveTab(tab);
+    console.log("State updated: activeTab=", tab);
+  };
 
   // Debug: Track state changes
   useEffect(() => {
-    console.log("State changed - activeTab:", activeTab, "activeBlogTab:", activeBlogTab)
-  }, [activeTab, activeBlogTab])
+    console.log(
+      "State changed - activeTab:",
+      activeTab,
+      "activeBlogTab:",
+      activeBlogTab
+    );
+  }, [activeTab, activeBlogTab]);
 
   // Check URL query parameter for tab navigation
   useEffect(() => {
-    const tab = searchParams.get('tab')
-    console.log("URL query parameter 'tab':", tab)
-    
-    if (tab && ['dashboard', 'users', 'requests', 'verification', 'blog'].includes(tab)) {
-      console.log("Setting activeTab from URL query parameter:", tab)
-      setActiveTab(tab as "dashboard" | "users" | "requests" | "verification" | "blog")
-    }
-  }, [searchParams])
+    const tab = searchParams.get("tab");
+    console.log("URL query parameter 'tab':", tab);
 
-  // Check authorization on mount
+    if (
+      tab &&
+      ["dashboard", "users", "requests", "verification", "blog"].includes(tab)
+    ) {
+      console.log("Setting activeTab from URL query parameter:", tab);
+      setActiveTab(
+        tab as "dashboard" | "users" | "requests" | "verification" | "blog"
+      );
+    }
+  }, [searchParams]);
+
+
   useEffect(() => {
     if (!accessToken) {
-      toast.error("Bạn cần đăng nhập để truy cập trang này")
-      router.push("/auth/login")
-      return
+      toast.error("Bạn cần đăng nhập để truy cập trang này");
+      router.push("/auth/login");
+      return;
     }
 
     try {
-      const decoded = jwtDecode<JwtPayload>(accessToken)
-      
+      const decoded = jwtDecode<JwtPayload>(accessToken);
+
       // Check if token is expired
-      const currentTime = Date.now() / 1000
+      const currentTime = Date.now() / 1000;
       if (decoded.exp && decoded.exp < currentTime) {
-        toast.error("Phiên đăng nhập đã hết hạn")
-        router.push("/auth/login")
-        return
+        toast.error("Phiên đăng nhập đã hết hạn");
+        router.push("/auth/login");
+        return;
       }
 
       // Check if user has moderator role
       if (decoded.role !== "moderator" && decoded.role !== "admin") {
-        toast.error("Bạn không có quyền truy cập trang moderator")
-        router.push("/home")
-        return
+        toast.error("Bạn không có quyền truy cập trang moderator");
+        router.push("/home");
+        return;
       }
 
-      setIsAuthorized(true)
+      setIsAuthorized(true);
     } catch (error) {
-      console.error("Token decode error:", error)
-      toast.error("Token không hợp lệ")
-      router.push("/auth/login")
+      console.error("Token decode error:", error);
+      toast.error("Token không hợp lệ");
+      router.push("/auth/login");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }, [accessToken, router])
+  }, [accessToken, router]);
 
   // Show loading while checking authorization
   if (isLoading) {
@@ -109,29 +128,21 @@ export default function ModeratorDashboard() {
           <p className="text-lg">Đang kiểm tra quyền truy cập...</p>
         </div>
       </div>
-    )
+    );
   }
 
   // Don't render if not authorized
   if (!isAuthorized) {
-    return null
+    return null;
   }
 
   const handleBlogTabChange = (tab: "posts" | "categories" | "comments" | "tags") => {
-    console.log("Moderator handleBlogTabChange called with:", tab)
     setActiveBlogTab(tab)
     setActiveTab("blog")
-    console.log("State updated: activeTab=blog, activeBlogTab=", tab)
   }
 
   const renderContent = () => {
-    console.log("=== RENDER DEBUG ===")
-    console.log("activeTab:", activeTab)
-    console.log("activeBlogTab:", activeBlogTab)
-    console.log("Current time:", new Date().toISOString())
-    
     if (activeTab === "blog") {
-      console.log("Rendering blog content for tab:", activeBlogTab)
       switch (activeBlogTab) {
         case "posts":
           return <BlogManagementTable />;
@@ -145,23 +156,17 @@ export default function ModeratorDashboard() {
           return <BlogManagementTable />;
       }
     }
-    
-    console.log("Rendering main content for tab:", activeTab)
+
     switch (activeTab) {
       case "dashboard":
-        console.log("✅ Rendering DashboardOverview")
         return <DashboardOverview />
       case "users":
-        console.log("✅ Rendering UserManagementTable")
         return <UserManagementTable />
       case "requests":
-        console.log("✅ Rendering RequestManagementTable")
         return <RequestManagementTable />
       case "verification":
-        console.log("✅ Rendering VerificationQueue")
         return <VerificationQueue />
       default:
-        console.log("⚠️ Rendering default DashboardOverview")
         return <DashboardOverview />
     }
   };
@@ -303,8 +308,8 @@ function DashboardOverview() {
   const recentActivities = [
     {
       id: 1,
-      type: "user",
-      action: "Người dùng mới đăng ký",
+      type: "renter",
+      action: "Người thuê mới đăng ký",
       user: "Nguyễn Văn A",
       time: "5 phút trước",
       status: "success",
@@ -393,15 +398,14 @@ function DashboardOverview() {
                 className="flex items-center gap-4 p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors duration-200"
               >
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    activity.status === "success"
-                      ? "bg-green-500/20 text-green-400"
-                      : activity.status === "warning"
+                  className={`w-10 h-10 rounded-full flex items-center justify-center ${activity.status === "success"
+                    ? "bg-green-500/20 text-green-400"
+                    : activity.status === "warning"
                       ? "bg-orange-500/20 text-orange-400"
                       : "bg-blue-500/20 text-blue-400"
-                  }`}
+                    }`}
                 >
-                  {activity.type === "user" && <Users className="w-5 h-5" />}
+                  {activity.type === "renter" && <Users className="w-5 h-5" />}
                   {activity.type === "post" && <FileText className="w-5 h-5" />}
                   {activity.type === "report" && (
                     <AlertTriangle className="w-5 h-5" />

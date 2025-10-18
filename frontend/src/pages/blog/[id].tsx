@@ -11,7 +11,7 @@ import {
   getPostsByTag,
 } from "@/services/auth/blog.api";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, ArrowLeft } from "lucide-react";
 
 export default function BlogDetailPage() {
   const router = useRouter();
@@ -94,6 +94,14 @@ export default function BlogDetailPage() {
     <div className="max-w-6xl mx-auto py-10 px-4 flex flex-col md:flex-row gap-8">
      
       <div className="flex-1">
+        {/* Nút quay lại */}
+        <button
+          onClick={() => router.back()}
+          className="flex items-center gap-2 text-gray-600 hover:text-blue-600 mb-4 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span className="text-sm">Quay lại</span>
+        </button>
        
         <nav className="text-sm text-gray-500 mb-4 flex items-center flex-wrap">
           <Link href="/" className="hover:text-blue-600">
@@ -110,32 +118,47 @@ export default function BlogDetailPage() {
         </nav>
 
      
-        <h1 className="text-3xl font-bold mb-3">{post.title}</h1>
+        <h1 className="text-3xl font-bold mb-3 text-black">{post.title}</h1>
 
       
         <div className="flex items-center gap-2 text-gray-500 text-sm mb-5">
-          <img
-            src="/avatar-default.png"
-            alt="avatar"
-            className="w-6 h-6 rounded-full"
-          />
-          <span>{post.authorId?.name || "Ẩn danh"}</span>•
+          {post.authorId?.avatar ? (
+            <img
+              src={post.authorId.avatar}
+              alt="avatar"
+              className="w-6 h-6 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-semibold">
+              {post.authorId?.email ? post.authorId.email.charAt(0).toUpperCase() : "?"}
+            </div>
+          )}
+          <span>{post.authorId?.fullName || "Ẩn danh"}</span>•
           <span>{new Date(post.createdAt).toLocaleDateString("vi-VN")}</span>•
           <span>5 phút đọc</span>
         </div>
 
        
-        <img
-          src={post.thumbnail || "/placeholder.jpg"}
-          alt={post.title}
-          className="rounded-xl mb-2 w-full object-cover"
-        />
+        {post.thumbnail ? (
+          <img
+            src={post.thumbnail}
+            alt={post.title}
+            className="rounded-xl mb-2 w-full object-cover"
+          />
+        ) : (
+          <div className="rounded-xl mb-2 w-full h-64 bg-gray-200 flex items-center justify-center">
+            <div className="text-center text-gray-500">
+              <div className="text-4xl mb-2">📝</div>
+              <div className="text-sm">Không có hình minh họa</div>
+            </div>
+          </div>
+        )}
         <p className="text-sm text-gray-500 mb-6 text-center">
           {post.caption || "Hình minh họa cho bài viết"}
         </p>
 
         <div
-          className="prose prose-blue max-w-none"
+          className="prose prose-blue max-w-none text-black"
           dangerouslySetInnerHTML={{ __html: post.content }}
         />
       </div>
@@ -145,7 +168,7 @@ export default function BlogDetailPage() {
        
         <div className="bg-white shadow rounded-2xl p-5">
           <div className="flex justify-between items-center mb-3">
-            <h3 className="font-semibold">
+            <h3 className="font-semibold text-black">
               {filterType
                 ? `Bài viết theo ${
                     filterType === "category" ? "danh mục" : "tag"
@@ -170,13 +193,19 @@ export default function BlogDetailPage() {
                   className="flex gap-3 items-center cursor-pointer hover:opacity-80"
                   onClick={() => router.push(`/blog/${p._id}`)}
                 >
-                  <img
-                    src={p.thumbnail || "/placeholder.jpg"}
-                    alt={p.title}
-                    className="w-14 h-14 rounded-lg object-cover"
-                  />
+                  {p.thumbnail ? (
+                    <img
+                      src={p.thumbnail}
+                      alt={p.title}
+                      className="w-14 h-14 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div className="w-14 h-14 bg-gray-200 rounded-lg flex items-center justify-center">
+                      <span className="text-lg">📝</span>
+                    </div>
+                  )}
                   <div className="text-sm">
-                    <p className="font-medium leading-snug">{p.title}</p>
+                    <p className="font-medium leading-snug text-black">{p.title}</p>
                     <p className="text-xs text-gray-500">
                       {new Date(p.createdAt).toLocaleDateString("vi-VN")}
                     </p>
@@ -189,7 +218,7 @@ export default function BlogDetailPage() {
 
         {/* Danh mục */}
         <div className="bg-white shadow rounded-2xl p-5">
-          <h3 className="font-semibold mb-3">Danh mục</h3>
+          <h3 className="font-semibold mb-3 text-black">Danh mục</h3>
           <ul className="space-y-2 text-gray-700">
             {categories.map((c) => (
               <li
@@ -206,7 +235,7 @@ export default function BlogDetailPage() {
 
         {/* Tag phổ biến */}
         <div className="bg-white shadow rounded-2xl p-5">
-          <h3 className="font-semibold mb-3">Tag phổ biến</h3>
+          <h3 className="font-semibold mb-3 text-black">Tag phổ biến</h3>
           <div className="flex flex-wrap gap-2">
             {tags.map((t) => (
               <span

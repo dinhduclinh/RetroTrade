@@ -7,117 +7,112 @@ let isRefreshing = false;
 let failedQueue: Array<{ resolve: (token: string) => void; reject: (error: Error) => void }> = [];
 
 const processQueue = (error: Error | null, token: string | null = null) => {
-    failedQueue.forEach(prom => {
-        if (error) {
-            prom.reject(error);
-        } else {
-            prom.resolve(token!);
-        }
-    });
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token!);
+    }
+  });
 
-    failedQueue = [];
+  failedQueue = [];
 };
 
 // Extended RequestInit interface to include _retry property
 interface ExtendedRequestInit extends RequestInit {
-    _retry?: boolean;
+  _retry?: boolean;
 }
 
 // Custom fetch wrapper with interceptors functionality
 const customFetch = async (url: string, options: ExtendedRequestInit = {}): Promise<Response> => {
-    // Request interceptor - add auth token
-    const token = store.getState().auth?.accessToken;
-    if (token) {
-        options.headers = {
-            ...options.headers,
-            'Authorization': `Bearer ${token}`,
-        };
-    }
+  // Request interceptor - add auth token
+  const token = store.getState().auth?.accessToken;
+  if (token) {
+    options.headers = {
+      ...options.headers,
+      'Authorization': `Bearer ${token}`,
+    };
+  }
 
-    // Add default headers
-    if (!(options.body instanceof FormData)) {
-     options.headers = {
-       "Content-Type": "application/json",
-       ...options.headers,
-     };
-   }
+  // Add default headers - DON'T set Content-Type for FormData
+  if (!(options.body instanceof FormData)) {
+    options.headers = {
+      "Content-Type": "application/json",
+      ...options.headers,
+    };
+  }
 
-    console.log('Making request to:', url, 'with options:', options);
+  try {
+    const response = await fetch(url, options);
 
-    try {
-       
-        const response = await fetch(url, options);
-        console.log('Response status:', response.status, 'for URL:', url);
+    // Response interceptor - handle token refresh
+    if (!response.ok && [401, 403].includes(response.status)) {
+      const originalRequest = { url, options };
 
-        // Response interceptor - handle token refresh
-        if (!response.ok && [401, 403].includes(response.status)) {
-        const originalRequest = { url, options };
-        
-        if (!originalRequest.options._retry) {
-            originalRequest.options._retry = true;
-            const { refreshToken } = store.getState().auth || {};
-            
-            if (!refreshToken) {
-                store.dispatch(logout());
-                throw new Error('No refresh token available');
-            }
+      if (!originalRequest.options._retry) {
+        originalRequest.options._retry = true;
+        const { refreshToken } = store.getState().auth || {};
 
-            if (isRefreshing) {
-                return new Promise((resolve, reject) => {
-                    failedQueue.push({ resolve, reject });
-                })
-                    .then(token => {
-                        originalRequest.options.headers = {
-                            ...originalRequest.options.headers,
-                            'Authorization': 'Bearer ' + token,
-                        };
-                        return customFetch(originalRequest.url, originalRequest.options);
-                    })
-                    .catch(err => Promise.reject(err));
-            }
-
-            isRefreshing = true;
-
-            try {
-                const refreshResponse = await fetch(`${BASE_URL}/auth/refresh-token`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ refreshToken }),
-                });
-
-                if (!refreshResponse.ok) {
-                    throw new Error('Token refresh failed');
-                }
-
-                const data = await refreshResponse.json();
-                const { accessToken } = data;
-
-                store.dispatch(login({ accessToken, refreshToken }));
-                processQueue(null, accessToken);
-                
-                originalRequest.options.headers = {
-                    ...originalRequest.options.headers,
-                    'Authorization': 'Bearer ' + accessToken,
-                };
-                
-                return customFetch(originalRequest.url, originalRequest.options);
-            } catch (err) {
-                processQueue(err as Error, null);
-                store.dispatch(logout());
-                throw err;
-            } finally {
-                isRefreshing = false;
-            }
+        if (!refreshToken) {
+          store.dispatch(logout());
+          throw new Error('No refresh token available');
         }
+
+        if (isRefreshing) {
+          return new Promise((resolve, reject) => {
+            failedQueue.push({ resolve, reject });
+          })
+            .then(token => {
+              originalRequest.options.headers = {
+                ...originalRequest.options.headers,
+                'Authorization': 'Bearer ' + token,
+              };
+              return customFetch(originalRequest.url, originalRequest.options);
+            })
+            .catch(err => Promise.reject(err));
+        }
+
+        isRefreshing = true;
+
+        try {
+          const refreshResponse = await fetch(`${BASE_URL}/auth/refresh-token`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ refreshToken }),
+          });
+
+          if (!refreshResponse.ok) {
+            throw new Error('Token refresh failed');
+          }
+
+          const data = await refreshResponse.json();
+          const { accessToken } = data;
+
+          store.dispatch(login({ accessToken, refreshToken }));
+          processQueue(null, accessToken);
+
+          originalRequest.options.headers = {
+            ...originalRequest.options.headers,
+            'Authorization': 'Bearer ' + accessToken,
+          };
+
+          return customFetch(originalRequest.url, originalRequest.options);
+        } catch (err) {
+          processQueue(err as Error, null);
+          store.dispatch(logout());
+          throw err;
+        } finally {
+          isRefreshing = false;
+        }
+      }
     }
 
     return response;
-    } catch (error) {
-        console.error('Fetch error for URL:', url, 'Error:', error);
-        throw error;
-    }
+  } catch (error) {
+    throw error;
+  }
 };
 
 
@@ -129,7 +124,7 @@ const api = {
     const isFormData = data instanceof FormData;
 
     const headers = isFormData
-      ? options.headers 
+      ? options.headers
       : { "Content-Type": "application/json", ...options.headers };
 
     const body = isFormData ? data : data ? JSON.stringify(data) : undefined;
@@ -142,16 +137,22 @@ const api = {
     });
   },
 
-  put: (url: string, data?: unknown, options: ExtendedRequestInit = {}) =>
-    customFetch(`${BASE_URL}${url}`, {
+  put: (url: string, data?: unknown, options: ExtendedRequestInit = {}) => {
+    const isFormData = data instanceof FormData;
+
+    const headers = isFormData
+      ? options.headers
+      : { "Content-Type": "application/json", ...options.headers };
+
+    const body = isFormData ? data : data ? JSON.stringify(data) : undefined;
+
+    return customFetch(`${BASE_URL}${url}`, {
       ...options,
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-      body: data ? JSON.stringify(data) : undefined,
-    }),
+      headers,
+      body,
+    });
+  },
 
   delete: (url: string, options: ExtendedRequestInit = {}) =>
     customFetch(`${BASE_URL}${url}`, { ...options, method: "DELETE" }),

@@ -2,6 +2,7 @@ const Post = require("../../models/Blog/Post.model");
 const PostCategory = require("../../models/Blog/PostCategory.model");
 const Tag = require("../../models/Blog/Tag.model");
 const Comment = require("../../models/Blog/Comment.model");
+const { uploadToCloudinary } = require("../../middleware/upload.middleware");
 
 const getAllPosts = async (req, res) => {
   try {
@@ -22,16 +23,16 @@ const getBlogDetail = async (req, res) => {
     const { id } = req.params;
 
     const post = await Post.findOne({ _id: id, isActive: true })
-      .populate("authorId", "name email avatar")
-      .populate("categoryId", "name description") 
-      .populate("tags", "name") 
-      .lean(); 
+      .populate("authorId", "fullName email avatar")
+      .populate("categoryId", "name description")
+      .populate("tags", "name")
+      .lean();
 
     if (!post) {
       return res.status(404).json({ message: "Bài viết không tồn tại" });
     }
 
- 
+
     // const comments = await Comment.find({
     //   postId: post._id,
     //   isDeleted: false,
@@ -41,7 +42,7 @@ const getBlogDetail = async (req, res) => {
     //   .sort({ createdAt: -1 })
     //   .lean();
 
-  
+
     const blogDetail = {
       ...post,
       // comments,
@@ -57,26 +58,89 @@ const getBlogDetail = async (req, res) => {
 };
 
 
-
-
 const createPost = async (req, res) => {
   try {
-    const post = await Post.create(req.body);
+    console.log("👉 BODY:", req.body);
+    console.log("👉 FILES:", req.files);
+    console.log("👉 USER:", req.user);
+    const authorId = req.user._id;
+
+    if (typeof req.body.tags === "string") {
+      req.body.tags = JSON.parse(req.body.tags);
+    }
+    let thumbnailUrl = null;
+    if (req.files && req.files.length > 0) {
+      const uploadedImages = await uploadToCloudinary(req.files);
+      thumbnailUrl = uploadedImages[0].Url;
+    }
+
+    const post = await Post.create({
+      ...req.body,
+      thumbnail: thumbnailUrl,
+      authorId,
+    });
+
     res.status(201).json(post);
   } catch (error) {
-    res.status(400).json({ message: "Failed to create post", error });
+    console.error("Error creating post:", error);
+    res
+      .status(400)
+      .json({ message: "Failed to create post", error: error.message });
   }
 };
 
 const updatePost = async (req, res) => {
   try {
-    const post = await Post.findByIdAndUpdate(req.params.id, req.body, {
+    const { id: postId } = req.params;
+    const { _id: userId, role: userRole } = req.user;
+
+    const post = await Post.findById(postId);
+    if (!post)
+      return res.status(404).json({ message: "Bài viết không tồn tại" });
+
+    // Cho phép admin và moderator edit tất cả posts, hoặc author edit post của mình
+    if (post.authorId.toString() !== userId && userRole !== "admin" && userRole !== "moderator") {
+      return res.status(403).json({ message: "Không có quyền truy cập" });
+    }
+    if (typeof req.body.tags === "string") {
+      try {
+        req.body.tags = JSON.parse(req.body.tags);
+      } catch (err) {
+        return res.status(400).json({ message: "Định dạng tags không hợp lệ" });
+      }
+    }
+
+    if (req.files?.length > 0) {
+      const uploadedImages = await uploadToCloudinary(req.files);
+      req.body.thumbnail = uploadedImages[0].Url;
+    }
+
+    const allowedFields = [
+      "title",
+      "shortDescription",
+      "content",
+      "thumbnail",
+      "categoryId",
+      "tags",
+      "isFeatured",
+      "isActive",
+    ];
+    const updateData = Object.fromEntries(
+      Object.entries(req.body).filter(([key]) => allowedFields.includes(key))
+    );
+
+    const updatedPost = await Post.findByIdAndUpdate(postId, updateData, {
       new: true,
-    });
-    if (!post) return res.status(404).json({ message: "Post not found" });
-    res.json(post);
+    })
+      .populate( "authorId", "fullName email avatar")
+      .populate("categoryId", "name description")
+      .populate("tags", "name");
+
+    res.status(200).json(updatedPost);
   } catch (error) {
-    res.status(400).json({ message: "Failed to update post", error });
+    res
+      .status(500)
+      .json({ message: "Cập nhật bài viết thất bại", error: error.message });
   }
 };
 
