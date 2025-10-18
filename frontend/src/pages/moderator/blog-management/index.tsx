@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { BlogSidebar } from "@/components/ui/blog/blog-sidebar";
-import { BlogHeader } from "@/components/ui/blog/blog-header";
-import { BlogStats } from "@/components/ui/blog/blog-stats";
-import { PostManagementTable } from "@/components/ui/post-management-table";
-import { CategoryManagementTable } from "@/components/ui/blog/category-management-table";
-import { CommentManagementTable } from "@/components/ui/blog/comment-management-table";
-import  { TagManagementTable } from "@/components/ui/blog/tag-management";
+import { BlogSidebar } from "@/components/ui/moderator/blog/blog-sidebar";
+import { BlogHeader } from "@/components/ui/moderator/blog/blog-header";
+import { BlogStats } from "@/components/ui/moderator/blog/blog-stats";
+import { BlogManagementTable } from "@/components/ui/moderator/blog/blog-management-table";
+import { CategoryManagementTable } from "@/components/ui/moderator/blog/category-management-table";
+import { CommentManagementTable } from "@/components/ui/moderator/blog/comment-management-table";
+import  { TagManagementTable } from "@/components/ui/moderator/blog/tag-management";
 
 
 export default function BlogManagementDashboard() {
@@ -33,7 +33,7 @@ export default function BlogManagementDashboard() {
             <BlogStats />
 
             <div className="mt-8">
-              {activeTab === "posts" && <PostManagementTable />}
+              {activeTab === "posts" && <BlogManagementTable />}
               {activeTab === "categories" && <CategoryManagementTable />}
               {activeTab === "comments" && <CommentManagementTable />}
               {activeTab === "tags" && <TagManagementTable/>}

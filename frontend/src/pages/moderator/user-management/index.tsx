@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { ModeratorSidebar } from "@/components/ui/moderator-sidebar";
-import { ModeratorHeader } from "@/components/ui/moderator-header";
-import { UserManagementTable } from "@/components/ui/user-management-table";
-import { PostManagementTable } from "@/components/ui/post-management-table";
-import { CategoryManagementTable } from "@/components/ui/category-management-table";
-import { CommentManagementTable } from "@/components/ui/comment-management-table";
-import { TagManagementTable } from "@/components/ui/tag-management-table";
+import { ModeratorSidebar } from "@/components/ui/moderator/moderator-sidebar";
+import { ModeratorHeader } from "@/components/ui/moderator/moderator-header";
+import { ModeratorStats } from "@/components/ui/moderator/moderator-stats";
+import { UserManagementTable } from "@/components/ui/moderator/user-management-table";
+import { BlogManagementTable } from "@/components/ui/moderator/blog/blog-management-table";
+import { CategoryManagementTable } from "@/components/ui/moderator/blog/category-management-table";
+import { CommentManagementTable } from "@/components/ui/moderator/blog/comment-management-table";
 
 export default function UserManagementDashboard() {
   const [activeTab, setActiveTab] = useState<
@@ -28,15 +28,13 @@ export default function UserManagementDashboard() {
     if (activeTab === "blog") {
       switch (activeBlogTab) {
         case "posts":
-          return <PostManagementTable />;
+          return <BlogManagementTable />;
         case "categories":
           return <CategoryManagementTable />;
         case "comments":
           return <CommentManagementTable />;
-        case "tags":
-          return <TagManagementTable />;
         default:
-          return <PostManagementTable />;
+          return <BlogManagementTable />;
       }
     }
     return <UserManagementTable />;
@@ -71,7 +69,7 @@ export default function UserManagementDashboard() {
           return "Tạo, chỉnh sửa và quản lý các bài viết trong hệ thống";
       }
     }
-    return "Xem thông tin và quản lý quyền người dùng trong hệ thống";
+    return "Theo dõi và quản lý tài khoản người dùng trong hệ thống";
   };
 
   return (

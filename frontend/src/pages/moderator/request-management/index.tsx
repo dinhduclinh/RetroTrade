@@ -1,37 +1,39 @@
 "use client";
 
-import { useState } from "react"
-import { ModeratorSidebar } from "@/components/ui/moderator-sidebar"
-import { ModeratorHeader } from "@/components/ui/moderator-header"
-import { RequestManagementTable } from "@/components/ui/request-management-table"
-import { TagManagementTable } from "@/components/ui/tag-management-table"
+import { useState } from "react";
+import { ModeratorSidebar } from "@/components/ui/moderator/moderator-sidebar";
+import { ModeratorHeader } from "@/components/ui/moderator/moderator-header";
+import { ModeratorStats } from "@/components/ui/moderator/moderator-stats";
+import { RequestManagementTable } from "@/components/ui/moderator/request-management-table";
 
-import { PostManagementTable } from "@/components/ui/post-management-table";
-import { CategoryManagementTable } from "@/components/ui/blog/category-management-table";
-import { CommentManagementTable } from "@/components/ui/blog/comment-management-table";
+import { BlogManagementTable } from "@/components/ui/moderator/blog/blog-management-table";
+import { CategoryManagementTable } from "@/components/ui/moderator/blog/category-management-table";
+import { CommentManagementTable } from "@/components/ui/moderator/blog/comment-management-table";
 
 export default function RequestManagementDashboard() {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "users" | "requests" | "verification" | "blog">("requests")
-  const [activeBlogTab, setActiveBlogTab] = useState<"posts" | "categories" | "comments" | "tags">("posts")
+  const [activeTab, setActiveTab] = useState<
+    "dashboard" | "users" | "requests" | "verification" | "blog"
+  >("requests");
+  const [activeBlogTab, setActiveBlogTab] = useState<
+    "posts" | "categories" | "comments"
+  >("posts");
 
-  const handleBlogTabChange = (tab: "posts" | "categories" | "comments" | "tags") => {
-    setActiveBlogTab(tab)
-    setActiveTab("blog")
-  }
+  const handleBlogTabChange = (tab: "posts" | "categories" | "comments") => {
+    setActiveBlogTab(tab);
+    setActiveTab("blog");
+  };
 
   const renderContent = () => {
     if (activeTab === "blog") {
       switch (activeBlogTab) {
         case "posts":
-          return <PostManagementTable />;
+          return <BlogManagementTable />;
         case "categories":
           return <CategoryManagementTable />;
         case "comments":
-          return <CommentManagementTable />
-        case "tags":
-          return <TagManagementTable />
+          return <CommentManagementTable />;
         default:
-          return <PostManagementTable />;
+          return <BlogManagementTable />;
       }
     }
     return <RequestManagementTable />;

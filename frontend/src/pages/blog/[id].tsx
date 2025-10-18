@@ -119,7 +119,7 @@ export default function BlogDetailPage() {
             alt="avatar"
             className="w-6 h-6 rounded-full"
           />
-          <span>{post.authorId?.name || "Ẩn danh"}</span>•
+          <span>{post.authorId?.fullName || "Ẩn danh"}</span>•
           <span>{new Date(post.createdAt).toLocaleDateString("vi-VN")}</span>•
           <span>5 phút đọc</span>
         </div>

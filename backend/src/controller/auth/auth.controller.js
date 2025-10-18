@@ -40,12 +40,16 @@ module.exports.login = async (req, res) => {
             });
         }
 
-        const accessToken = jwt.sign(
-          { _id: user._id, email: user.email, fullName: user.fullName },
-          process.env.TOKEN_SECRET,
-          { expiresIn: "7d" }
-        );
-        const refreshToken = jwt.sign({ email: user.email }, process.env.REFRESH_TOKEN_SECRET, { expiresIn: "7d" });
+        const dataToken = {
+            _id: user._id,
+            email: user.email,
+            userGuid: user.userGuid,
+            avatarUrl: user.avatarUrl,
+            fullName: user.fullName,
+            role: user.role
+        };
+        const accessToken = jwt.sign(dataToken, process.env.TOKEN_SECRET, { expiresIn: "7d" });
+        const refreshToken = jwt.sign(dataToken, process.env.REFRESH_TOKEN_SECRET, { expiresIn: "7d" });
 
         await User.findOneAndUpdate({ email: user.email }, { re_token: refreshToken }, { new: true });
 
@@ -85,6 +89,7 @@ module.exports.loginWithGoogle = async (req, res) => {
             delete existingUser.passwordSalt;
         }
         const dataToken = {
+            _id: existingUser._id,
             email: existingUser.email,
             userGuid: existingUser.userGuid,
             avatarUrl: existingUser.avatarUrl,
@@ -119,6 +124,7 @@ module.exports.loginWithFacebook = async (req, res) => {
             delete existingUser.passwordSalt;
         }
         const dataToken = {
+            _id: existingUser._id,
             email: existingUser.email,
             userGuid: existingUser.userGuid,
             avatarUrl: existingUser.avatarUrl,
@@ -558,11 +564,13 @@ module.exports.refreshToken = async (req, res) => {
         jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err) => {
             if (err) return res.json({ code: 403, message: "Token expired or invalid" });
 
-            const newAccessToken = jwt.sign({ 
-                email: user.email, 
+            const newAccessToken = jwt.sign({
+                _id: user._id,
+                email: user.email,
                 userGuid: user.userGuid,
                 avatarUrl: user.avatarUrl,
-                role: user.role 
+                fullName: user.fullName,
+                role: user.role
             }, process.env.TOKEN_SECRET, {
                 expiresIn: "15m",
             });

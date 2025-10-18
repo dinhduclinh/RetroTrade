@@ -1,31 +1,23 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useSelector } from "react-redux";
-import { RootState } from "@/store/redux_store";
-import { jwtDecode } from "jwt-decode";
-import { toast } from "sonner";
-import { ModeratorSidebar } from "@/components/ui/moderator-sidebar";
-import { ModeratorHeader } from "@/components/ui/moderator-header";
-import { ModeratorStats } from "@/components/ui/moderator-stats";
-import { UserManagementTable } from "@/components/ui/user-management-table";
-import { RequestManagementTable } from "@/components/ui/request-management-table";
-import { VerificationQueue } from "@/components/ui/verification-queue";
-import { PostManagementTable } from "@/components/ui/post-management-table";
-import { CategoryManagementTable } from "@/components/ui/blog/category-management-table";
-import { CommentManagementTable } from "@/components/ui/blog/comment-management-table";
-import { TagManagementTable } from "@/components/ui/tag-management-table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  BarChart3,
-  TrendingUp,
-  Users,
-  FileText,
-  Shield,
-  AlertTriangle,
-  Activity,
-} from "lucide-react";
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useSelector } from "react-redux"
+import { RootState } from "@/store/redux_store"
+import { jwtDecode } from "jwt-decode"
+import { toast } from "sonner"
+import { ModeratorSidebar } from "@/components/ui/moderator/moderator-sidebar"
+import { ModeratorHeader } from "@/components/ui/moderator/moderator-header"
+import { ModeratorStats } from "@/components/ui/moderator/moderator-stats"
+import { UserManagementTable } from "@/components/ui/moderator/user-management-table"
+import { RequestManagementTable } from "@/components/ui/moderator/request-management-table"
+import { VerificationQueue } from "@/components/ui/moderator/verification-queue"
+import { BlogManagementTable } from "@/components/ui/moderator/blog/blog-management-table"
+import { CategoryManagementTable } from "@/components/ui/moderator/blog/category-management-table"
+import { CommentManagementTable } from "@/components/ui/moderator/blog/comment-management-table"
+import { TagManagementTable } from "@/components/ui/moderator/blog/tag-management"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/common/card"
+import { BarChart3, TrendingUp, Users, FileText, Shield, AlertTriangle, Activity } from "lucide-react"
 
 // JWT token payload interface
 interface JwtPayload {
@@ -91,7 +83,7 @@ export default function ModeratorDashboard() {
     }
   }, [searchParams]);
 
-  // Check authorization on mount
+
   useEffect(() => {
     if (!accessToken) {
       toast.error("Bạn cần đăng nhập để truy cập trang này");
@@ -144,14 +136,12 @@ export default function ModeratorDashboard() {
     return null;
   }
 
-  const handleBlogTabChange = (
-    tab: "posts" | "categories" | "comments" | "tags"
-  ) => {
-    console.log("Moderator handleBlogTabChange called with:", tab);
-    setActiveBlogTab(tab);
-    setActiveTab("blog");
-    console.log("State updated: activeTab=blog, activeBlogTab=", tab);
-  };
+  const handleBlogTabChange = (tab: "posts" | "categories" | "comments" | "tags") => {
+    console.log("Moderator handleBlogTabChange called with:", tab)
+    setActiveBlogTab(tab)
+    setActiveTab("blog")
+    console.log("State updated: activeTab=blog, activeBlogTab=", tab)
+  }
 
   const renderContent = () => {
     console.log("=== RENDER DEBUG ===");
@@ -163,35 +153,35 @@ export default function ModeratorDashboard() {
       console.log("Rendering blog content for tab:", activeBlogTab);
       switch (activeBlogTab) {
         case "posts":
-          return <PostManagementTable />;
+          return <BlogManagementTable />;
         case "categories":
           return <CategoryManagementTable />;
         case "comments":
-          return <CommentManagementTable />;
+          return <CommentManagementTable />
         case "tags":
-          return <TagManagementTable />;
+          return <TagManagementTable />
         default:
-          return <PostManagementTable />;
+          return <BlogManagementTable />;
       }
     }
-
-    console.log("Rendering main content for tab:", activeTab);
+    
+    console.log("Rendering main content for tab:", activeTab)
     switch (activeTab) {
       case "dashboard":
-        console.log("✅ Rendering DashboardOverview");
-        return <DashboardOverview />;
+        console.log("✅ Rendering DashboardOverview")
+        return <DashboardOverview />
       case "users":
-        console.log("✅ Rendering UserManagementTable");
-        return <UserManagementTable />;
+        console.log("✅ Rendering UserManagementTable")
+        return <UserManagementTable />
       case "requests":
-        console.log("✅ Rendering RequestManagementTable");
-        return <RequestManagementTable />;
+        console.log("✅ Rendering RequestManagementTable")
+        return <RequestManagementTable />
       case "verification":
-        console.log("✅ Rendering VerificationQueue");
-        return <VerificationQueue />;
+        console.log("✅ Rendering VerificationQueue")
+        return <VerificationQueue />
       default:
-        console.log("⚠️ Rendering default DashboardOverview");
-        return <DashboardOverview />;
+        console.log("⚠️ Rendering default DashboardOverview")
+        return <DashboardOverview />
     }
   };
 

@@ -7,7 +7,7 @@ const priceUnitsRouter = require("./products/priceUnits.routes");
 
 const uploadproductRouter = require("./products/upload/upload.routes");
 
-const userRouter = require("../routes/user/user.controller")
+const userRouter = require("./user/user.router")
 const blogRoutes = require("../routes/blog/post.routes");
 
 module.exports = (app) => {
@@ -15,14 +15,11 @@ module.exports = (app) => {
     app.use(api + "/auth", userAuthRouter);
     app.use(api + "/user", userRouter);
 
-
-
     app.use(api + "/categories", categoryRouter);
     app.use(api + "/products", productRouter);
     app.use(api + "/products/upload", uploadproductRouter);
     app.use(api + "/conditions", conditionsRouter);
     app.use(api + "/price-units", priceUnitsRouter);
-    
     
     app.use(api + "/post", blogRoutes);
 }

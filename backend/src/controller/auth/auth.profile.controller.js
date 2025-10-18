@@ -104,3 +104,4 @@ module.exports.uploadUserAvatar = async (req, res) => {
         return res.json({ code: 500, message: "Cập nhật ảnh đại diện người dùng thất bại", error: error.message });
     }
 }
+
