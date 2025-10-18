@@ -1,0 +1,21 @@
+const express = require("express")
+const router = express.Router()
+
+const userAuthController = require("../../controller/auth/auth.controller")
+const profileRouter = require("./profile.router")
+
+router.post('/login', userAuthController.login);
+router.post('/register', userAuthController.register);
+router.post('/resend-otp', userAuthController.resendOtp);
+router.post('/verify-email', userAuthController.verifyEmail);
+router.post('/request-forgot-password', userAuthController.requestForgotPassword);
+router.post('/forgot-password-otp', userAuthController.forgotPasswordOTP);
+router.post('/forgot-password', userAuthController.forgotPassword);
+router.post('/refresh-token', userAuthController.refreshToken);
+router.post('/login-with-google', userAuthController.loginWithGoogle);
+router.post('/login-with-facebook', userAuthController.loginWithFacebook);
+
+// Profile routes (bao gồm avatar)
+router.use('/profile', profileRouter);
+
+module.exports = router;

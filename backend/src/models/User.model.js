@@ -28,7 +28,7 @@ const userSchema = new mongoose.Schema({
     isActive: { type: Boolean, default: true },
     isDeleted: { type: Boolean, default: false },
     lastLoginAt: Date,
-    roleId: {
+    role: {
         type: String,
         enum: ['user', 'owner', 'admin', 'moderator'],
         default: 'user'
@@ -57,7 +57,6 @@ const userSchema = new mongoose.Schema({
     timestamps: true
 });
 
-userSchema.index({ email: 1 });
 userSchema.index({ reputationScore: -1 });
 
 module.exports = mongoose.model('User', userSchema);
