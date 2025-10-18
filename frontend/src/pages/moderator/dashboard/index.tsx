@@ -10,7 +10,12 @@ import { VerificationQueue } from "@/components/ui/moderator/verification-queue"
 import { BlogManagementTable } from "@/components/ui/moderator/blog/blog-management-table";
 import { CategoryManagementTable } from "@/components/ui/moderator/blog/category-management-table";
 import { CommentManagementTable } from "@/components/ui/moderator/blog/comment-management-table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/common/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/common/card";
 import {
   BarChart3,
   TrendingUp,
@@ -26,10 +31,12 @@ export default function ModeratorDashboard() {
     "dashboard" | "users" | "requests" | "verification" | "blog"
   >("dashboard");
   const [activeBlogTab, setActiveBlogTab] = useState<
-    "posts" | "categories" | "comments" | "tags" 
+    "posts" | "categories" | "comments" | "tags"
   >("posts");
 
-  const handleBlogTabChange = (tab: "posts" | "categories" | "comments" | "tags") => {
+  const handleBlogTabChange = (
+    tab: "posts" | "categories" | "comments" | "tags"
+  ) => {
     setActiveBlogTab(tab);
     setActiveTab("blog");
   };
@@ -161,51 +168,51 @@ function DashboardOverview() {
     totalUsers: 0,
     verifiedUsers: 0,
     pendingUsers: 0,
-    totalPosts: 0
-  })
-  const [loading, setLoading] = useState(true)
+    totalPosts: 0,
+  });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchDashboardStats()
-  }, [])
+    fetchDashboardStats();
+  }, []);
 
   const fetchDashboardStats = async () => {
     try {
-      setLoading(true)
-      const response = await getAllUsers(1, 1) // Just get count
+      setLoading(true);
+      const response = await getAllUsers(1, 1); // Just get count
       if (response && response.code === 200) {
-        const totalUsers = response.data?.totalItems || 0
+        const totalUsers = response.data?.totalItems || 0;
         // For now, we'll use mock data for other stats
         // In a real app, you'd have separate APIs for these
         setStats({
           totalUsers,
           verifiedUsers: Math.floor(totalUsers * 0.8), // Mock: 80% verified
           pendingUsers: Math.floor(totalUsers * 0.1), // Mock: 10% pending
-          totalPosts: Math.floor(totalUsers * 2.5) // Mock: 2.5 posts per user
-        })
+          totalPosts: Math.floor(totalUsers * 2.5), // Mock: 2.5 posts per user
+        });
       } else {
-        console.error("API Error:", response)
+        console.error("API Error:", response);
         // Set default values if API fails
         setStats({
           totalUsers: 0,
           verifiedUsers: 0,
           pendingUsers: 0,
-          totalPosts: 0
-        })
+          totalPosts: 0,
+        });
       }
     } catch (error) {
-      console.error("Error fetching dashboard stats:", error)
+      console.error("Error fetching dashboard stats:", error);
       // Set default values if API fails
       setStats({
         totalUsers: 0,
         verifiedUsers: 0,
         pendingUsers: 0,
-        totalPosts: 0
-      })
+        totalPosts: 0,
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const quickActions = [
     {
@@ -380,19 +387,27 @@ function DashboardOverview() {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-white/70">Tổng người dùng</span>
-                <span className="text-white font-semibold">{loading ? "..." : stats.totalUsers.toLocaleString()}</span>
+                <span className="text-white font-semibold">
+                  {loading ? "..." : stats.totalUsers.toLocaleString()}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-white/70">Tài khoản xác thực</span>
-                <span className="text-white font-semibold">{loading ? "..." : stats.verifiedUsers.toLocaleString()}</span>
+                <span className="text-white font-semibold">
+                  {loading ? "..." : stats.verifiedUsers.toLocaleString()}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-white/70">Chờ xác minh</span>
-                <span className="text-white font-semibold">{loading ? "..." : stats.pendingUsers.toLocaleString()}</span>
+                <span className="text-white font-semibold">
+                  {loading ? "..." : stats.pendingUsers.toLocaleString()}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-white/70">Tổng bài viết</span>
-                <span className="text-white font-semibold">{loading ? "..." : stats.totalPosts.toLocaleString()}</span>
+                <span className="text-white font-semibold">
+                  {loading ? "..." : stats.totalPosts.toLocaleString()}
+                </span>
               </div>
             </div>
           </CardContent>

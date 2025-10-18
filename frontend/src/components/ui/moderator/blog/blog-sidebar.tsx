@@ -1,11 +1,11 @@
-"use client"
+"use client";
 
-import { FileText, FolderOpen, MessageSquare, LogOut, Tag } from "lucide-react"
-import { Button } from "@/components/ui/common/button"
+import { FileText, FolderOpen, MessageSquare, LogOut, Tag } from "lucide-react";
+import { Button } from "@/components/ui/common/button";
 
 interface BlogSidebarProps {
-  activeTab: "posts" | "categories" | "comments" | "tags"
-  onTabChange: (tab: "posts" | "categories" | "comments" | "tags") => void
+  activeTab: "posts" | "categories" | "comments" | "tags";
+  onTabChange: (tab: "posts" | "categories" | "comments" | "tags") => void;
 }
 
 export function BlogSidebar({ activeTab, onTabChange }: BlogSidebarProps) {
@@ -47,9 +47,9 @@ export function BlogSidebar({ activeTab, onTabChange }: BlogSidebarProps) {
 
         <nav className="space-y-2">
           {menuItems.map((item) => {
-            const Icon = item.icon
-            const isActive = activeTab === item.id
-            
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+
             return (
               <Button
                 key={item.id}
@@ -64,7 +64,7 @@ export function BlogSidebar({ activeTab, onTabChange }: BlogSidebarProps) {
                 <Icon className="w-5 h-5 mr-3" />
                 {item.label}
               </Button>
-            )
+            );
           })}
         </nav>
 
@@ -79,5 +79,5 @@ export function BlogSidebar({ activeTab, onTabChange }: BlogSidebarProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }

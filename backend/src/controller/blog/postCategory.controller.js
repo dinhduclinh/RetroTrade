@@ -11,29 +11,60 @@ const PostCategory = require("../../models/Blog/PostCategory.model");
 
 
  const createCategory = async (req, res) => {
-  try {
-    const category = await PostCategory.create(req.body);
-    res.status(201).json(category);
-  } catch (error) {
-    res.status(400).json({ message: "Failed to create category", error });
-  }
-};
+   try {
+     const { name, description } = req.body;
+
+     const existing = await PostCategory.findOne({
+       name: { $regex: new RegExp(`^${name}$`, "i") },
+       isDeleted: false,
+     });
+     if (existing) {
+       return res
+         .status(400)
+         .json({ message: "Tên danh mục đã tồn tại. Vui lòng chọn tên khác." });
+     }
+
+     const category = await PostCategory.create({ name, description });
+     res.status(201).json(category);
+   } catch (error) {
+     res.status(400).json({ message: "Failed to create category", error });
+   }
+ };
 
 
  const updateCategory = async (req, res) => {
-  try {
-    const category = await PostCategory.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
-    if (!category)
-      return res.status(404).json({ message: "Category not found" });
-    res.json(category);
-  } catch (error) {
-    res.status(400).json({ message: "Failed to update category", error });
-  }
-};
+   try {
+     const { name, description } = req.body;
+     const { id } = req.params;
+
+  
+     const duplicate = await PostCategory.findOne({
+       _id: { $ne: id },
+       name: { $regex: new RegExp(`^${name}$`, "i") },
+       isDeleted: false,
+     });
+     if (duplicate) {
+       return res
+         .status(400)
+         .json({ message: "Tên danh mục đã tồn tại. Vui lòng chọn tên khác." });
+     }
+
+     const category = await PostCategory.findByIdAndUpdate(
+       id,
+       { name, description, updatedAt: Date.now() },
+       { new: true }
+     );
+
+     if (!category)
+       return res.status(404).json({ message: "Category not found" });
+
+     res.json(category);
+   } catch (error) {
+     res.status(400).json({ message: "Failed to update category", error });
+   }
+ };
+
+
 
 
  const deleteCategory = async (req, res) => {
