@@ -144,3 +144,6 @@ const listAllItems = async (req, res) => {
 };
 
 module.exports = { listAllItems };
+
+// COMPLETED FUNCTIONS:
+// 1. listAllItems - Get all public products with pagination and filters

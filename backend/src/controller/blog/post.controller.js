@@ -132,7 +132,7 @@ const updatePost = async (req, res) => {
     const updatedPost = await Post.findByIdAndUpdate(postId, updateData, {
       new: true,
     })
-      .populate( "authorId", "fullName email avatar")
+      .populate("authorId", "fullName email avatar")
       .populate("categoryId", "name description")
       .populate("tags", "name");
 
@@ -230,3 +230,12 @@ module.exports = {
   getPostsByCategory,
   getPostsByTag,
 };
+
+// COMPLETED FUNCTIONS:
+// 1. getAllPosts - Get all active posts with pagination
+// 2. getBlogDetail - Get single post detail with author/category/tags
+// 3. createPost - Create new blog post with image upload
+// 4. updatePost - Update existing post (author/admin/moderator only)
+// 5. deletePost - Delete blog post
+// 6. getPostsByCategory - Get posts filtered by category
+// 7. getPostsByTag - Get posts filtered by tag

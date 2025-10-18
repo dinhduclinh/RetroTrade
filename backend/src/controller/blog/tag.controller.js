@@ -47,3 +47,9 @@ const Tag = require("../../models/Blog/Tag.model");
 };
 
 module.exports = {getAllTags, createTag,updateTag, deleteTag};
+
+// COMPLETED FUNCTIONS:
+// 1. getAllTags - Get all active tags
+// 2. createTag - Create new tag
+// 3. updateTag - Update tag
+// 4. deleteTag - Soft delete tag

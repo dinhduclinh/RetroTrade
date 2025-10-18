@@ -76,3 +76,11 @@ const deleteComment = async (req, res) => {
 };
 
 module.exports = {getCommentsByPost , addComment, deleteComment , getAllComment};
+
+
+// COMPLETED FUNCTIONS:
+// 1. getCommentsByPost - Get comments for specific post
+// 2. getAllComment - Get all comments with user/post info
+// 3. addComment - Add new comment to post
+// 4. deleteComment - Soft delete comment (mark as deleted)
+
