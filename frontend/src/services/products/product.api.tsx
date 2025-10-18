@@ -48,6 +48,19 @@ export const getAllItems = async () => {
   }
 };
 
+export const getPublicItemById = async (id: string) => {
+  try {
+    const res = await instance.get(`/products/product/${id}`);
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    return await res.json();
+  } catch (error) {
+    console.error("Error fetching item detail:", error);
+    throw error;
+  }
+};
+
 export const getAllCategories = async () => {
   try {
     const res = await instance.get(`/categories`);

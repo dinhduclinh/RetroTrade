@@ -10,7 +10,7 @@ const {
 } = require("../../controller/products/category.controller");
 const { authenticateToken } = require("../../middleware/auth");
 
-router.get("/", authenticateToken, getCategories); 
+router.get("/", getCategories); 
 router.post("/", authenticateToken, addCategory); 
 router.put("/:id", authenticateToken, updateCategory); 
 router.delete("/:id", authenticateToken, deleteCategory); 
