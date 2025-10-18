@@ -9,6 +9,7 @@ interface LoginPayload {
 const initialState = {
     accessToken: "",
     refreshToken: "",
+    isDarkMode: false,
 };
 
 const authSlice = createSlice({
@@ -23,10 +24,16 @@ const authSlice = createSlice({
             state.accessToken = "";
             state.refreshToken = "";
         },
+        toggleDarkMode: (state) => {
+            state.isDarkMode = !state.isDarkMode;
+        },
+        setDarkMode: (state, action: PayloadAction<boolean>) => {
+            state.isDarkMode = action.payload;
+        },
        
     },
 });
 
-export const { login, logout } = authSlice.actions;
+export const { login, logout, toggleDarkMode, setDarkMode } = authSlice.actions;
 
 export default authSlice.reducer;

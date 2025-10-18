@@ -81,8 +81,10 @@ export default function UserProfilePage() {
         return 'bg-red-500'
       case 'moderator':
         return 'bg-blue-500'
-      case 'user':
+      case 'renter':
         return 'bg-green-500'
+      case 'owner':
+        return 'bg-purple-500'
       default:
         return 'bg-gray-500'
     }
@@ -94,8 +96,10 @@ export default function UserProfilePage() {
         return 'Quản trị viên'
       case 'moderator':
         return 'Điều hành viên'
-      case 'user':
-        return 'Người dùng'
+      case 'renter':
+        return 'Người thuê'
+      case 'owner':
+        return 'Chủ sở hữu'
       default:
         return role
     }

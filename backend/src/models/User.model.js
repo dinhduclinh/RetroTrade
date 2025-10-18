@@ -30,8 +30,8 @@ const userSchema = new mongoose.Schema({
     lastLoginAt: Date,
     role: {
         type: String,
-        enum: ['user', 'owner', 'admin', 'moderator'],
-        default: 'user'
+        enum: ['renter', 'owner', 'admin', 'moderator'],
+        default: 'renter'
     },
     wallet: {
         currency: { type: String, default: 'VND' },

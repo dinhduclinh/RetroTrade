@@ -149,13 +149,13 @@ export function UserManagementTable() {
   const getRoleBadge = (role: string) => {
     switch (role) {
       case "admin":
-        return <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">Admin</Badge>
+        return <Badge className="bg-red-500/20 text-red-400 border-red-500/30">Quản trị viên</Badge>
       case "moderator":
-        return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">Moderator</Badge>
+        return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">Điều hành viên</Badge>
       case "owner":
-        return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">Owner</Badge>
-      case "user":
-        return <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30">User</Badge>
+        return <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">Chủ sở hữu</Badge>
+      case "renter":
+        return <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Người thuê</Badge>
       default:
         return <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30">Unknown</Badge>
     }
@@ -217,10 +217,10 @@ export function UserManagementTable() {
               className="w-full pl-10 pr-4 py-2 bg-slate-800/50 border border-slate-600 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="all">Tất cả quyền</option>
-              <option value="user">User</option>
-              <option value="owner">Owner</option>
-              <option value="moderator">Moderator</option>
-              <option value="admin">Admin</option>
+              <option value="renter">Người thuê</option>
+              <option value="owner">Chủ sở hữu</option>
+              <option value="moderator">Điều hành viên</option>
+              <option value="admin">Quản trị viên</option>
             </select>
           </div>
 

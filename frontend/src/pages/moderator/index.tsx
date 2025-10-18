@@ -303,8 +303,8 @@ function DashboardOverview() {
   const recentActivities = [
     {
       id: 1,
-      type: "user",
-      action: "Người dùng mới đăng ký",
+      type: "renter",
+      action: "Người thuê mới đăng ký",
       user: "Nguyễn Văn A",
       time: "5 phút trước",
       status: "success",
@@ -401,7 +401,7 @@ function DashboardOverview() {
                       : "bg-blue-500/20 text-blue-400"
                   }`}
                 >
-                  {activity.type === "user" && <Users className="w-5 h-5" />}
+                  {activity.type === "renter" && <Users className="w-5 h-5" />}
                   {activity.type === "post" && <FileText className="w-5 h-5" />}
                   {activity.type === "report" && (
                     <AlertTriangle className="w-5 h-5" />
