@@ -1,13 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
+import { getAllItems, getAllCategories } from "@/services/products/product.api";
 import {
-  getAllItems,
-  getAllCategories,
-} from "@/services/products/product.api";
-import { Search, MapPin, Calendar, Eye, Package, X, Zap, Star } from "lucide-react";
-import AddToCartButton from "@/components/ui/common/AddToCartButton";
+  Search,
+  Filter,
+  MapPin,
+  Calendar,
+  Eye,
+  Package,
+  X,
+  ShoppingCart,
+  Zap,
+  Star,
+} from "lucide-react";
 
 interface Category {
   _id: string;
@@ -48,8 +55,13 @@ const toIdString = (v: any): string => {
   if (v == null) return "";
   if (typeof v === "string") return v;
   if (typeof v === "object" && typeof v.$oid === "string") return v.$oid;
-  if (typeof v === "object" && typeof v.toString === "function") return v.toString();
-  try { return String(v); } catch { return ""; }
+  if (typeof v === "object" && typeof v.toString === "function")
+    return v.toString();
+  try {
+    return String(v);
+  } catch {
+    return "";
+  }
 };
 
 const normalizeItems = (rawItems: any[]): Product[] => {
@@ -66,10 +78,21 @@ const normalizeItems = (rawItems: any[]): Product[] => {
     quantity: item.Quantity,
     viewCount: item.ViewCount,
     rentCount: item.RentCount,
-    category: item.Category ? { _id: toIdString(item.Category._id), name: item.Category.name } : undefined,
-    condition: item.Condition ? { ConditionName: item.Condition.ConditionName } : undefined,
-    priceUnit: item.PriceUnit ? { UnitName: item.PriceUnit.UnitName } : undefined,
-    tags: item.Tags ? item.Tags.map((t: any) => ({ _id: t.TagId || t.Tag._id, name: t.Tag.name })) : [],
+    category: item.Category
+      ? { _id: toIdString(item.Category._id), name: item.Category.name }
+      : undefined,
+    condition: item.Condition
+      ? { ConditionName: item.Condition.ConditionName }
+      : undefined,
+    priceUnit: item.PriceUnit
+      ? { UnitName: item.PriceUnit.UnitName }
+      : undefined,
+    tags: item.Tags
+      ? item.Tags.map((t: any) => ({
+          _id: t.TagId || t.Tag._id,
+          name: t.Tag.name,
+        }))
+      : [],
     city: item.City,
     district: item.District,
   }));
@@ -113,15 +136,17 @@ export default function ProductPage() {
           itemData?.data?.items || itemData?.items || []
         );
         const normalizedCates = cateData?.data || cateData || [];
-        const processedCates: Category[] = (normalizedCates as any[]).map((c: any) => ({
-          _id: toIdString(c._id || c.id),
-          name: c.name,
-          parentCategoryId:
-            c.parentCategoryId === "" || c.parentCategoryId == null
-              ? null
-              : toIdString(c.parentCategoryId),
-          isActive: c.isActive,
-        }));
+        const processedCates: Category[] = (normalizedCates as any[]).map(
+          (c: any) => ({
+            _id: toIdString(c._id || c.id),
+            name: c.name,
+            parentCategoryId:
+              c.parentCategoryId === "" || c.parentCategoryId == null
+                ? null
+                : toIdString(c.parentCategoryId),
+            isActive: c.isActive,
+          })
+        );
 
         setAllItems(normalizedItems);
         setItems(normalizedItems);
@@ -146,10 +171,17 @@ export default function ProductPage() {
       if (selected) {
         const isRoot = (selected.parentCategoryId ?? null) === null;
         if (isRoot) {
-          const allowed = new Set<string>([selectedCategory, ...getDescendantIds(selectedCategory)]);
-          filtered = filtered.filter((item) => item.category && allowed.has(item.category._id));
+          const allowed = new Set<string>([
+            selectedCategory,
+            ...getDescendantIds(selectedCategory),
+          ]);
+          filtered = filtered.filter(
+            (item) => item.category && allowed.has(item.category._id)
+          );
         } else {
-          filtered = filtered.filter((item) => item.category && item.category._id === selectedCategory);
+          filtered = filtered.filter(
+            (item) => item.category && item.category._id === selectedCategory
+          );
         }
       }
     }
@@ -159,9 +191,10 @@ export default function ProductPage() {
 
     // Filter by search
     if (search) {
-      filtered = filtered.filter((p) =>
-        p.title.toLowerCase().includes(search.toLowerCase()) ||
-        p.shortDescription?.toLowerCase().includes(search.toLowerCase())
+      filtered = filtered.filter(
+        (p) =>
+          p.title.toLowerCase().includes(search.toLowerCase()) ||
+          p.shortDescription?.toLowerCase().includes(search.toLowerCase())
       );
     }
 
@@ -173,7 +206,14 @@ export default function ProductPage() {
     }
 
     setItems(filtered);
-  }, [selectedCategory, maxPrice, statusAvailable, statusRented, search, allItems]);
+  }, [
+    selectedCategory,
+    maxPrice,
+    statusAvailable,
+    statusRented,
+    search,
+    allItems,
+  ]);
 
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategory((prev) => (prev === categoryId ? null : categoryId));
@@ -208,7 +248,11 @@ export default function ProductPage() {
                 onChange={() => handleCategorySelect(child._id)}
                 className="border-gray-300"
               />
-              <label htmlFor={`cat-${child._id}`} className="text-sm text-gray-700 cursor-pointer" style={{ paddingLeft: level * 8 }}>
+              <label
+                htmlFor={`cat-${child._id}`}
+                className="text-sm text-gray-700 cursor-pointer"
+                style={{ paddingLeft: level * 8 }}
+              >
                 {child.name}
               </label>
             </div>
@@ -293,14 +337,19 @@ export default function ProductPage() {
                           onChange={() => handleCategorySelect(root._id)}
                           className="border-gray-300"
                         />
-                        <span className="text-sm text-gray-700 font-medium flex-1">{root.name}</span>
-                        <span className="text-xs text-gray-500">{expandedRoots.has(root._id) ? "−" : "+"}</span>
+                        <span className="text-sm text-gray-700 font-medium flex-1">
+                          {root.name}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {expandedRoots.has(root._id) ? "−" : "+"}
+                        </span>
                       </div>
-                      {expandedRoots.has(root._id) && getChildren(root._id).length > 0 && (
-                        <div className="pl-6 py-1">
-                          {renderChildTree(root._id)}
-                        </div>
-                      )}
+                      {expandedRoots.has(root._id) &&
+                        getChildren(root._id).length > 0 && (
+                          <div className="pl-6 py-1">
+                            {renderChildTree(root._id)}
+                          </div>
+                        )}
                     </div>
                   ))}
                 </div>
@@ -308,7 +357,9 @@ export default function ProductPage() {
 
               {/* Price - Slider */}
               <div className="mb-6">
-                <h4 className="font-medium text-gray-700 mb-2">Giá thuê (VND)</h4>
+                <h4 className="font-medium text-gray-700 mb-2">
+                  Giá thuê (VND)
+                </h4>
                 <input
                   type="range"
                   min={0}
@@ -378,14 +429,17 @@ export default function ProductPage() {
               <h1 className="text-3xl font-bold">Sản phẩm cho thuê</h1>
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => router.push('/products/myfavorite')}
+                  onClick={() => router.push("/products/myfavorite")}
                   className="flex items-center gap-2 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 text-sm"
                 >
                   <Star className="w-4 h-4 text-yellow-300" />
                   <span>Danh sách yêu thích</span>
                 </button>
                 {search && (
-                  <button onClick={() => setSearch("")} className="text-blue-500 hover:underline">
+                  <button
+                    onClick={() => setSearch("")}
+                    className="text-blue-500 hover:underline"
+                  >
                     <X size={20} />
                   </button>
                 )}
@@ -414,7 +468,13 @@ export default function ProductPage() {
                     role="button"
                     tabIndex={0}
                     className="group cursor-pointer bg-white rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 overflow-hidden opacity-0 translate-y-2"
-                    style={{ transitionDelay: `${index * 50}ms`, opacity: mounted ? 1 : 0, transform: mounted ? "translateY(0)" : "translateY(0.5rem)" }}
+                    style={{
+                      transitionDelay: `${index * 50}ms`,
+                      opacity: mounted ? 1 : 0,
+                      transform: mounted
+                        ? "translateY(0)"
+                        : "translateY(0.5rem)",
+                    }}
                   >
                     <div className="relative h-48 bg-gray-200 overflow-hidden">
                       <img
@@ -456,21 +516,27 @@ export default function ProductPage() {
                       </div>
                       <div className="flex items-center gap-1 text-xs text-gray-500 mb-3">
                         <Calendar size={14} className="text-gray-400" />
-                        <span>{new Date(item.createdAt).toLocaleDateString("vi-VN")}</span>
+                        <span>
+                          {new Date(item.createdAt).toLocaleDateString("vi-VN")}
+                        </span>
                       </div>
                       <div className="bg-blue-50 rounded-lg p-3 mb-3">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-xs text-gray-600 mb-1">Giá thuê</p>
+                            <p className="text-xs text-gray-600 mb-1">
+                              Giá thuê
+                            </p>
                             <p className="text-lg font-bold text-blue-600">
                               {formatPrice(item.basePrice, item.currency)}
                               <span className="text-sm font-normal text-gray-600">
-                                /{item.priceUnit?.UnitName || 'ngày'}
+                                /{item.priceUnit?.UnitName || "ngày"}
                               </span>
                             </p>
                           </div>
                           <div className="text-right">
-                            <p className="text-xs text-gray-600 mb-1">Đặt cọc</p>
+                            <p className="text-xs text-gray-600 mb-1">
+                              Đặt cọc
+                            </p>
                             <p className="text-sm font-semibold text-gray-700">
                               {formatPrice(item.depositAmount, item.currency)}
                             </p>
@@ -518,8 +584,12 @@ export default function ProductPage() {
               ) : (
                 <div className="col-span-full text-center py-12">
                   <Package size={64} className="mx-auto text-gray-300 mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Không tìm thấy sản phẩm</h3>
-                  <p className="text-gray-600 mb-6">Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc.</p>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    Không tìm thấy sản phẩm
+                  </h3>
+                  <p className="text-gray-600 mb-6">
+                    Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc.
+                  </p>
                   <button
                     onClick={() => {
                       setSearch("");

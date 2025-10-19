@@ -370,10 +370,3 @@ module.exports = {
   getCartItemCount
 };
 
-// COMPLETED FUNCTIONS:
-// 1. getCartItems - Get all cart items with product details
-// 2. addToCart - Add item to cart with validation
-// 3. updateCartItem - Update cart item quantity/dates
-// 4. removeFromCart - Remove single item from cart
-// 5. clearCart - Clear entire cart
-// 6. getCartItemCount - Get total cart items count
