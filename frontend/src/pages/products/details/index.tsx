@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { useRouter } from "next/router";
 import {
   getPublicItemById,
@@ -24,6 +25,7 @@ interface ProductDetailDto {
   District?: string;
   AvailableQuantity?: number;
   Quantity?: number;
+  CreatedAt?: string;
 }
 
 const formatPrice = (price: number, currency: string) => {
@@ -70,6 +72,8 @@ export default function ProductDetailPage() {
   }, [id]);
 
   const images = useMemo(() => product?.Images?.map((i) => i.Url).filter(Boolean) || [], [product]);
+
+  const outOfStock = useMemo(() => (product?.AvailableQuantity ?? 0) <= 0, [product]);
 
   // Legacy simple multiples (will be replaced by unit-aware prices below)
   const weeklyPriceLegacy = useMemo(() => (product ? product.BasePrice * 7 : 0), [product]);
@@ -184,8 +188,12 @@ export default function ProductDetailPage() {
   const handleAddToCart = () => {
     // TODO: integrate cart
     if (product) {
+      if ((product.AvailableQuantity ?? 0) <= 0) {
+        toast.error("Sản phẩm không có sẵn để thêm vào giỏ hàng");
+        return;
+      }
       console.log("Add to cart", product.Title);
-      alert("Đã thêm vào giỏ (demo)");
+      toast.success("Đã thêm vào giỏ");
     }
   };
 
@@ -193,7 +201,7 @@ export default function ProductDetailPage() {
     // TODO: navigate to checkout or open rent modal
     if (product && totalUnits > 0 && !dateError) {
       console.log("Rent now", product._id, dateFrom, dateTo);
-      alert("Thuê ngay (demo)");
+      toast.info("Thuê ngay");
     }
   };
 
@@ -297,19 +305,13 @@ export default function ProductDetailPage() {
             <div className="flex items-center gap-2 text-sm mt-2">
               <div className="flex items-center text-yellow-500"><Star className="w-4 h-4 fill-yellow-500" /><Star className="w-4 h-4 fill-yellow-500" /><Star className="w-4 h-4 fill-yellow-500" /><Star className="w-4 h-4 fill-yellow-500" /><Star className="w-4 h-4" /></div>
               <span className="text-gray-500">(24 đánh giá)</span>
-              {typeof product.AvailableQuantity === 'number' && typeof product.Quantity === 'number' && (
-                product.AvailableQuantity > 0 ? (
-                  <>
-                    <span className="font-semibold">{product.AvailableQuantity}/{product.Quantity}</span>
-                    <span> sản phẩm có sẵn</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="font-semibold">{product.AvailableQuantity}/{product.Quantity}</span>
-                    <span> sản phẩm (hết hàng)</span>
-                  </>
-                )
-              )}
+            </div>
+
+            <div className="mt-3">
+              <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
+                <span>Đặt cọc:</span>
+                <span>{formatPrice(product.DepositAmount, product.Currency)}</span>
+              </div>
             </div>
 
             {/* Pricing plans (selectable) */}
@@ -369,9 +371,15 @@ export default function ProductDetailPage() {
               <button className="w-full flex items-center justify-center gap-2 border border-gray-300 text-gray-700 py-3 rounded-lg hover:bg-gray-50">
                 So sánh sản phẩm tương tự
               </button>
-              <button disabled={totalUnits <= 0 || !!dateError} onClick={handleRentNow} className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg ${totalUnits <= 0 || !!dateError ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
-                <Zap className="w-5 h-5" /> Thuê ngay
-              </button>
+              {outOfStock ? (
+                <button disabled className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-red-600 text-white cursor-not-allowed`}>
+                  Hết hàng
+                </button>
+              ) : (
+                <button disabled={totalUnits <= 0 || !!dateError} onClick={handleRentNow} className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg ${totalUnits <= 0 || !!dateError ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
+                  <Zap className="w-5 h-5" /> Thuê ngay
+                </button>
+              )}
               <button onClick={handleAddToCart} className="w-full flex items-center justify-center gap-2 bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200">
                 <ShoppingCart className="w-5 h-5" /> Thêm vào giỏ
               </button>
@@ -411,12 +419,16 @@ export default function ProductDetailPage() {
 
           <aside>
             <div className="bg-white border rounded-2xl p-4">
-              <h3 className="font-semibold mb-3">Đặc biệt</h3>
+              <h3 className="font-semibold mb-3">Thông tin sản phẩm</h3>
               <div className="space-y-2 text-sm text-gray-700">
                 <div className="flex justify-between"><span>Tình trạng:</span><span className="font-medium">{product.Condition?.ConditionName || "-"}</span></div>
-                <div className="flex justify-between"><span>Đơn vị giá:</span><span className="font-medium">{product.PriceUnit?.UnitName || "ngày"}</span></div>
                 <div className="flex justify-between"><span>Khu vực:</span><span className="font-medium">{product.District || ""}{product.City ? `, ${product.City}` : ""}</span></div>
-                <div className="flex justify-between"><span>Đặt cọc:</span><span className="font-medium">{formatPrice(product.DepositAmount, product.Currency)}</span></div>
+                <div className="flex justify-between"><span>Kho (sản phẩm):</span><span className="font-medium">{typeof product.Quantity === 'number' ? product.Quantity : '-'}</span></div>
+                <div className="flex justify-between"><span>Có sẵn (sản phẩm):</span><span className="font-medium">{typeof product.AvailableQuantity === 'number' ? product.AvailableQuantity : '-'}</span></div>
+                <div className="flex justify-between">
+                  <span>Ngày đăng:</span>
+                  <span className="font-medium">{product.CreatedAt ? new Date(product.CreatedAt).toLocaleDateString("vi-VN") : '-'}</span>
+                </div>
               </div>
             </div>
           </aside>

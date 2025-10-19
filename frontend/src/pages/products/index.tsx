@@ -307,7 +307,7 @@ export default function ProductPage() {
 
               {/* Price - Slider */}
               <div className="mb-6">
-                <h4 className="font-medium text-gray-700 mb-2">Giá thuê (VND/ngày)</h4>
+                <h4 className="font-medium text-gray-700 mb-2">Giá thuê (VND)</h4>
                 <input
                   type="range"
                   min={0}
@@ -362,12 +362,6 @@ export default function ProductPage() {
                   className="flex-1 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 text-sm"
                 >
                   Đặt lại
-                </button>
-                <button
-                  onClick={() => {/* Auto-applies via effects */}}
-                  className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm"
-                >
-                  Áp dụng
                 </button>
               </div>
             </div>
