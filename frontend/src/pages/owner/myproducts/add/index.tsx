@@ -42,7 +42,7 @@ const AddProductPage: React.FC = () => {
   const [maxRentalDuration, setMaxRentalDuration] = useState("");
   const [quantity, setQuantity] = useState("");
   const [address, setAddress] = useState("");
-  const [ward, setWard] = useState("");
+  const [district, setDistrict] = useState("");
   const [city, setCity] = useState("");
   const [tagsInput, setTagsInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -342,7 +342,7 @@ const AddProductPage: React.FC = () => {
         Currency: "VND",
         Quantity: quantity,
         Address: address.trim() || undefined,
-        Ward: ward.trim() || undefined,
+        District: district.trim() || undefined,
         City: city.trim() || undefined,
         Tags: cleanTags.length > 0 ? cleanTags : [],
         ImageUrls: imageUrls,
@@ -353,7 +353,7 @@ const AddProductPage: React.FC = () => {
       const result = await addRes.json();
       if (result.success) {
         toast.success("Sản phẩm được thêm thành công!");
-        router.push("/owner");
+        router.push("/owner/myproducts");
       } else {
         toast.error(result.message || "Thêm sản phẩm thất bại");
       }
@@ -763,8 +763,8 @@ const AddProductPage: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  value={ward}
-                  onChange={(e) => setWard(e.target.value)}
+                  value={district}
+                  onChange={(e) => setDistrict(e.target.value)}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
                   placeholder="Nhập xã/phường"
                 />

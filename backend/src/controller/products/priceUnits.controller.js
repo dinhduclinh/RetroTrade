@@ -21,6 +21,3 @@ const getPriceUnits = async (req, res) => {
 };
 
 module.exports = { getPriceUnits };
-
-// COMPLETED FUNCTIONS:
-// 1. getPriceUnits - Get all active price units
