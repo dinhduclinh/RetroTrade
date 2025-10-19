@@ -123,7 +123,7 @@ export function Header() {
   };
 
   const handleGoToOwnerPanel = () => {
-    router.push('/owner');
+    router.push('/owner/myproducts');
   };
 
   // Render menu items dựa trên role
@@ -166,7 +166,7 @@ export function Header() {
             onClick={handleGoToOwnerPanel}
           >
             <Settings className="mr-2 h-4 w-4" />
-            <span>Bảng điều khiển Chủ sở hữu</span>
+            <span>Sản phẩm của tôi</span>
           </DropdownMenuItem>
         );
         break;

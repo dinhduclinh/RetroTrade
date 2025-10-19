@@ -51,6 +51,3 @@ const uploadImages = async (req, res) => {
 };
 
 module.exports = { uploadImages };
-
-// COMPLETED FUNCTIONS:
-// 1. uploadImages - Upload product images to Cloudinary
