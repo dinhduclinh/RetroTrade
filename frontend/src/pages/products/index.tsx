@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   getAllItems,
 } from "@/services/products/product.api";
 import { Search, Filter, MapPin, Calendar, Eye, Package, X } from "lucide-react";
+import Link from "next/link";
+import Image from "next/image";
+import AddToCartButton from "@/components/ui/common/AddToCartButton";
 
 interface Product {
   _id: string;
@@ -35,27 +37,51 @@ interface Product {
   district?: string;
 }
 
-const normalizeItems = (rawItems: any[]): Product[] => {
-  return rawItems.map((item) => ({
-    _id: item._id,
-    title: item.Title,
-    shortDescription: item.ShortDescription,
-    thumbnail: item.Images?.[0]?.Url || "/placeholder.jpg",
-    basePrice: item.BasePrice,
-    currency: item.Currency,
-    depositAmount: item.DepositAmount,
-    createdAt: item.CreatedAt,
-    availableQuantity: item.AvailableQuantity,
-    quantity: item.Quantity,
-    viewCount: item.ViewCount,
-    rentCount: item.RentCount,
-    category: item.Category ? { _id: item.Category._id, name: item.Category.name } : undefined,
-    condition: item.Condition ? { ConditionName: item.Condition.ConditionName } : undefined,
-    priceUnit: item.PriceUnit ? { UnitName: item.PriceUnit.UnitName } : undefined,
-    tags: item.Tags ? item.Tags.map((t: any) => ({ _id: t.TagId || t.Tag._id, name: t.Tag.name })) : [],
-    city: item.City,
-    district: item.District,
-  }));
+interface RawItem {
+  _id: string;
+  Title: string;
+  ShortDescription: string;
+  Images?: Array<{ Url: string }>;
+  BasePrice: number;
+  Currency: string;
+  DepositAmount: number;
+  CreatedAt: string;
+  AvailableQuantity: number;
+  Quantity: number;
+  ViewCount: number;
+  RentCount: number;
+  Category?: { _id: string; name: string };
+  Condition?: { ConditionName: string };
+  PriceUnit?: { UnitName: string };
+  Tags?: Array<{ TagId?: string; Tag: { _id: string; name: string } }>;
+  City?: string;
+  District?: string;
+}
+
+const normalizeItems = (rawItems: unknown[]): Product[] => {
+  return rawItems.map((item) => {
+    const rawItem = item as RawItem;
+    return {
+      _id: rawItem._id,
+      title: rawItem.Title,
+      shortDescription: rawItem.ShortDescription,
+      thumbnail: rawItem.Images?.[0]?.Url || "/placeholder.jpg",
+      basePrice: rawItem.BasePrice,
+      currency: rawItem.Currency,
+      depositAmount: rawItem.DepositAmount,
+      createdAt: rawItem.CreatedAt,
+      availableQuantity: rawItem.AvailableQuantity,
+      quantity: rawItem.Quantity,
+      viewCount: rawItem.ViewCount,
+      rentCount: rawItem.RentCount,
+      category: rawItem.Category ? { _id: rawItem.Category._id, name: rawItem.Category.name } : undefined,
+      condition: rawItem.Condition ? { ConditionName: rawItem.Condition.ConditionName } : undefined,
+      priceUnit: rawItem.PriceUnit ? { UnitName: rawItem.PriceUnit.UnitName } : undefined,
+      tags: rawItem.Tags ? rawItem.Tags.map((t) => ({ _id: t.TagId || t.Tag._id, name: t.Tag.name })) : [],
+      city: rawItem.City,
+      district: rawItem.District,
+    };
+  });
 };
 
 const formatPrice = (price: number, currency: string) => {
@@ -66,8 +92,6 @@ const formatPrice = (price: number, currency: string) => {
 };
 
 export default function ProductPage() {
-  const router = useRouter();
-
   const [allItems, setAllItems] = useState<Product[]>([]);
   const [items, setItems] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
@@ -170,10 +194,11 @@ export default function ProductPage() {
                   className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden"
                 >
                   <div className="relative h-48 bg-gray-200 overflow-hidden">
-                    <img
+                    <Image
                       src={item.thumbnail}
                       alt={item.title}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                      fill
+                      className="object-cover group-hover:scale-110 transition-transform duration-300"
                     />
                     {item.availableQuantity === 0 && (
                       <div className="absolute top-3 right-3 bg-red-600 text-white px-2 py-1 rounded-full text-xs font-semibold">
@@ -245,12 +270,21 @@ export default function ProductPage() {
                         còn lại
                       </div>
                     </div>
-                    <a
-                      href={`/product/${item._id}`}
-                      className="block w-full text-center text-sm text-white bg-blue-600 hover:bg-blue-700 py-2 rounded-lg font-semibold transition-colors"
-                    >
-                      Thuê ngay
-                    </a>
+                    <div className="flex gap-2">
+                      <Link
+                        href={`/products/details?id=${item._id}`}
+                        className="flex-1 text-center text-sm text-white bg-blue-600 hover:bg-blue-700 py-2 rounded-lg font-semibold transition-colors"
+                      >
+                        Xem chi tiết
+                      </Link>
+                      <AddToCartButton
+                        itemId={item._id}
+                        availableQuantity={item.availableQuantity}
+                        size="sm"
+                        variant="outline"
+                        className="px-3"
+                      />
+                    </div>
                   </div>
                 </div>
               ))
