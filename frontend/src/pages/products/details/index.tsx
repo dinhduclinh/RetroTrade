@@ -3,10 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/router";
+import { getPublicItemById } from "@/services/products/product.api";
 import {
-  getPublicItemById,
-} from "@/services/products/product.api";
-import { Calendar, ChevronLeft, ChevronRight, Star, ShoppingCart, Zap, Bookmark } from "lucide-react";
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Star,
+  ShoppingCart,
+  Zap,
+  Bookmark,
+} from "lucide-react";
 
 interface ProductDetailDto {
   _id: string;
@@ -20,7 +26,11 @@ interface ProductDetailDto {
   Condition?: { ConditionName: string } | null;
   Category?: { _id: string; name: string } | null;
   Images?: { Url: string }[];
-  Owner?: { DisplayName?: string; FullName?: string; AvatarUrl?: string } | null;
+  Owner?: {
+    DisplayName?: string;
+    FullName?: string;
+    AvatarUrl?: string;
+  } | null;
   City?: string;
   District?: string;
   AvailableQuantity?: number;
@@ -45,7 +55,9 @@ export default function ProductDetailPage() {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [selectedPlan, setSelectedPlan] = useState<"hour" | "day" | "week" | "month">("day");
+  const [selectedPlan, setSelectedPlan] = useState<
+    "hour" | "day" | "week" | "month"
+  >("day");
   const [durationUnits, setDurationUnits] = useState<string>(""); // number as string for input control
   const [dateError, setDateError] = useState<string>("");
 
@@ -71,13 +83,25 @@ export default function ProductDetailPage() {
     fetchDetail();
   }, [id]);
 
-  const images = useMemo(() => product?.Images?.map((i) => i.Url).filter(Boolean) || [], [product]);
+  const images = useMemo(
+    () => product?.Images?.map((i) => i.Url).filter(Boolean) || [],
+    [product]
+  );
 
-  const outOfStock = useMemo(() => (product?.AvailableQuantity ?? 0) <= 0, [product]);
+  const outOfStock = useMemo(
+    () => (product?.AvailableQuantity ?? 0) <= 0,
+    [product]
+  );
 
   // Legacy simple multiples (will be replaced by unit-aware prices below)
-  const weeklyPriceLegacy = useMemo(() => (product ? product.BasePrice * 7 : 0), [product]);
-  const monthlyPriceLegacy = useMemo(() => (product ? product.BasePrice * 30 : 0), [product]);
+  const weeklyPriceLegacy = useMemo(
+    () => (product ? product.BasePrice * 7 : 0),
+    [product]
+  );
+  const monthlyPriceLegacy = useMemo(
+    () => (product ? product.BasePrice * 30 : 0),
+    [product]
+  );
 
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
 
@@ -91,7 +115,7 @@ export default function ProductDetailPage() {
   }, [product]);
 
   // Available plans depending on product unit
-  const availablePlans = useMemo<("hour"|"day"|"week"|"month")[]>(() => {
+  const availablePlans = useMemo<("hour" | "day" | "week" | "month")[]>(() => {
     if (baseUnit === "hour") return ["hour", "day", "week", "month"];
     if (baseUnit === "week") return ["week", "month"];
     if (baseUnit === "month") return ["month"]; // fallback if month-only products exist
@@ -109,9 +133,9 @@ export default function ProductDetailPage() {
     const end = new Date(dateTo);
     const today = new Date(todayStr);
     // clear time
-    start.setHours(0,0,0,0);
-    end.setHours(0,0,0,0);
-    today.setHours(0,0,0,0);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
 
     if (start < today || end < today) {
       return 0;
@@ -120,7 +144,10 @@ export default function ProductDetailPage() {
       return 0;
     }
     const msPerDay = 24 * 60 * 60 * 1000;
-    const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / msPerDay) + 1);
+    const days = Math.max(
+      1,
+      Math.ceil((end.getTime() - start.getTime()) / msPerDay) + 1
+    );
     if (selectedPlan === "hour") return days * 24;
     if (selectedPlan === "day") return days;
     if (selectedPlan === "week") return Math.ceil(days / 7);
@@ -165,7 +192,13 @@ export default function ProductDetailPage() {
     if (selectedPlan === "day") return dayUnitPrice;
     if (selectedPlan === "week") return weekUnitPrice;
     return monthUnitPrice;
-  }, [selectedPlan, hourUnitPrice, dayUnitPrice, weekUnitPrice, monthUnitPrice]);
+  }, [
+    selectedPlan,
+    hourUnitPrice,
+    dayUnitPrice,
+    weekUnitPrice,
+    monthUnitPrice,
+  ]);
 
   const totalUnits = useMemo(() => {
     const manual = Number(durationUnits);
@@ -213,7 +246,8 @@ export default function ProductDetailPage() {
     let err = "";
     if (start && start < today) err = "Không thể chọn ngày trong quá khứ";
     if (!err && end && end < today) err = "Không thể chọn ngày trong quá khứ";
-    if (!err && start && end && end < start) err = "Ngày kết thúc phải sau hoặc bằng ngày bắt đầu";
+    if (!err && start && end && end < start)
+      err = "Ngày kết thúc phải sau hoặc bằng ngày bắt đầu";
     setDateError(err);
   }, [dateFrom, dateTo, todayStr]);
 
@@ -232,8 +266,15 @@ export default function ProductDetailPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-500 mb-4">{error || "Không tìm thấy sản phẩm"}</p>
-          <button onClick={() => router.push("/products")} className="bg-blue-600 text-white px-4 py-2 rounded-lg">Quay lại danh sách</button>
+          <p className="text-red-500 mb-4">
+            {error || "Không tìm thấy sản phẩm"}
+          </p>
+          <button
+            onClick={() => router.push("/products")}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg"
+          >
+            Quay lại danh sách
+          </button>
         </div>
       </div>
     );
@@ -244,9 +285,19 @@ export default function ProductDetailPage() {
       <div className="container mx-auto px-4 max-w-7xl py-6">
         {/* Breadcrumb */}
         <div className="text-sm text-gray-500 mb-4">
-          <span className="hover:underline cursor-pointer" onClick={() => router.push("/")}>Home</span>
+          <span
+            className="hover:underline cursor-pointer"
+            onClick={() => router.push("/")}
+          >
+            Home
+          </span>
           <span className="mx-2">/</span>
-          <span className="hover:underline cursor-pointer" onClick={() => router.push("/products")}>Product</span>
+          <span
+            className="hover:underline cursor-pointer"
+            onClick={() => router.push("/products")}
+          >
+            Product
+          </span>
           {product.Category?.name && (
             <>
               <span className="mx-2">/</span>
@@ -262,16 +313,28 @@ export default function ProductDetailPage() {
           <section>
             <div className="relative aspect-[4/3] bg-gray-100 rounded-2xl overflow-hidden">
               {images.length > 0 ? (
-                <img src={images[selectedImageIndex]} alt={product.Title} className="w-full h-full object-contain" />
+                <img
+                  src={images[selectedImageIndex]}
+                  alt={product.Title}
+                  className="w-full h-full object-contain"
+                />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-400">No image</div>
+                <div className="w-full h-full flex items-center justify-center text-gray-400">
+                  No image
+                </div>
               )}
               {images.length > 1 && (
                 <>
-                  <button onClick={handlePrev} className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow">
+                  <button
+                    onClick={handlePrev}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow"
+                  >
                     <ChevronLeft />
                   </button>
-                  <button onClick={handleNext} className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow">
+                  <button
+                    onClick={handleNext}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow"
+                  >
                     <ChevronRight />
                   </button>
                 </>
@@ -284,9 +347,17 @@ export default function ProductDetailPage() {
                   <button
                     key={idx}
                     onClick={() => setSelectedImageIndex(idx)}
-                    className={`aspect-square rounded-lg overflow-hidden border ${idx === selectedImageIndex ? "border-blue-600" : "border-gray-200"}`}
+                    className={`aspect-square rounded-lg overflow-hidden border ${
+                      idx === selectedImageIndex
+                        ? "border-blue-600"
+                        : "border-gray-200"
+                    }`}
                   >
-                    <img src={src} alt={`thumb-${idx}`} className="w-full h-full object-cover" />
+                    <img
+                      src={src}
+                      alt={`thumb-${idx}`}
+                      className="w-full h-full object-cover"
+                    />
                   </button>
                 ))}
               </div>
@@ -296,37 +367,84 @@ export default function ProductDetailPage() {
           {/* Summary / Actions */}
           <section>
             <div className="flex items-start justify-between gap-4">
-              <h1 className="text-2xl md:text-3xl font-semibold text-gray-900">{product.Title}</h1>
-              <button className="text-gray-600 hover:text-blue-600" title="Yêu thích">
+              <h1 className="text-2xl md:text-3xl font-semibold text-gray-900">
+                {product.Title}
+              </h1>
+              <button
+                className="text-gray-600 hover:text-blue-600"
+                title="Yêu thích"
+              >
                 <Bookmark className="w-7 h-7" />
               </button>
             </div>
 
             <div className="flex items-center gap-2 text-sm mt-2">
-              <div className="flex items-center text-yellow-500"><Star className="w-4 h-4 fill-yellow-500" /><Star className="w-4 h-4 fill-yellow-500" /><Star className="w-4 h-4 fill-yellow-500" /><Star className="w-4 h-4 fill-yellow-500" /><Star className="w-4 h-4" /></div>
+              <div className="flex items-center text-yellow-500">
+                <Star className="w-4 h-4 fill-yellow-500" />
+                <Star className="w-4 h-4 fill-yellow-500" />
+                <Star className="w-4 h-4 fill-yellow-500" />
+                <Star className="w-4 h-4 fill-yellow-500" />
+                <Star className="w-4 h-4" />
+              </div>
               <span className="text-gray-500">(24 đánh giá)</span>
             </div>
 
             <div className="mt-3">
               <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
                 <span>Đặt cọc:</span>
-                <span>{formatPrice(product.DepositAmount, product.Currency)}</span>
+                <span>
+                  {formatPrice(product.DepositAmount, product.Currency)}
+                </span>
               </div>
             </div>
 
             {/* Pricing plans (selectable) */}
-            <div className={`grid gap-3 mt-4 ${availablePlans.length === 4 ? 'grid-cols-4' : availablePlans.length === 3 ? 'grid-cols-3' : availablePlans.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            <div
+              className={`grid gap-3 mt-4 ${
+                availablePlans.length === 4
+                  ? "grid-cols-4"
+                  : availablePlans.length === 3
+                  ? "grid-cols-3"
+                  : availablePlans.length === 2
+                  ? "grid-cols-2"
+                  : "grid-cols-1"
+              }`}
+            >
               {availablePlans.map((plan) => {
                 const active = selectedPlan === plan;
-                const price = plan === 'hour' ? hourUnitPrice : plan === 'day' ? dayUnitPrice : plan === 'week' ? weekUnitPrice : monthUnitPrice;
-                const label = plan === 'hour' ? 'mỗi giờ' : plan === 'day' ? 'mỗi ngày' : plan === 'week' ? 'mỗi tuần' : 'mỗi tháng';
+                const price =
+                  plan === "hour"
+                    ? hourUnitPrice
+                    : plan === "day"
+                    ? dayUnitPrice
+                    : plan === "week"
+                    ? weekUnitPrice
+                    : monthUnitPrice;
+                const label =
+                  plan === "hour"
+                    ? "mỗi giờ"
+                    : plan === "day"
+                    ? "mỗi ngày"
+                    : plan === "week"
+                    ? "mỗi tuần"
+                    : "mỗi tháng";
                 return (
                   <button
                     key={plan}
                     onClick={() => setSelectedPlan(plan)}
-                    className={`border rounded-xl p-3 text-center transition-colors ${active ? 'border-blue-600 bg-blue-50 text-blue-700 font-semibold' : 'border-gray-200 hover:border-gray-300'}`}
+                    className={`border rounded-xl p-3 text-center transition-colors ${
+                      active
+                        ? "border-blue-600 bg-blue-50 text-blue-700 font-semibold"
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
                   >
-                    <div className={`text-lg ${active ? 'font-bold' : 'font-semibold'}`}>{formatPrice(price, product.Currency)}</div>
+                    <div
+                      className={`text-lg ${
+                        active ? "font-bold" : "font-semibold"
+                      }`}
+                    >
+                      {formatPrice(price, product.Currency)}
+                    </div>
                     <div className="text-xs">{label}</div>
                   </button>
                 );
@@ -336,32 +454,63 @@ export default function ProductDetailPage() {
             {/* Dates */}
             <div className="mt-4 space-y-3">
               <div>
-                <label className="text-sm text-gray-600 block mb-1">Từ ngày</label>
+                <label className="text-sm text-gray-600 block mb-1">
+                  Từ ngày
+                </label>
                 <div className="relative">
-                  <input type="date" min={todayStr} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full border rounded-lg p-2 pr-10 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                  <input
+                    type="date"
+                    min={todayStr}
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="w-full border rounded-lg p-2 pr-10 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  />
                   <Calendar className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2" />
                 </div>
               </div>
               <div>
-                <label className="text-sm text-gray-600 block mb-1">Đến ngày</label>
+                <label className="text-sm text-gray-600 block mb-1">
+                  Đến ngày
+                </label>
                 <div className="relative">
-                  <input type="date" min={todayStr} value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full border rounded-lg p-2 pr-10 focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                  <input
+                    type="date"
+                    min={todayStr}
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="w-full border rounded-lg p-2 pr-10 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  />
                   <Calendar className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2" />
                 </div>
               </div>
               {dateError && <p className="text-sm text-red-500">{dateError}</p>}
               <div>
-                <label className="text-sm text-gray-600 block mb-1">Số {selectedPlan === 'hour' ? 'giờ' : selectedPlan === 'day' ? 'ngày' : selectedPlan === 'week' ? 'tuần' : 'tháng'} (tùy chọn)</label>
+                <label className="text-sm text-gray-600 block mb-1">
+                  Số{" "}
+                  {selectedPlan === "hour"
+                    ? "giờ"
+                    : selectedPlan === "day"
+                    ? "ngày"
+                    : selectedPlan === "week"
+                    ? "tuần"
+                    : "tháng"}{" "}
+                  (tùy chọn)
+                </label>
                 <input
                   type="number"
                   min={1}
-                  placeholder={unitsFromDates ? unitsFromDates.toString() : '1'}
+                  placeholder={unitsFromDates ? unitsFromDates.toString() : "1"}
                   value={durationUnits}
-                  onChange={(e) => setDurationUnits(e.target.value.replace(/[^0-9]/g, ''))}
+                  onChange={(e) =>
+                    setDurationUnits(e.target.value.replace(/[^0-9]/g, ""))
+                  }
                   className="w-full border rounded-lg p-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
                 />
                 <p className="mt-2 text-sm text-gray-700">
-                  Tổng tiền: <span className="font-semibold text-blue-600">{formatPrice(totalPrice, product.Currency)}</span>
+                  Tổng tiền:{" "}
+                  <span className="font-semibold text-blue-600">
+                    {formatPrice(totalPrice, product.Currency)}
+                  </span>
                 </p>
               </div>
             </div>
@@ -372,15 +521,29 @@ export default function ProductDetailPage() {
                 So sánh sản phẩm tương tự
               </button>
               {outOfStock ? (
-                <button disabled className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-red-600 text-white cursor-not-allowed`}>
+                <button
+                  disabled
+                  className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-red-600 text-white cursor-not-allowed`}
+                >
                   Hết hàng
                 </button>
               ) : (
-                <button disabled={totalUnits <= 0 || !!dateError} onClick={handleRentNow} className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg ${totalUnits <= 0 || !!dateError ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
+                <button
+                  disabled={totalUnits <= 0 || !!dateError}
+                  onClick={handleRentNow}
+                  className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg ${
+                    totalUnits <= 0 || !!dateError
+                      ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                      : "bg-blue-600 text-white hover:bg-blue-700"
+                  }`}
+                >
                   <Zap className="w-5 h-5" /> Thuê ngay
                 </button>
               )}
-              <button onClick={handleAddToCart} className="w-full flex items-center justify-center gap-2 bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200">
+              <button
+                onClick={handleAddToCart}
+                className="w-full flex items-center justify-center gap-2 bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200"
+              >
                 <ShoppingCart className="w-5 h-5" /> Thêm vào giỏ
               </button>
             </div>
@@ -389,19 +552,32 @@ export default function ProductDetailPage() {
             <div className="mt-6 bg-white border rounded-2xl p-4">
               <div className="flex items-start justify-between">
                 <h3 className="font-semibold">Thông tin chủ sở hữu</h3>
-                <button className="text-sm text-blue-600 hover:underline">Liên hệ với chủ sở hữu</button>
+                <button className="text-sm text-blue-600 hover:underline">
+                  Liên hệ với chủ sở hữu
+                </button>
               </div>
               <div className="mt-3 flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden">
                   {product.Owner?.AvatarUrl ? (
-                    <img src={product.Owner.AvatarUrl} className="w-full h-full object-cover" />
+                    <img
+                      src={product.Owner.AvatarUrl}
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">👤</div>
+                    <div className="w-full h-full flex items-center justify-center text-gray-400">
+                      👤
+                    </div>
                   )}
                 </div>
                 <div>
-                  <div className="font-medium text-gray-900">{product.Owner?.DisplayName || product.Owner?.FullName || "Người dùng"}</div>
-                  <div className="text-xs text-gray-500">Xác minh • Thường trả lời trong vòng 2 giờ</div>
+                  <div className="font-medium text-gray-900">
+                    {product.Owner?.DisplayName ||
+                      product.Owner?.FullName ||
+                      "Người dùng"}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Xác minh • Thường trả lời trong vòng 2 giờ
+                  </div>
                 </div>
               </div>
             </div>
@@ -413,7 +589,9 @@ export default function ProductDetailPage() {
           <section className="lg:col-span-2">
             <h2 className="text-xl font-semibold mb-3">Miêu tả Sản phẩm</h2>
             <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-              {product.Description || product.ShortDescription || "Chưa có mô tả."}
+              {product.Description ||
+                product.ShortDescription ||
+                "Chưa có mô tả."}
             </p>
           </section>
 
@@ -421,13 +599,42 @@ export default function ProductDetailPage() {
             <div className="bg-white border rounded-2xl p-4">
               <h3 className="font-semibold mb-3">Thông tin sản phẩm</h3>
               <div className="space-y-2 text-sm text-gray-700">
-                <div className="flex justify-between"><span>Tình trạng:</span><span className="font-medium">{product.Condition?.ConditionName || "-"}</span></div>
-                <div className="flex justify-between"><span>Khu vực:</span><span className="font-medium">{product.District || ""}{product.City ? `, ${product.City}` : ""}</span></div>
-                <div className="flex justify-between"><span>Kho (sản phẩm):</span><span className="font-medium">{typeof product.Quantity === 'number' ? product.Quantity : '-'}</span></div>
-                <div className="flex justify-between"><span>Có sẵn (sản phẩm):</span><span className="font-medium">{typeof product.AvailableQuantity === 'number' ? product.AvailableQuantity : '-'}</span></div>
+                <div className="flex justify-between">
+                  <span>Tình trạng:</span>
+                  <span className="font-medium">
+                    {product.Condition?.ConditionName || "-"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Khu vực:</span>
+                  <span className="font-medium">
+                    {product.District || ""}
+                    {product.City ? `, ${product.City}` : ""}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Kho (sản phẩm):</span>
+                  <span className="font-medium">
+                    {typeof product.Quantity === "number"
+                      ? product.Quantity
+                      : "-"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Có sẵn (sản phẩm):</span>
+                  <span className="font-medium">
+                    {typeof product.AvailableQuantity === "number"
+                      ? product.AvailableQuantity
+                      : "-"}
+                  </span>
+                </div>
                 <div className="flex justify-between">
                   <span>Ngày đăng:</span>
-                  <span className="font-medium">{product.CreatedAt ? new Date(product.CreatedAt).toLocaleDateString("vi-VN") : '-'}</span>
+                  <span className="font-medium">
+                    {product.CreatedAt
+                      ? new Date(product.CreatedAt).toLocaleDateString("vi-VN")
+                      : "-"}
+                  </span>
                 </div>
               </div>
             </div>

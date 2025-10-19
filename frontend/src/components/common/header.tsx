@@ -14,8 +14,9 @@ import {
 } from '@/components/ui/common/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/common/avatar';
 import { useDispatch, useSelector } from 'react-redux';
-import { RootState } from '@/store/redux_store';
+import { RootState, AppDispatch } from '@/store/redux_store';
 import { logout, toggleDarkMode } from '@/store/auth/authReducer';
+import { fetchCartItemCount } from '@/store/cart/cartActions';
 import { jwtDecode } from 'jwt-decode';
 import { toast } from "sonner";
 import Image from "next/image";
@@ -34,9 +35,10 @@ export function Header() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userInfo, setUserInfo] = useState<DecodedToken | null>(null);
   const router = useRouter();
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
 
   const { accessToken, isDarkMode } = useSelector((state: RootState) => state.auth);
+  const { count: cartCount } = useSelector((state: RootState) => state.cart);
 
   // Decode JWT token để lấy thông tin user
   const decodedUser = React.useMemo(() => {
@@ -60,6 +62,9 @@ export function Header() {
         setIsLoggedIn(true);
         setUserInfo(decodedUser);
 
+        // Fetch cart count when user is logged in
+        dispatch(fetchCartItemCount());
+
         // Chuyển hướng dựa trên role
         const currentPath = router.pathname;
 
@@ -78,7 +83,7 @@ export function Header() {
       setIsLoggedIn(false);
       setUserInfo(null);
     }
-  }, [decodedUser, dispatch, router, isLoggedIn]);
+  }, [decodedUser, dispatch, router]);
 
   // Apply dark mode to document
   useEffect(() => {
@@ -213,22 +218,28 @@ export function Header() {
           </nav>
 
           <div className="flex items-center gap-4">
-            {/* Giỏ hàng */}
-            <Button
-              onClick={() => router.push("/cart")}
-              variant="ghost"
-              size="icon"
-              className="relative"
-            >
-              <Image
-                src="/market.png"
-                alt="Retro Trade Logo"
-                width={25}
-                height={25}
-                className="rounded-lg"
-              />
-              {/* Số lượng sản phẩm sẽ được thêm sau khi có hệ thống giỏ hàng */}
-            </Button>
+            {/* Giỏ hàng - chỉ hiển thị khi đã đăng nhập */}
+            {isLoggedIn && (
+              <Button
+                onClick={() => router.push("/auth/cartitem")}
+                variant="ghost"
+                size="icon"
+                className="relative"
+              >
+                <Image
+                  src="/market.png"
+                  alt="Retro Trade Logo"
+                  width={25}
+                  height={25}
+                  className="rounded-lg"
+                />
+                {cartCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {cartCount}
+                  </span>
+                )}
+              </Button>
+            )}
 
             {isLoggedIn && userInfo ? (
               <DropdownMenu>

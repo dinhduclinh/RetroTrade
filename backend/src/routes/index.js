@@ -9,6 +9,7 @@ const uploadproductRouter = require("./products/upload/upload.routes");
 
 const userRouter = require("./user/user.router")
 const blogRoutes = require("../routes/blog/post.routes");
+const cartItemRouter = require("./order/cartItem.routes");
 
 module.exports = (app) => {
     const api = "/api/v1";
@@ -22,4 +23,5 @@ module.exports = (app) => {
     app.use(api + "/price-units", priceUnitsRouter);
     
     app.use(api + "/post", blogRoutes);
+    app.use(api + "/cart", cartItemRouter);
 }
