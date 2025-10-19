@@ -6,7 +6,8 @@ import { useRouter } from "next/router";
 import {
   getPublicItemById,
 } from "@/services/products/product.api";
-import { Calendar, ChevronLeft, ChevronRight, Star, ShoppingCart, Zap, Bookmark } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Star, Zap, Bookmark } from "lucide-react";
+import AddToCartButton from "@/components/ui/common/AddToCartButton";
 
 interface ProductDetailDto {
   _id: string;
@@ -80,6 +81,11 @@ export default function ProductDetailPage() {
   const monthlyPriceLegacy = useMemo(() => (product ? product.BasePrice * 30 : 0), [product]);
 
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const tomorrowStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split("T")[0];
+  }, []);
 
   // Normalize unit from backend to one of: 'hour' | 'day' | 'week' | 'month'
   const baseUnit = useMemo(() => {
@@ -97,6 +103,12 @@ export default function ProductDetailPage() {
     if (baseUnit === "month") return ["month"]; // fallback if month-only products exist
     return ["day", "week", "month"];
   }, [baseUnit]);
+
+  // Initialize default dates: from today to tomorrow
+  useEffect(() => {
+    setDateFrom((prev) => prev || todayStr);
+    setDateTo((prev) => prev || tomorrowStr);
+  }, [todayStr, tomorrowStr]);
 
   // Default selected plan to base unit when product changes
   useEffect(() => {
@@ -174,8 +186,38 @@ export default function ProductDetailPage() {
 
   const totalPrice = useMemo(() => {
     if (!product) return 0;
-    return (pricePerUnit || 0) * (totalUnits || 0);
+    const units = totalUnits || 0;
+    const price = pricePerUnit || 0;
+    return price * units;
   }, [pricePerUnit, totalUnits, product]);
+
+  // Update total price display when dates or plan changes
+  const displayTotalPrice = useMemo(() => {
+    if (!product) return 0;
+    
+    // If dates are selected, calculate based on actual duration
+    if (dateFrom && dateTo && !dateError) {
+      const start = new Date(dateFrom);
+      const end = new Date(dateTo);
+      const msPerDay = 24 * 60 * 60 * 1000;
+      const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / msPerDay) + 1);
+      
+      let calculatedUnits = 0;
+      if (selectedPlan === "hour") calculatedUnits = days * 24;
+      else if (selectedPlan === "day") calculatedUnits = days;
+      else if (selectedPlan === "week") calculatedUnits = Math.ceil(days / 7);
+      else calculatedUnits = Math.ceil(days / 30);
+      
+      return (pricePerUnit || 0) * calculatedUnits;
+    }
+    
+    // If manual units are entered, use those
+    if (durationUnits && Number(durationUnits) > 0) {
+      return (pricePerUnit || 0) * Number(durationUnits);
+    }
+    
+    return 0;
+  }, [product, dateFrom, dateTo, dateError, selectedPlan, pricePerUnit, durationUnits]);
 
   const handlePrev = () => {
     setSelectedImageIndex((prev) => (prev - 1 + images.length) % images.length);
@@ -185,23 +227,13 @@ export default function ProductDetailPage() {
     setSelectedImageIndex((prev) => (prev + 1) % images.length);
   };
 
-  const handleAddToCart = () => {
-    // TODO: integrate cart
-    if (product) {
-      if ((product.AvailableQuantity ?? 0) <= 0) {
-        toast.error("Sản phẩm không có sẵn để thêm vào giỏ hàng");
-        return;
-      }
-      console.log("Add to cart", product.Title);
-      toast.success("Đã thêm vào giỏ");
-    }
-  };
+  
 
   const handleRentNow = () => {
     // TODO: navigate to checkout or open rent modal
-    if (product && totalUnits > 0 && !dateError) {
-      console.log("Rent now", product._id, dateFrom, dateTo);
-      toast.info("Thuê ngay");
+    if (product && displayTotalPrice > 0 && !dateError) {
+      console.log("Rent now", product._id, dateFrom, dateTo, displayTotalPrice);
+      toast.info(`Thuê ngay với giá ${formatPrice(displayTotalPrice, product.Currency)}`);
     }
   };
 
@@ -361,7 +393,7 @@ export default function ProductDetailPage() {
                   className="w-full border rounded-lg p-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
                 />
                 <p className="mt-2 text-sm text-gray-700">
-                  Tổng tiền: <span className="font-semibold text-blue-600">{formatPrice(totalPrice, product.Currency)}</span>
+                  Tổng tiền: <span className="font-semibold text-blue-600">{formatPrice(displayTotalPrice, product.Currency)}</span>
                 </p>
               </div>
             </div>
@@ -376,13 +408,20 @@ export default function ProductDetailPage() {
                   Hết hàng
                 </button>
               ) : (
-                <button disabled={totalUnits <= 0 || !!dateError} onClick={handleRentNow} className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg ${totalUnits <= 0 || !!dateError ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
+                <button disabled={displayTotalPrice <= 0 || !!dateError} onClick={handleRentNow} className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg ${displayTotalPrice <= 0 || !!dateError ? 'bg-gray-300 text-gray-600 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
                   <Zap className="w-5 h-5" /> Thuê ngay
                 </button>
               )}
-              <button onClick={handleAddToCart} className="w-full flex items-center justify-center gap-2 bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200">
-                <ShoppingCart className="w-5 h-5" /> Thêm vào giỏ
-              </button>
+              <div className="w-full">
+                <AddToCartButton
+                  itemId={product._id}
+                  availableQuantity={product.AvailableQuantity ?? 0}
+                  size="md"
+                  variant="outline"
+                  showText
+                  className="w-full"
+                />
+              </div>
             </div>
 
             {/* Owner card */}

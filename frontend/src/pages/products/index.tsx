@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
 import {
   getAllItems,
   getAllCategories,
 } from "@/services/products/product.api";
-import { Search, Filter, MapPin, Calendar, Eye, Package, X, ShoppingCart, Zap, Star } from "lucide-react";
+import { Search, MapPin, Calendar, Eye, Package, X, Zap, Star } from "lucide-react";
+import AddToCartButton from "@/components/ui/common/AddToCartButton";
 
 interface Category {
   _id: string;
@@ -492,13 +494,16 @@ export default function ProductPage() {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <button
-                          onClick={() => handleRentNow(item._id)}
-                          className="flex-1 flex items-center justify-center gap-2 bg-gray-100 text-gray-700 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm"
-                        >
-                          <ShoppingCart size={16} />
-                          Thêm vào giỏ
-                        </button>
+                        <div onClick={(e) => e.stopPropagation()} className="flex-1">
+                          <AddToCartButton
+                            itemId={item._id}
+                            availableQuantity={item.availableQuantity}
+                            size="sm"
+                            variant="outline"
+                            showText
+                            className="w-full"
+                          />
+                        </div>
                         <button
                           onClick={() => handleRentNow(item._id)}
                           className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
