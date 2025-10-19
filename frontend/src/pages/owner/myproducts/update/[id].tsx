@@ -13,8 +13,17 @@ import { getCategories } from "../../../../services/products/category.api";
 import { useSelector } from "react-redux";
 import Image from "next/image";
 import { toast } from "sonner";
-import { ArrowLeft, Upload, X, Plus, MapPin, Tag, Package, DollarSign } from "lucide-react";
-import { vietnamProvinces, vietnamWards } from "../../../../lib/vietnam-locations";
+import {
+  ArrowLeft,
+  Upload,
+  X,
+  Plus,
+  MapPin,
+  Tag,
+  Package,
+  DollarSign,
+} from "lucide-react";
+import { vietnamProvinces } from "../../../../lib/vietnam-locations";
 
 const UpdateProductPage: React.FC = () => {
   const router = useRouter();
@@ -25,7 +34,9 @@ const UpdateProductPage: React.FC = () => {
   const [secondaryPreviews, setSecondaryPreviews] = useState<string[]>([]);
   const [primaryFile, setPrimaryFile] = useState<File | null>(null);
   const [secondaryFiles, setSecondaryFiles] = useState<File[]>([]);
-  const [selectedImages, setSelectedImages] = useState<Array<{_id: string; Url: string}>>([]);
+  const [selectedImages, setSelectedImages] = useState<
+    Array<{ _id: string; Url: string }>
+  >([]);
 
   const [title, setTitle] = useState("");
   const [shortDescription, setShortDescription] = useState("");
@@ -44,9 +55,20 @@ const UpdateProductPage: React.FC = () => {
   const [tagsInput, setTagsInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
 
-  const [categories, setCategories] = useState<Array<{_id: string; name?: string; Name?: string; parentCategoryId?: string}>>([]);
-  const [conditions, setConditions] = useState<Array<{ConditionId?: string; _id?: string; ConditionName: string}>>([]);
-  const [priceUnits, setPriceUnits] = useState<Array<{UnitId?: string; _id?: string; UnitName: string}>>([]);
+  const [categories, setCategories] = useState<
+    Array<{
+      _id: string;
+      name?: string;
+      Name?: string;
+      parentCategoryId?: string;
+    }>
+  >([]);
+  const [conditions, setConditions] = useState<
+    Array<{ ConditionId?: string; _id?: string; ConditionName: string }>
+  >([]);
+  const [priceUnits, setPriceUnits] = useState<
+    Array<{ UnitId?: string; _id?: string; UnitName: string }>
+  >([]);
 
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedPath, setSelectedPath] = useState<string[]>([]);
@@ -58,79 +80,83 @@ const UpdateProductPage: React.FC = () => {
   const tagsInputRef = useRef<HTMLInputElement>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
 
-  const isAuthenticated = useSelector((state: {auth: {accessToken: string}}) => !!state.auth.accessToken);
+  const isAuthenticated = useSelector(
+    (state: { auth: { accessToken: string } }) => !!state.auth.accessToken
+  );
 
   // Format Vietnamese currency
   const formatVietnameseCurrency = (value: string) => {
-    const numValue = value.replace(/\D/g, '');
-    return numValue.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const numValue = value.replace(/\D/g, "");
+    return numValue.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   };
 
   // Handle price input with Vietnamese formatting
-  const handlePriceChange = (value: string, setter: (value: string) => void) => {
+  const handlePriceChange = (
+    value: string,
+    setter: (value: string) => void
+  ) => {
     const formatted = formatVietnameseCurrency(value);
     setter(formatted);
   };
 
   // Convert formatted price back to number for API
   const parsePrice = (formattedPrice: string) => {
-    return formattedPrice.replace(/\./g, '');
+    return formattedPrice.replace(/\./g, "");
   };
 
-  // Get available wards for selected city
-  const getAvailableWards = () => {
-    return city ? (vietnamWards[city] || []) : [];
-  };
+  const fetchProductDetails = useCallback(
+    async (productId: string) => {
+      setFetchLoading(true);
+      try {
+        const response = await getProductById(productId);
+        if (response.ok) {
+          const data = await response.json();
+          const product = data.data;
+          if (product) {
+            setTitle(product.Title || "");
+            setShortDescription(product.ShortDescription || "");
+            setDescription(product.Description || "");
+            setCategoryId(product.CategoryId?._id || product.CategoryId || "");
+            setConditionId(product.ConditionId?.toString() || "");
+            setBasePrice(product.BasePrice?.toString() || "");
+            setPriceUnitId(product.PriceUnitId?.toString() || "");
+            setDepositAmount(product.DepositAmount?.toString() || "");
+            setMinRentalDuration(product.MinRentalDuration?.toString() || "");
+            setMaxRentalDuration(product.MaxRentalDuration?.toString() || "");
+            setQuantity(product.Quantity?.toString() || "");
+            setAddress(product.Address || "");
+            setCity(product.City || "");
+            setWard(product.Ward || "");
 
-  const fetchProductDetails = useCallback(async (productId: string) => {
-    setFetchLoading(true);
-    try {
-      const response = await getProductById(productId);
-      if (response.ok) {
-        const data = await response.json();
-        const product = data.data;
-        if (product) {
-          setTitle(product.Title || "");
-          setShortDescription(product.ShortDescription || "");
-          setDescription(product.Description || "");
-          setCategoryId(product.CategoryId?._id || product.CategoryId || "");
-          setConditionId(product.ConditionId?.toString() || "");
-          setBasePrice(product.BasePrice?.toString() || "");
-          setPriceUnitId(product.PriceUnitId?.toString() || "");
-          setDepositAmount(product.DepositAmount?.toString() || "");
-          setMinRentalDuration(product.MinRentalDuration?.toString() || "");
-          setMaxRentalDuration(product.MaxRentalDuration?.toString() || "");
-          setQuantity(product.Quantity?.toString() || "");
-          setAddress(product.Address || "");
-          setCity(product.City || "");
-          setWard(product.Ward || "");
+            const existingTags =
+              product.Tags?.map(
+                (t: { Tag?: { name: string }; name?: string }) =>
+                  t.Tag?.name || t.name || ""
+              ).filter(Boolean) || [];
+            setTags(existingTags);
 
-          const existingTags =
-            product.Tags?.map((t: {Tag?: {name: string}; name?: string}) => t.Tag?.name || t.name || "").filter(
-              Boolean
-            ) || [];
-          setTags(existingTags);
-
-          const existingImageUrls =
-            product.Images?.map((img: {Url: string}) => img.Url) || [];
-          setSelectedImages(product.Images || []);
-          setSecondaryPreviews(existingImageUrls);
-          if (existingImageUrls.length > 0) {
-            setPrimaryPreview(existingImageUrls[0]);
+            const existingImageUrls =
+              product.Images?.map((img: { Url: string }) => img.Url) || [];
+            setSelectedImages(product.Images || []);
+            setSecondaryPreviews(existingImageUrls);
+            if (existingImageUrls.length > 0) {
+              setPrimaryPreview(existingImageUrls[0]);
+            }
           }
+        } else {
+          toast.error("Không thể tải thông tin sản phẩm");
+          router.push("/owner");
         }
-      } else {
-        toast.error("Không thể tải thông tin sản phẩm");
+      } catch (error) {
+        console.error("Error fetching product details:", error);
+        toast.error("Có lỗi khi tải thông tin sản phẩm");
         router.push("/owner");
+      } finally {
+        setFetchLoading(false);
       }
-    } catch (error) {
-      console.error("Error fetching product details:", error);
-      toast.error("Có lỗi khi tải thông tin sản phẩm");
-      router.push("/owner");
-    } finally {
-      setFetchLoading(false);
-    }
-  }, [router]);
+    },
+    [router]
+  );
 
   const fetchInitialData = useCallback(async () => {
     try {
@@ -301,7 +327,11 @@ const UpdateProductPage: React.FC = () => {
     );
   };
 
-  const handleCategorySelect = (cat: {_id: string; name?: string; Name?: string}) => {
+  const handleCategorySelect = (cat: {
+    _id: string;
+    name?: string;
+    Name?: string;
+  }) => {
     const catId = cat._id.toString();
     const categoryName = cat.name || cat.Name || `Unnamed Category`;
     if (!hasChildren(catId)) {
@@ -392,7 +422,8 @@ const UpdateProductPage: React.FC = () => {
         if (!uploadResult.success) {
           throw new Error(uploadResult.message || "Tải hình ảnh thất bại");
         }
-        const newImageUrls = uploadResult.data.map((img: {Url: string}) => img.Url) || [];
+        const newImageUrls =
+          uploadResult.data.map((img: { Url: string }) => img.Url) || [];
         imageUrls = [...imageUrls, ...newImageUrls];
       }
 
@@ -440,7 +471,9 @@ const UpdateProductPage: React.FC = () => {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <div className="text-lg text-gray-600">Đang tải thông tin sản phẩm...</div>
+          <div className="text-lg text-gray-600">
+            Đang tải thông tin sản phẩm...
+          </div>
         </div>
       </div>
     );
@@ -472,7 +505,7 @@ const UpdateProductPage: React.FC = () => {
               <Upload className="w-5 h-5 text-blue-600" />
               Hình ảnh sản phẩm
             </h2>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Primary Image */}
               <div>
@@ -603,7 +636,7 @@ const UpdateProductPage: React.FC = () => {
               <Package className="w-5 h-5 text-blue-600" />
               Thông tin cơ bản
             </h2>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="space-y-6">
                 <div>
@@ -658,7 +691,13 @@ const UpdateProductPage: React.FC = () => {
                       onClick={handleCategoryClick}
                       className="w-full p-3 border border-gray-300 rounded-lg text-left bg-white flex justify-between items-center hover:border-blue-400 transition-colors"
                     >
-                      <span className={selectedCategoryNameState === "Chọn danh mục" ? "text-gray-500" : "text-gray-900"}>
+                      <span
+                        className={
+                          selectedCategoryNameState === "Chọn danh mục"
+                            ? "text-gray-500"
+                            : "text-gray-900"
+                        }
+                      >
                         {selectedCategoryNameState}
                       </span>
                       <span className="text-gray-400">▼</span>
@@ -731,7 +770,7 @@ const UpdateProductPage: React.FC = () => {
               <DollarSign className="w-5 h-5 text-green-600" />
               Giá cả và thời gian
             </h2>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="space-y-6">
                 <div>
@@ -742,7 +781,9 @@ const UpdateProductPage: React.FC = () => {
                     <input
                       type="text"
                       value={basePrice}
-                      onChange={(e) => handlePriceChange(e.target.value, setBasePrice)}
+                      onChange={(e) =>
+                        handlePriceChange(e.target.value, setBasePrice)
+                      }
                       required
                       placeholder="Nhập giá thuê"
                       className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
@@ -774,7 +815,9 @@ const UpdateProductPage: React.FC = () => {
                   <input
                     type="text"
                     value={depositAmount}
-                    onChange={(e) => handlePriceChange(e.target.value, setDepositAmount)}
+                    onChange={(e) =>
+                      handlePriceChange(e.target.value, setDepositAmount)
+                    }
                     required
                     placeholder="Nhập tiền đặt cọc"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
@@ -819,7 +862,7 @@ const UpdateProductPage: React.FC = () => {
               <MapPin className="w-5 h-5 text-red-600" />
               Vị trí
             </h2>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -842,18 +885,13 @@ const UpdateProductPage: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Xã/Phường
                 </label>
-                <select
+                <input
+                  type="text"
                   value={ward}
                   onChange={(e) => setWard(e.target.value)}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                >
-                  <option value="">Chọn xã/phường</option>
-                  {getAvailableWards().map((wardName: string) => (
-                    <option key={wardName} value={wardName}>
-                      {wardName}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Nhập xã/phường"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">

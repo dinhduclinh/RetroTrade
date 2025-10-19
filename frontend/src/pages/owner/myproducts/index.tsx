@@ -253,7 +253,7 @@ export default function OwnerPanel() {
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
                   <Settings className="w-8 h-8 text-indigo-600" />
-                  Bảng điều khiển Owner
+                  Sản phẩm của tôi
                 </h1>
                 <p className="text-gray-600">
                   Quản lý và theo dõi các sản phẩm cho thuê của bạn
