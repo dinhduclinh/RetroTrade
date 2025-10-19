@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/router";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState, AppDispatch } from "@/store/redux_store";
+import { addItemToCartAction, fetchCartItemCount } from "@/store/cart/cartActions";
 import { getPublicItemById } from "@/services/products/product.api";
 import {
   Calendar,
@@ -48,6 +51,8 @@ const formatPrice = (price: number, currency: string) => {
 export default function ProductDetailPage() {
   const router = useRouter();
   const { id } = router.query as { id?: string };
+  const dispatch = useDispatch<AppDispatch>();
+  const { accessToken } = useSelector((state: RootState) => state.auth);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,8 +78,8 @@ export default function ProductDetailPage() {
         const detail: ProductDetailDto = data?.data || data;
         setProduct(detail);
         setSelectedImageIndex(0);
-      } catch (e: any) {
-        console.error("Failed to load product detail", e);
+      } catch (err: unknown) {
+        console.error("Failed to load product detail", err);
         setError("Không thể tải chi tiết sản phẩm");
       } finally {
         setLoading(false);
@@ -94,14 +99,14 @@ export default function ProductDetailPage() {
   );
 
   // Legacy simple multiples (will be replaced by unit-aware prices below)
-  const weeklyPriceLegacy = useMemo(
-    () => (product ? product.BasePrice * 7 : 0),
-    [product]
-  );
-  const monthlyPriceLegacy = useMemo(
-    () => (product ? product.BasePrice * 30 : 0),
-    [product]
-  );
+  // const weeklyPriceLegacy = useMemo(
+  //   () => (product ? product.BasePrice * 7 : 0),
+  //   [product]
+  // );
+  // const monthlyPriceLegacy = useMemo(
+  //   () => (product ? product.BasePrice * 30 : 0),
+  //   [product]
+  // );
 
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
   const tomorrowStr = useMemo(() => {
@@ -266,6 +271,37 @@ export default function ProductDetailPage() {
     if (product && displayTotalPrice > 0 && !dateError) {
       console.log("Rent now", product._id, dateFrom, dateTo, displayTotalPrice);
       toast.info(`Thuê ngay với giá ${formatPrice(displayTotalPrice, product.Currency)}`);
+    }
+  };
+
+  const handleAddToCart = async () => {
+    if (!product) return;
+    if (!accessToken) {
+      toast.error("Vui lòng đăng nhập để thêm vào giỏ hàng");
+      return;
+    }
+    if (outOfStock) {
+      toast.error("Sản phẩm hiện tại không khả dụng");
+      return;
+    }
+    if (!!dateError || totalUnits <= 0) {
+      toast.error("Vui lòng chọn thời gian thuê hợp lệ");
+      return;
+    }
+
+    try {
+      await dispatch(
+        addItemToCartAction({
+          itemId: product._id,
+          quantity: 1,
+          rentalStartDate: dateFrom || undefined,
+          rentalEndDate: dateTo || undefined,
+        })
+      );
+      dispatch(fetchCartItemCount());
+      toast.success("Đã thêm vào giỏ hàng thành công");
+    } catch {
+      toast.error("Có lỗi xảy ra khi thêm vào giỏ hàng");
     }
   };
 
@@ -592,6 +628,7 @@ export default function ProductDetailPage() {
                   {product.Owner?.AvatarUrl ? (
                     <img
                       src={product.Owner.AvatarUrl}
+                      alt={product.Owner?.DisplayName || product.Owner?.FullName || "avatar"}
                       className="w-full h-full object-cover"
                     />
                   ) : (

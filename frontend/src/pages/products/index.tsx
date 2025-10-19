@@ -15,6 +15,7 @@ import {
   Zap,
   Star,
 } from "lucide-react";
+import AddToCartButton from "@/components/ui/common/AddToCartButton";
 
 interface Category {
   _id: string;
