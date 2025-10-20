@@ -1,5 +1,5 @@
 const Comment =  require("../../models/Blog/Comment.model");
-
+const Post = require("../../models/Blog/Post.model");
 
  const getCommentsByPost = async (req, res) => {
   try {
@@ -7,11 +7,11 @@ const Comment =  require("../../models/Blog/Comment.model");
       postId: req.params.postId,
       isDeleted: false,
     })
-      .populate("userId", "fullName")
+      .populate("userId", "fullName email avatarUrl")
       .populate("parentCommentId", "content userId");
     res.json(comments);
   } catch (error) {
-    res.status(500).json({ message: "Failed to load comments", error });
+    res.status(500).json({ message: "Tải bình luận thất bại", error });
   }
 };
 const getAllComment = async (req, res) => {
@@ -62,7 +62,69 @@ const getCommentDetail = async (req, res) => {
   }
 };
 
-module.exports = { getCommentDetail };
+const updateCommentByUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { content } = req.body;
+    const userId = req.user._id; 
+
+
+    const comment = await Comment.findById(id);
+    if (!comment) {
+      return res.status(404).json({ message: "Bình luận không tồn tại." });
+    }
+
+    if (comment.userId.toString() !== userId.toString() && !req.user.isAdmin) {
+      return res
+        .status(403)
+        .json({ message: "Không có quyền chỉnh sửa bình luận này." });
+    }
+
+    comment.content = content;
+    comment.updatedAt = Date.now();
+    await comment.save();
+
+    res
+      .status(200)
+      .json({ message: "Cập nhật bình luận thành công.", comment });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Lỗi khi cập nhật bình luận.", error: error.message });
+  }
+};
+const deleteCommentByUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id;
+
+    const comment = await Comment.findById(id);
+    if (!comment) {
+      return res.status(404).json({ message: "Bình luận không tồn tại." });
+    }
+
+    if (comment.userId.toString() !== userId.toString() && !req.user.isAdmin) {
+      return res
+        .status(403)
+        .json({ message: "Không có quyền xóa bình luận này." });
+    }
+
+    comment.isDeleted = true;
+    comment.content = "[Bình luận đã bị xóa]";
+    await comment.save();
+
+ 
+    await Post.findByIdAndUpdate(comment.postId, {
+      $inc: { commentCount: -1 },
+    });
+
+    res.status(200).json({ message: "Xóa bình luận thành công." });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Lỗi khi xóa bình luận.", error: error.message });
+  }
+};
 
 
 
@@ -82,7 +144,7 @@ const addComment = async (req, res) => {
 
     res.status(201).json(comment);
   } catch (error) {
-    console.error("Error adding comment:", error); // log chi tiết
+    console.error("Error adding comment:", error); 
     res.status(400).json({ message: "Failed to add comment", error });
   }
 };
@@ -120,4 +182,5 @@ const deleteComment = async (req, res) => {
   }
 };
 
-module.exports = {getCommentsByPost , addComment, deleteComment , getAllComment,banComment ,getCommentDetail};
+module.exports = {getCommentsByPost , addComment, deleteComment , getAllComment,banComment ,
+getCommentDetail,updateCommentByUser,deleteCommentByUser};
