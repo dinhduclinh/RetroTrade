@@ -11,27 +11,45 @@ import {
   ChevronDown,
   ChevronRight,
   LayoutDashboard,
+  Package,
 } from "lucide-react";
 import { Button } from "@/components/ui/common/button";
 import { useState } from "react";
 
 interface ModeratorSidebarProps {
-  activeTab: "dashboard" | "users" | "requests" | "verification" | "blog";
+  activeTab:
+    | "dashboard"
+    | "users"
+    | "requests"
+    | "verification"
+    | "productManagement"
+    | "blog";
+  activeProductTab?: "products" | "categories";
   activeBlogTab?: "posts" | "categories" | "comments" | "tags";
   onTabChange?: (
-    tab: "dashboard" | "users" | "requests" | "verification" | "blog"
+    tab:
+      | "dashboard"
+      | "users"
+      | "requests"
+      | "verification"
+      | "productManagement"
+      | "blog"
   ) => void;
+  onProductTabChange?: (tab: "products" | "categories") => void;
   onBlogTabChange?: (tab: "posts" | "categories" | "comments" | "tags") => void;
 }
 
 export function ModeratorSidebar({
   activeTab,
+  activeProductTab,
   activeBlogTab,
   onTabChange,
+  onProductTabChange,
   onBlogTabChange,
 }: ModeratorSidebarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isBlogDropdownOpen, setIsBlogDropdownOpen] = useState(false);
+  const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
 
   const menuItems = [
     {
@@ -63,11 +81,31 @@ export function ModeratorSidebar({
       description: "Xác thực danh tính người dùng",
     },
     {
+      id: "productManagement" as const,
+      label: "Quản lý sản phẩm",
+      icon: Package,
+      description: "Quản lý sản phẩm và danh mục",
+      hasSubmenu: true,
+    },
+    {
       id: "blog" as const,
       label: "Quản lý Blog",
       icon: BookOpen,
       description: "Quản lý bài viết và nội dung",
       hasSubmenu: true,
+    },
+  ];
+
+  const productSubmenuItems = [
+    {
+      id: "products" as const,
+      label: "Quản lý sản phẩm",
+      description: "Duyệt và phê duyệt sản phẩm",
+    },
+    {
+      id: "categories" as const,
+      label: "Quản lý danh mục",
+      description: "Quản lý danh mục sản phẩm",
     },
   ];
 
@@ -94,10 +132,14 @@ export function ModeratorSidebar({
     },
   ];
 
-  // removed unused handleNavigation
-
   const handleTabChange = (
-    tab: "dashboard" | "users" | "requests" | "verification" | "blog"
+    tab:
+      | "dashboard"
+      | "users"
+      | "requests"
+      | "verification"
+      | "productManagement"
+      | "blog"
   ) => {
     console.log("Sidebar handleTabChange called with:", tab);
     if (onTabChange) {
@@ -110,7 +152,21 @@ export function ModeratorSidebar({
     if (tab !== "blog") {
       setIsBlogDropdownOpen(false);
     }
+    if (tab !== "productManagement") {
+      setIsProductDropdownOpen(false);
+    }
 
+    setIsMobileMenuOpen(false);
+  };
+
+  const handleProductTabChange = (tab: "products" | "categories") => {
+    console.log("Sidebar handleProductTabChange called with:", tab);
+    if (onProductTabChange) {
+      console.log("Calling onProductTabChange with:", tab);
+      onProductTabChange(tab);
+    } else {
+      console.log("onProductTabChange is not provided!");
+    }
     setIsMobileMenuOpen(false);
   };
 
@@ -124,8 +180,50 @@ export function ModeratorSidebar({
     } else {
       console.log("onBlogTabChange is not provided!");
     }
-    // Không đóng dropdown khi chọn submenu
     setIsMobileMenuOpen(false);
+  };
+
+  const renderSubmenu = (
+    item: (typeof menuItems)[number],
+    submenuItems: typeof productSubmenuItems | typeof blogSubmenuItems,
+    isDropdownOpen: boolean,
+    activeSubTab?: string,
+    onSubTabChange?: (tab: string) => void,
+    dropdownKey: "product" | "blog"
+  ) => {
+    if (!item.hasSubmenu || !isDropdownOpen) return null;
+
+    const isProduct = dropdownKey === "product";
+    const activeTabKey = isProduct ? activeProductTab : activeBlogTab;
+
+    return (
+      <div className="ml-8 mt-2 space-y-2 animate-slide-in-left">
+        {submenuItems.map((subItem) => {
+          const isSubActive =
+            activeTab === item.id && activeSubTab === subItem.id;
+          return (
+            <Button
+              key={subItem.id}
+              variant="ghost"
+              className={`
+                w-full justify-start h-12 px-4 text-sm transition-all duration-200
+                ${
+                  isSubActive
+                    ? "bg-white/15 text-white border border-white/20"
+                    : "text-white/60 hover:text-white hover:bg-white/5"
+                }
+              `}
+              onClick={() => onSubTabChange?.(subItem.id)}
+            >
+              <div className="text-left">
+                <div className="font-medium">{subItem.label}</div>
+                <div className="text-xs opacity-70">{subItem.description}</div>
+              </div>
+            </Button>
+          );
+        })}
+      </div>
+    );
   };
 
   return (
@@ -170,7 +268,10 @@ export function ModeratorSidebar({
             {menuItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
+              const isProductActive = activeTab === "productManagement";
               const isBlogActive = activeTab === "blog";
+              const isProduct = item.id === "productManagement";
+              const isBlog = item.id === "blog";
 
               return (
                 <div key={item.id}>
@@ -186,9 +287,12 @@ export function ModeratorSidebar({
                     `}
                     onClick={() => {
                       if (item.hasSubmenu) {
-                        // Chỉ toggle dropdown khi click vào menu chính
-                        setIsBlogDropdownOpen(!isBlogDropdownOpen);
-                        handleTabChange("blog");
+                        if (isProduct) {
+                          setIsProductDropdownOpen(!isProductDropdownOpen);
+                        } else if (isBlog) {
+                          setIsBlogDropdownOpen(!isBlogDropdownOpen);
+                        }
+                        handleTabChange(item.id);
                       } else {
                         handleTabChange(item.id);
                       }
@@ -215,7 +319,11 @@ export function ModeratorSidebar({
                       </div>
                       {item.hasSubmenu && (
                         <div className="ml-auto">
-                          {isBlogDropdownOpen ? (
+                          {(
+                            isProduct
+                              ? isProductDropdownOpen
+                              : isBlogDropdownOpen
+                          ) ? (
                             <ChevronDown className="w-4 h-4" />
                           ) : (
                             <ChevronRight className="w-4 h-4" />
@@ -225,52 +333,34 @@ export function ModeratorSidebar({
                     </div>
                   </Button>
 
+                  {/* Product submenu */}
+                  {isProduct &&
+                    renderSubmenu(
+                      item,
+                      productSubmenuItems,
+                      isProductDropdownOpen,
+                      activeProductTab,
+                      handleProductTabChange,
+                      "product"
+                    )}
+
                   {/* Blog submenu */}
-                  {item.hasSubmenu && isBlogDropdownOpen && (
-                    <div className="ml-8 mt-2 space-y-2 animate-slide-in-left">
-                      {blogSubmenuItems.map((subItem) => {
-                        const isSubActive =
-                          isBlogActive && activeBlogTab === subItem.id;
-                        return (
-                          <Button
-                            key={subItem.id}
-                            variant="ghost"
-                            className={`
-                              w-full justify-start h-12 px-4 text-sm transition-all duration-200
-                              ${
-                                isSubActive
-                                  ? "bg-white/15 text-white border border-white/20"
-                                  : "text-white/60 hover:text-white hover:bg-white/5"
-                              }
-                            `}
-                            onClick={() => handleBlogTabChange(subItem.id)}
-                          >
-                            <div className="text-left">
-                              <div className="font-medium">{subItem.label}</div>
-                              <div className="text-xs opacity-70">
-                                {subItem.description}
-                              </div>
-                            </div>
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  )}
+                  {isBlog &&
+                    renderSubmenu(
+                      item,
+                      blogSubmenuItems,
+                      isBlogDropdownOpen,
+                      activeBlogTab,
+                      handleBlogTabChange,
+                      "blog"
+                    )}
                 </div>
               );
             })}
           </nav>
 
           {/* Logout button */}
-          <div className="mt-auto">
-            <Button
-              variant="ghost"
-              className="w-full justify-start h-12 px-4 text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all duration-200 hover:scale-105"
-            >
-              <LogOut className="w-5 h-5 mr-3" />
-              Đăng xuất
-            </Button>
-          </div>
+          <div className="mt-auto"></div>
         </div>
       </div>
 
