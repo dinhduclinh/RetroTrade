@@ -1,5 +1,4 @@
 import instance from "../customizeAPI";
-import api from "../customizeAPI";
 
 export const addProduct = async (productData: any): Promise<Response> => {
   return await instance.post("/products/add", productData);
@@ -33,6 +32,21 @@ export const deleteProduct = async (id: string): Promise<Response> => {
   return await instance.delete(`/products/${id}`);
 };
 
+export const getPendingProducts = async (): Promise<Response> => {
+  return await instance.get("/products/pending"); 
+};
+
+export const getPendingProductDetails = async (id: string): Promise<Response> => {
+  return await instance.get(`/products/pending/${id}`);
+};
+
+export const approveProduct = async (id: string): Promise<Response> => {
+  return await instance.put(`/products/pending/${id}/approve`);
+};
+
+export const rejectProduct = async (id: string, reason?: string): Promise<Response> => {
+  return await instance.put(`/products/pending/${id}/reject`, { reason });
+};
 
 //product public
 export const getAllItems = async () => {

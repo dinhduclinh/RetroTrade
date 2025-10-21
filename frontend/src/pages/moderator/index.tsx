@@ -31,6 +31,7 @@ import {
   Activity,
 } from "lucide-react";
 import ProductCategoryManager from "@/components/ui/moderator/categories/category-management-table";
+import ProductManagement from "@/components/ui/moderator/product/product-management";
 
 // JWT token payload interface
 interface JwtPayload {
@@ -216,11 +217,7 @@ export default function ModeratorDashboard() {
         case "categories":
           return <ProductCategoryManager />;
         case "products":
-          return (
-            <div className="text-white p-8 text-center">
-              Quản lý sản phẩm (Chưa triển khai)
-            </div>
-          );
+          return <ProductManagement />;
         default:
           return <ProductCategoryManager />;
       }

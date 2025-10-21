@@ -207,7 +207,7 @@ const addProduct = async (req, res) => {
 
     // Process tags
     if (tagsArray.length > 0) {
-      await ItemTag.deleteMany({ ItemId: item._id }, { session }); // Hard delete all existing ItemTags
+      await ItemTag.deleteMany({ ItemId: item._id }, { session }); 
 
       for (let tagName of tagsArray) {
         const trimmedName = tagName.trim();
@@ -484,6 +484,7 @@ const updateProduct = async (req, res) => {
       Currency,
       Quantity: parsedQuantity,
       AvailableQuantity: parsedQuantity,
+      StatusId: 1,
       Address,
       City,
       District,
@@ -657,13 +658,13 @@ const updateProduct = async (req, res) => {
       Category: categoryDetail,
       Condition: conditionDetail,
       Owner: ownerDetail,
-      Images: imagesDetail || images, // Fallback to new images if query fails
+      Images: imagesDetail || images, 
       Tags: itemTagsDetail,
     };
 
     res.status(200).json({
       success: true,
-      message: "Cập nhật sản phẩm thành công",
+      message: "Sản phẩm đã được cập nhật thành công và đang chờ phê duyệt.",
       data: itemWithDetails,
     });
   } catch (error) {
