@@ -21,7 +21,6 @@ import {
   cascadeDeactivateCategory,
 } from "@/services/products/category.api";
 
-// Types để tránh TS errors
 interface Category {
   _id: string;
   id?: string;
@@ -50,7 +49,7 @@ interface PaginationState {
   itemsPerPage: number;
 }
 
-type SortField = "name" | "slug" | "updatedAt";
+type SortField = "name" | "updatedAt";
 interface SortState {
   field: SortField;
   order: "asc" | "desc";
@@ -132,12 +131,11 @@ export default function ProductCategoryManager() {
         const bDate = new Date(b.updatedAt);
         cmp = aDate.getTime() - bDate.getTime();
       } else {
-        // For 'name' or 'slug' - string comparison
         cmp = a[sort.field].localeCompare(b[sort.field]);
       }
       return sort.order === "asc" ? cmp : -cmp;
     });
-    // Paginate
+
     const startIndex = (pagination.currentPage - 1) * pagination.itemsPerPage;
     const endIndex = startIndex + pagination.itemsPerPage;
     const paginatedRoots = roots.slice(startIndex, endIndex);
@@ -282,7 +280,7 @@ export default function ProductCategoryManager() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.name || !formData.slug) {
+    if (!formData.name) {
       toast.error("Vui lòng điền đầy đủ thông tin!");
       return;
     }
@@ -636,11 +634,8 @@ export default function ProductCategoryManager() {
       <div className="bg-white/10 backdrop-blur-md border-white/20 rounded-lg p-6">
         {/* Header */}
         <div className="flex items-center justify-between gap-4 mb-6">
-          <h1 className="text-xl font-bold text-white">
-            Danh sách danh mục
-          </h1>
+          <h1 className="text-xl font-bold text-white">Danh sách danh mục</h1>
           <div className="flex items-center gap-2">
-
             <div className="relative flex-1 max-w-xl">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/60" />
               <input
@@ -662,12 +657,6 @@ export default function ProductCategoryManager() {
                   style={{ backgroundColor: "#111827", color: "white" }}
                 >
                   Tên
-                </option>
-                <option
-                  value="slug"
-                  style={{ backgroundColor: "#111827", color: "white" }}
-                >
-                  Đường dẫn
                 </option>
                 <option
                   value="updatedAt"
@@ -753,16 +742,14 @@ export default function ProductCategoryManager() {
 
               <div>
                 <label className="block text-sm font-semibold text-white/70 mb-2">
-                  Đường dẫn *
+                  Đường dẫn
                 </label>
                 <input
                   type="text"
-                  className="w-full px-4 py-2.5 bg-white/10 border-white/20 rounded focus:border-blue-400 focus:outline-none transition-colors font-mono text-white"
+                  readOnly
+                  className="w-full px-4 py-2.5 bg-white/10 border-white/20 rounded focus:border-blue-400 focus:outline-none transition-colors font-mono text-white cursor-not-allowed"
                   placeholder="duong-dan-danh-muc"
                   value={formData.slug}
-                  onChange={(e) =>
-                    setFormData({ ...formData, slug: e.target.value })
-                  }
                 />
               </div>
 
