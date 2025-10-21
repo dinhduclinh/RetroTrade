@@ -2,6 +2,7 @@ const express = require("express")
 const router = express.Router()
 
 const userAuthController = require("../../controller/auth/auth.controller")
+const verifyController = require("../../controller/auth/verify.controller")
 const profileRouter = require("./profile.router")
 
 router.post('/login', userAuthController.login);
@@ -14,6 +15,12 @@ router.post('/forgot-password', userAuthController.forgotPassword);
 router.post('/refresh-token', userAuthController.refreshToken);
 router.post('/login-with-google', userAuthController.loginWithGoogle);
 router.post('/login-with-facebook', userAuthController.loginWithFacebook);
+
+// Phone verification via Firebase ID token (client performs Firebase Phone Auth)
+router.post('/phone/confirm-firebase', verifyController.confirmPhoneWithFirebaseIdToken);
+// Firebase Auth REST: send and verify OTP from backend (still needs recaptchaToken from client)
+router.post('/phone/send-otp-firebase', verifyController.sendOtpViaFirebase);
+router.post('/phone/verify-otp-firebase', verifyController.verifyOtpViaFirebase);
 
 // Profile routes (bao gồm avatar)
 router.use('/profile', profileRouter);

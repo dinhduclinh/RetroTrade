@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/router";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState, AppDispatch } from "@/store/redux_store";
+import { addItemToCartAction, fetchCartItemCount } from "@/store/cart/cartActions";
 import { getPublicItemById } from "@/services/products/product.api";
 import {
   Calendar,
@@ -48,6 +51,8 @@ const formatPrice = (price: number, currency: string) => {
 export default function ProductDetailPage() {
   const router = useRouter();
   const { id } = router.query as { id?: string };
+  const dispatch = useDispatch<AppDispatch>();
+  const { accessToken } = useSelector((state: RootState) => state.auth);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,8 +78,8 @@ export default function ProductDetailPage() {
         const detail: ProductDetailDto = data?.data || data;
         setProduct(detail);
         setSelectedImageIndex(0);
-      } catch (e: any) {
-        console.error("Failed to load product detail", e);
+      } catch (err: unknown) {
+        console.error("Failed to load product detail", err);
         setError("Không thể tải chi tiết sản phẩm");
       } finally {
         setLoading(false);
@@ -94,16 +99,21 @@ export default function ProductDetailPage() {
   );
 
   // Legacy simple multiples (will be replaced by unit-aware prices below)
-  const weeklyPriceLegacy = useMemo(
-    () => (product ? product.BasePrice * 7 : 0),
-    [product]
-  );
-  const monthlyPriceLegacy = useMemo(
-    () => (product ? product.BasePrice * 30 : 0),
-    [product]
-  );
+  // const weeklyPriceLegacy = useMemo(
+  //   () => (product ? product.BasePrice * 7 : 0),
+  //   [product]
+  // );
+  // const monthlyPriceLegacy = useMemo(
+  //   () => (product ? product.BasePrice * 30 : 0),
+  //   [product]
+  // );
 
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const tomorrowStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split("T")[0];
+  }, []);
 
   // Normalize unit from backend to one of: 'hour' | 'day' | 'week' | 'month'
   const baseUnit = useMemo(() => {
@@ -121,6 +131,12 @@ export default function ProductDetailPage() {
     if (baseUnit === "month") return ["month"]; // fallback if month-only products exist
     return ["day", "week", "month"];
   }, [baseUnit]);
+
+  // Initialize default dates: from today to tomorrow
+  useEffect(() => {
+    setDateFrom((prev) => prev || todayStr);
+    setDateTo((prev) => prev || tomorrowStr);
+  }, [todayStr, tomorrowStr]);
 
   // Default selected plan to base unit when product changes
   useEffect(() => {
@@ -207,8 +223,38 @@ export default function ProductDetailPage() {
 
   const totalPrice = useMemo(() => {
     if (!product) return 0;
-    return (pricePerUnit || 0) * (totalUnits || 0);
+    const units = totalUnits || 0;
+    const price = pricePerUnit || 0;
+    return price * units;
   }, [pricePerUnit, totalUnits, product]);
+
+  // Update total price display when dates or plan changes
+  const displayTotalPrice = useMemo(() => {
+    if (!product) return 0;
+    
+    // If dates are selected, calculate based on actual duration
+    if (dateFrom && dateTo && !dateError) {
+      const start = new Date(dateFrom);
+      const end = new Date(dateTo);
+      const msPerDay = 24 * 60 * 60 * 1000;
+      const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / msPerDay) + 1);
+      
+      let calculatedUnits = 0;
+      if (selectedPlan === "hour") calculatedUnits = days * 24;
+      else if (selectedPlan === "day") calculatedUnits = days;
+      else if (selectedPlan === "week") calculatedUnits = Math.ceil(days / 7);
+      else calculatedUnits = Math.ceil(days / 30);
+      
+      return (pricePerUnit || 0) * calculatedUnits;
+    }
+    
+    // If manual units are entered, use those
+    if (durationUnits && Number(durationUnits) > 0) {
+      return (pricePerUnit || 0) * Number(durationUnits);
+    }
+    
+    return 0;
+  }, [product, dateFrom, dateTo, dateError, selectedPlan, pricePerUnit, durationUnits]);
 
   const handlePrev = () => {
     setSelectedImageIndex((prev) => (prev - 1 + images.length) % images.length);
@@ -218,23 +264,44 @@ export default function ProductDetailPage() {
     setSelectedImageIndex((prev) => (prev + 1) % images.length);
   };
 
-  const handleAddToCart = () => {
-    // TODO: integrate cart
-    if (product) {
-      if ((product.AvailableQuantity ?? 0) <= 0) {
-        toast.error("Sản phẩm không có sẵn để thêm vào giỏ hàng");
-        return;
-      }
-      console.log("Add to cart", product.Title);
-      toast.success("Đã thêm vào giỏ");
-    }
-  };
+  
 
   const handleRentNow = () => {
     // TODO: navigate to checkout or open rent modal
-    if (product && totalUnits > 0 && !dateError) {
-      console.log("Rent now", product._id, dateFrom, dateTo);
-      toast.info("Thuê ngay");
+    if (product && displayTotalPrice > 0 && !dateError) {
+      console.log("Rent now", product._id, dateFrom, dateTo, displayTotalPrice);
+      toast.info(`Thuê ngay với giá ${formatPrice(displayTotalPrice, product.Currency)}`);
+    }
+  };
+
+  const handleAddToCart = async () => {
+    if (!product) return;
+    if (!accessToken) {
+      toast.error("Vui lòng đăng nhập để thêm vào giỏ hàng");
+      return;
+    }
+    if (outOfStock) {
+      toast.error("Sản phẩm hiện tại không khả dụng");
+      return;
+    }
+    if (!!dateError || totalUnits <= 0) {
+      toast.error("Vui lòng chọn thời gian thuê hợp lệ");
+      return;
+    }
+
+    try {
+      await dispatch(
+        addItemToCartAction({
+          itemId: product._id,
+          quantity: 1,
+          rentalStartDate: dateFrom || undefined,
+          rentalEndDate: dateTo || undefined,
+        })
+      );
+      dispatch(fetchCartItemCount());
+      toast.success("Đã thêm vào giỏ hàng thành công");
+    } catch {
+      toast.error("Có lỗi xảy ra khi thêm vào giỏ hàng");
     }
   };
 
@@ -561,6 +628,7 @@ export default function ProductDetailPage() {
                   {product.Owner?.AvatarUrl ? (
                     <img
                       src={product.Owner.AvatarUrl}
+                      alt={product.Owner?.DisplayName || product.Owner?.FullName || "avatar"}
                       className="w-full h-full object-cover"
                     />
                   ) : (

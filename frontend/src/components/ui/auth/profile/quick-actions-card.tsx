@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/common/card"
 import { Button } from "@/components/ui/common/button"
 import { Edit, Shield, Wallet, Settings, ChevronRight, Key, Store } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 interface QuickActionsCardProps {
   onEditProfile?: () => void;
@@ -11,6 +12,12 @@ interface QuickActionsCardProps {
 }
 
 export function QuickActionsCard({ onEditProfile, onChangePassword, onRegisterRental }: QuickActionsCardProps) {
+  const router = useRouter();
+
+  const handleIdentityVerification = () => {
+    router.push('/auth/verify');
+  };
+
   const actions = [
     { icon: Edit, label: "Chỉnh sửa hồ sơ", color: "from-blue-500/20 to-cyan-500/20", iconColor: "text-blue-600", action: onEditProfile },
     { icon: Key, label: "Đổi mật khẩu", color: "from-green-500/20 to-emerald-500/20", iconColor: "text-green-600", action: onChangePassword },
@@ -20,6 +27,7 @@ export function QuickActionsCard({ onEditProfile, onChangePassword, onRegisterRe
       label: "Xác thực danh tính",
       color: "from-purple-500/20 to-pink-500/20",
       iconColor: "text-purple-600",
+      action: handleIdentityVerification,
     },
     { icon: Wallet, label: "Quản lý ví", color: "from-emerald-500/20 to-teal-500/20", iconColor: "text-emerald-600" },
     {

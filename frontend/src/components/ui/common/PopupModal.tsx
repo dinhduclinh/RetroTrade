@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { createPortal } from "react-dom"
 import { X, AlertCircle, CheckCircle, Info } from "lucide-react"
 import { Button } from "@/components/ui/common/button"
 
@@ -93,7 +94,7 @@ export default function PopupModal({
     }
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div 
@@ -150,5 +151,5 @@ export default function PopupModal({
         </div>
       </div>
     </div>
-  )
+  , document.body)
 }

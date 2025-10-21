@@ -8,7 +8,7 @@ import {
 } from "../../../../services/products/product.api";
 import { getCategories } from "../../../../services/products/category.api";
 import { useSelector } from "react-redux";
-import Image from "next/image";
+// Avoid next/image to prevent remote host config requirements
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -403,11 +403,9 @@ const AddProductPage: React.FC = () => {
                 <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 hover:border-blue-400 transition-colors">
                   {primaryPreview ? (
                     <div className="relative">
-                      <Image
+                      <img
                         src={primaryPreview}
                         alt="Hình ảnh chính"
-                        width={300}
-                        height={200}
                         className="object-cover rounded-lg w-full h-48"
                       />
                       <button
@@ -472,11 +470,9 @@ const AddProductPage: React.FC = () => {
                     <div className="grid grid-cols-3 gap-3 mb-4">
                       {secondaryPreviews.map((preview, idx) => (
                         <div key={idx} className="relative group">
-                          <Image
+                          <img
                             src={preview}
                             alt={`Hình ảnh phụ ${idx + 1}`}
-                            width={100}
-                            height={100}
                             className="object-cover rounded-lg w-full h-24"
                           />
                           <button
