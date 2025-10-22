@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/router";
 import Image from "next/image";
 import {
@@ -118,7 +118,7 @@ const AddProductPage: React.FC = () => {
     setter(rawValue);
   };
 
-  const fetchUserAddresses = async () => {
+  const fetchUserAddresses = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
       setAddressesLoading(true);
@@ -141,7 +141,7 @@ const AddProductPage: React.FC = () => {
     } finally {
       setAddressesLoading(false);
     }
-  };
+  }, [isAuthenticated, address, city, district]);
 
   useEffect(() => {
     fetchInitialData();
@@ -163,9 +163,9 @@ const AddProductPage: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    fetchUserAddresses();
-  }, [isAuthenticated]);
+useEffect(() => {
+  fetchUserAddresses();
+}, [fetchUserAddresses]);
 
   useEffect(() => {
     if (priceUnitId && priceUnits.length > 0) {
