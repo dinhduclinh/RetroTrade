@@ -5,6 +5,8 @@ const {
   deleteProduct,
   getUserProducts,
   getProductById,
+  getUserAddresses,
+  setDefaultAddress,
 } = require("../../controller/products/product.controller");
 
 const {
@@ -32,15 +34,17 @@ router.get("/product/:id", getProductByProductId);
 
 //owner
 router.get("/user", authenticateToken, getUserProducts);
-router.post("/add", authenticateToken, addProduct);
-router.get("/:id", authenticateToken, getProductById);
+router.get("/user/addresses",authenticateToken, getUserAddresses);
+router.post("/addresses/default", authenticateToken, setDefaultAddress);
+router.post("/user/add", authenticateToken, addProduct);
+router.get("/user/:id", authenticateToken, getProductById);
 router.put(
-  "/:id",
+  "/user/:id",
   authenticateToken,
   upload.array("images", 10),
   updateProduct
 );
-router.delete("/:id", authenticateToken, deleteProduct);
+router.delete("/user/:id", authenticateToken, deleteProduct);
 
 
 module.exports = router;

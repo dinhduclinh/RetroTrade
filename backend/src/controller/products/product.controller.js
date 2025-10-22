@@ -4,6 +4,8 @@ const mongoose = require("mongoose");
 const Item = require("../../models/Product/Item.model");
 const ItemImages = require("../../models/Product/ItemImage.model");
 const ItemTag = require("../../models/Product/ItemTag.model");
+const ItemReject = require("../../models/Product/ItemReject.model");
+const ItemAddress = require("../../models/Product/ItemAddress.model");
 const AuditLog = require("../../models/AuditLog.model");
 const Categories = require("../../models/Product/Categories.model");
 const ItemConditions = require("../../models/Product/ItemConditions.model");
@@ -23,6 +25,26 @@ const extractPublicId = (url) => {
   return publicId ? `retrotrade/${publicId}` : null;
 };
 
+const saveUserAddress = async (userId, address, city, district, session = null) => {
+  const query = {
+    UserId: userId,
+    Address: address.trim(),
+    City: city.trim(),
+    District: district.trim(),
+  };
+
+  // Kiểm tra tồn tại
+  const existingAddress = await ItemAddress.findOne(query, null, { session });
+  if (existingAddress) {
+    return existingAddress;
+  }
+
+  const newAddress = new ItemAddress({
+    ...query,
+    IsDefault: false, 
+  });
+  return await newAddress.save({ session });
+};
 const addProduct = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -175,6 +197,14 @@ const addProduct = async (req, res) => {
     );
     const item = newItem[0];
     success = true;
+
+    if (Address && City && District) {
+      try {
+        await saveUserAddress(ownerId, Address, City, District, session);
+      } catch (addrError) {
+        console.warn("Lưu địa chỉ thất bại, tiếp tục:", addrError.message);
+      }
+    }
 
     let images = [];
     if (Array.isArray(ImageUrls) && ImageUrls.length > 0) {
@@ -361,6 +391,11 @@ const updateProduct = async (req, res) => {
       );
     }
 
+    // Xóa ItemReject nếu trước đó rejected
+    if (existingItem.StatusId === 3) {
+      await ItemReject.deleteOne({ ItemId: id });
+    }
+
     let {
       Title,
       ShortDescription,
@@ -497,6 +532,15 @@ const updateProduct = async (req, res) => {
       session,
     });
     success = true;
+
+    // Lưu địa chỉ mới nếu thay đổi
+    if (Address && City && District && (Address !== existingItem.Address || City !== existingItem.City || District !== existingItem.District)) {
+      try {
+        await saveUserAddress(userId, Address, City, District, session);
+      } catch (addrError) {
+        console.warn("Lưu địa chỉ thất bại, tiếp tục:", addrError.message);
+      }
+    }
 
     let images = [];
     if (Array.isArray(ImageUrls) && ImageUrls.length > 0) {
@@ -690,6 +734,100 @@ const updateProduct = async (req, res) => {
     });
   } finally {
     session.endSession();
+  }
+};
+
+const setDefaultAddress = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  let success = false;
+  let committed = false;
+  try {
+    const userId = req.user._id;
+    const { Address, City, District } = req.body;
+
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      throw new Error("UserId không hợp lệ");
+    }
+
+    if (!Address || !City || !District) {
+      throw new Error("Thiếu thông tin địa chỉ");
+    }
+
+    const query = {
+      UserId: userId,
+      Address: Address.trim(),
+      City: City.trim(),
+      District: District.trim(),
+    };
+
+    let addressDoc = await ItemAddress.findOne(query).session(session);
+    if (!addressDoc) {
+      addressDoc = new ItemAddress({
+        ...query,
+        IsDefault: true,
+      });
+      addressDoc = await addressDoc.save({ session });
+    } else {
+      addressDoc.IsDefault = true;
+      addressDoc.UpdatedAt = new Date();
+      addressDoc = await addressDoc.save({ session });
+    }
+
+    await ItemAddress.updateMany(
+      { UserId: userId, _id: { $ne: addressDoc._id } },
+      { IsDefault: false },
+      { session }
+    );
+
+    await session.commitTransaction();
+    committed = true;
+
+    success = true;
+
+    res.status(200).json({
+      success: true,
+      message: "Đặt địa chỉ mặc định thành công",
+      data: { addressId: addressDoc._id },
+    });
+  } catch (error) {
+    if (!committed) {
+      try {
+        await session.abortTransaction();
+      } catch (abortError) {
+        console.error("Abort transaction error:", abortError);
+      }
+    }
+    console.error("Lỗi đặt địa chỉ mặc định:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Lỗi server khi đặt địa chỉ mặc định",
+    });
+  } finally {
+    session.endSession();
+  }
+};
+
+const getUserAddresses = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "UserId không hợp lệ" });
+    }
+
+    const addresses = await ItemAddress.find({ UserId: userId })
+      .sort({ IsDefault: -1, CreatedAt: -1 }) 
+      .select("Address City District IsDefault")
+      .lean();
+
+    res.json({
+      success: true,
+      data: addresses || [],
+    });
+  } catch (error) {
+    console.error("Error in getUserAddresses:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -1026,4 +1164,6 @@ module.exports = {
   deleteProduct,
   getUserProducts,
   getProductById,
+  getUserAddresses,
+  setDefaultAddress,
 };

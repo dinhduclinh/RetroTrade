@@ -1,5 +1,6 @@
 const Item = require("../../models/Product/Item.model");
 const ItemImage = require("../../models/Product/ItemImage.model");
+const ItemReject = require("../../models/Product/ItemReject.model");
 const User = require("../../models/User.model");
 const Category = require("../../models/Product/Categories.model");
 const ItemConditions = require("../../models/Product/ItemConditions.model");
@@ -317,6 +318,11 @@ const rejectProduct = async (req, res) => {
     if (!updatedProduct) {
       return res.status(404).json({ message: "Product not found" });
     }
+
+    await ItemReject.create({
+      ItemId: updatedProduct._id,
+      RejectReason: reason || "No reason provided",
+    });
 
     await logAudit(
       "items",

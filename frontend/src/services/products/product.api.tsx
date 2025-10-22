@@ -1,7 +1,13 @@
 import instance from "../customizeAPI";
 
+export const getUserAddresses = async (): Promise<Response> => {
+  return await instance.get("/products/user/addresses");
+};
+export const setDefaultAddress = (addressData: {Address: string;City: string;District: string;}) => {
+  return instance.post("/products/addresses/default", addressData);
+};
 export const addProduct = async (productData: any): Promise<Response> => {
-  return await instance.post("/products/add", productData);
+  return await instance.post("/products/user/add", productData);
 };
 
 export const uploadImages = async (formData: FormData): Promise<Response> => {
@@ -21,17 +27,18 @@ export const getUserProducts = async (): Promise<Response> => {
 };
 
 export const getProductById = async (id: string): Promise<Response> => {
-  return await instance.get(`/products/${id}`);
+  return await instance.get(`/products/user/${id}`);
 };
 
 export const updateProduct = async (id: string,productData: any): Promise<Response> => {
-  return await instance.put(`/products/${id}`, productData);
+  return await instance.put(`/products/user/${id}`, productData);
 };
 
 export const deleteProduct = async (id: string): Promise<Response> => {
-  return await instance.delete(`/products/${id}`);
+  return await instance.delete(`/products/user/${id}`);
 };
 
+//moderator
 export const getPendingProducts = async (): Promise<Response> => {
   return await instance.get("/products/pending"); 
 };

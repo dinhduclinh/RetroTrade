@@ -30,7 +30,7 @@ import {
   AlertTriangle,
   Activity,
 } from "lucide-react";
-import ProductCategoryManager from "@/components/ui/moderator/categories/category-management-table";
+import ProductCategoryManager from "@/components/ui/moderator/categories/category-management";
 import ProductManagement from "@/components/ui/moderator/product/product-management";
 
 // JWT token payload interface
