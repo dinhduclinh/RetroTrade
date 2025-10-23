@@ -27,7 +27,7 @@ const PostCategory = require("../../models/Blog/PostCategory.model");
      const category = await PostCategory.create({ name, description });
      res.status(201).json(category);
    } catch (error) {
-     res.status(400).json({ message: "Failed to create category", error });
+     res.status(400).json({ message: "Lỗi tạo danh mục.", error });
    }
  };
 
@@ -56,11 +56,11 @@ const PostCategory = require("../../models/Blog/PostCategory.model");
      );
 
      if (!category)
-       return res.status(404).json({ message: "Category not found" });
+       return res.status(404).json({ message: "Không tìm thấy danh mục" });
 
      res.json(category);
    } catch (error) {
-     res.status(400).json({ message: "Failed to update category", error });
+     res.status(400).json({ message: "Không cập nhật được danh mục", error });
    }
  };
 

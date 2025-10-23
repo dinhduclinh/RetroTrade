@@ -13,7 +13,7 @@ const getAllPosts = async (req, res) => {
       .sort({ createdAt: -1 });
     res.json(posts);
   } catch (error) {
-    res.status(500).json({ message: "Failed to load posts", error });
+    res.status(500).json({ message: "Tải bài viết thất bại", error });
   }
 };
 
@@ -60,9 +60,7 @@ const getBlogDetail = async (req, res) => {
 
 const createPost = async (req, res) => {
   try {
-    console.log("👉 BODY:", req.body);
-    console.log("👉 FILES:", req.files);
-    console.log("👉 USER:", req.user);
+    
     const authorId = req.user._id;
 
     if (typeof req.body.tags === "string") {
@@ -82,12 +80,13 @@ const createPost = async (req, res) => {
 
     res.status(201).json(post);
   } catch (error) {
-    console.error("Error creating post:", error);
+    console.error("Lỗi khi tạo bài đăng:", error);
     res
       .status(400)
-      .json({ message: "Failed to create post", error: error.message });
+      .json({ message: "Không tạo được bài đăng", error: error.message });
   }
 };
+
 
 const updatePost = async (req, res) => {
   try {
@@ -98,7 +97,6 @@ const updatePost = async (req, res) => {
     if (!post)
       return res.status(404).json({ message: "Bài viết không tồn tại" });
 
-    // Cho phép admin và moderator edit tất cả posts, hoặc author edit post của mình
     if (post.authorId.toString() !== userId && userRole !== "admin" && userRole !== "moderator") {
       return res.status(403).json({ message: "Không có quyền truy cập" });
     }

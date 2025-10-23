@@ -144,8 +144,8 @@ const addComment = async (req, res) => {
 
     res.status(201).json(comment);
   } catch (error) {
-    console.error("Error adding comment:", error); 
-    res.status(400).json({ message: "Failed to add comment", error });
+    console.error("Lỗi khi thêm bình luận:", error); 
+    res.status(400).json({ message: "Không thể thêm bình luận", error });
   }
 };
 
