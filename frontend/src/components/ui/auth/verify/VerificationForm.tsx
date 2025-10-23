@@ -4,11 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "../../common/card";
 import { Shield, ChevronRight } from "lucide-react";
-import PhoneInput from "./PhoneInput";
-import OTPInput from "./OTPInput";
-import ImageUpload from "./ImageUpload";
-import ResultDisplay from "./ResultDisplay";
-import VerificationScript from "./VerificationScript";
+import PhoneInput from "@/components/ui/auth/verify/PhoneInput";
+import OTPInput from "@/components/ui/auth/verify/OTPInput";
+import ImageUpload from "@/components/ui/auth/verify/ImageUpload";
+import ResultDisplay from "@/components/ui/auth/verify/ResultDisplay";
+import VerificationScript from "@/components/ui/auth/verify/VerificationScript";
+import { FaceVerificationResponse } from "@/services/auth/faceVerification.api";
 
 interface VerificationFormProps {
     phoneNumber: string;
@@ -21,7 +22,7 @@ interface VerificationFormProps {
     isLoading: boolean;
     onSendOTP: () => Promise<void>;
     onVerifyOTP: () => Promise<void>;
-    onSubmitVerification: () => Promise<void>;
+    onSubmitVerification: (verificationResult?: FaceVerificationResponse) => Promise<void>;
     onRestart: () => void;
     breadcrumbs: Array<{
         name: string;
@@ -48,8 +49,12 @@ export default function VerificationForm({
 }: VerificationFormProps) {
     const [step, setStep] = useState(1);
     const [error, setError] = useState<string>("");
+    const [failedStep, setFailedStep] = useState<number | null>(null);
 
-    const handleNext = () => setStep(step + 1);
+    const handleNext = () => {
+        setStep(step + 1);
+        setFailedStep(null);
+    };
     const handleBack = () => setStep(step - 1);
 
     const steps = [
@@ -62,37 +67,50 @@ export default function VerificationForm({
     const handlePhoneNext = async () => {
         try {
             setError("");
+            setFailedStep(null);
             await onSendOTP();
             handleNext();
         } catch (e) {
             setError(e instanceof Error ? e.message : "Có lỗi xảy ra khi gửi OTP");
+            setFailedStep(1);
         }
     };
 
     const handleOTPNext = async () => {
         try {
             setError("");
+            setFailedStep(null);
             await onVerifyOTP();
             handleNext();
         } catch (e) {
             setError(e instanceof Error ? e.message : "Có lỗi xảy ra khi xác minh OTP");
+            setFailedStep(2);
         }
     };
 
-    const handleImageNext = async () => {
+    const handleImageNext = async (verificationResult?: FaceVerificationResponse) => {
         try {
             setError("");
-            await onSubmitVerification();
+            setFailedStep(null);
+            await onSubmitVerification(verificationResult);
             handleNext();
         } catch (e) {
             setError(e instanceof Error ? e.message : "Có lỗi xảy ra khi xử lý ảnh");
+            setFailedStep(3);
         }
     };
 
     const handleRestart = () => {
         setStep(1);
         setError("");
+        setFailedStep(null);
         onRestart();
+    };
+
+    const handleRetryStep = (stepNumber: number) => {
+        setStep(stepNumber);
+        setError("");
+        setFailedStep(null);
     };
 
     return (
@@ -191,12 +209,15 @@ export default function VerificationForm({
                                     onNext={handleImageNext}
                                     onBack={handleBack}
                                     isLoading={isLoading}
+                                    phoneNumber={phoneNumber}
                                 />
                             )}
                             {step === 4 && (
                                 <ResultDisplay
                                     result={result}
                                     onRestart={handleRestart}
+                                    onRetryStep={handleRetryStep}
+                                    failedStep={failedStep}
                                 />
                             )}
                         </CardContent>

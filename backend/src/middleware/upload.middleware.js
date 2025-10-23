@@ -41,10 +41,10 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, 
 });
 
-const uploadToCloudinary = async (files) => {
+const uploadToCloudinary = async (files, folder = "retrotrade/") => {
   const uploadPromises = files.map((file) =>
     cloudinary.uploader.upload(file.path, {
-      folder: "retrotrade/",
+      folder: folder, // Use the provided folder
       resource_type: "image",
     })
   );

@@ -3,13 +3,15 @@ import { Input } from "../../common/input";
 import { useState } from "react";
 import { Upload, X, Camera, CreditCard, CheckCircle, AlertCircle, Image as ImageIcon, Shield, User } from "lucide-react";
 import Image from "next/image";
+import { faceVerificationAPI, FaceVerificationResponse } from "@/services/auth/faceVerification.api";
 
 interface ImageUploadProps {
   images: File[];
   setImages: (files: File[]) => void;
-  onNext: () => void;
+  onNext: (verificationResult?: FaceVerificationResponse) => void;
   onBack: () => void;
   isLoading?: boolean;
+  phoneNumber?: string; // Add phone number prop
 }
 
 interface ImagePreview {
@@ -17,11 +19,13 @@ interface ImagePreview {
   preview: string;
 }
 
-export default function ImageUpload({ images, setImages, onNext, onBack, isLoading = false }: ImageUploadProps) {
+export default function ImageUpload({ images, setImages, onNext, onBack, isLoading = false, phoneNumber }: ImageUploadProps) {
   const [imagePreviews, setImagePreviews] = useState<ImagePreview[]>([]);
   const [errors, setErrors] = useState<string[]>(['', '', '']);
   const [isPrivacyAccepted, setIsPrivacyAccepted] = useState<boolean>(false);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [isVerifying, setIsVerifying] = useState<boolean>(false);
+  const [verificationError, setVerificationError] = useState<string>("");
 
   const imageTypes = [
     { 
@@ -140,7 +144,7 @@ export default function ImageUpload({ images, setImages, onNext, onBack, isLoadi
     if (input) input.value = "";
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const hasErrors = errors.some(error => error !== "");
     const hasAllImages = images.length === 3 && images.every(img => img);
     
@@ -161,7 +165,50 @@ export default function ImageUpload({ images, setImages, onNext, onBack, isLoadi
       return;
     }
 
-    onNext();
+    if (!phoneNumber) {
+      alert("Thiếu số điện thoại để xác minh");
+      return;
+    }
+
+    try {
+      setIsVerifying(true);
+      setVerificationError("");
+
+      // Prepare files for verification (user image and ID card front)
+      const verificationFiles = [images[0], images[1]]; // Ảnh cá nhân và mặt trước CCCD
+
+      // Call face verification API with files and phone number
+      const verificationResult = await faceVerificationAPI.verifyFaceImages(
+        verificationFiles,
+        phoneNumber
+      );
+
+      // Pass the result to parent component
+      onNext(verificationResult);
+    } catch (error) {
+      console.error('Face verification error:', error);
+      
+      // Provide more user-friendly error messages
+      let errorMessage = "Có lỗi xảy ra khi xác minh khuôn mặt. Vui lòng thử lại.";
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Không tìm thấy khuôn mặt')) {
+          errorMessage = "Không tìm thấy khuôn mặt trong ảnh. Vui lòng chụp lại ảnh rõ nét hơn và đảm bảo khuôn mặt được nhìn thấy rõ ràng.";
+        } else if (error.message.includes('Thiếu hình ảnh')) {
+          errorMessage = "Vui lòng tải lên đầy đủ ảnh cá nhân và CCCD.";
+        } else if (error.message.includes('Số điện thoại')) {
+          errorMessage = "Số điện thoại không hợp lệ. Vui lòng kiểm tra lại.";
+        } else if (error.message.includes('Lỗi hệ thống')) {
+          errorMessage = "Lỗi hệ thống xác minh. Vui lòng thử lại sau.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      setVerificationError(errorMessage);
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   const allImagesUploaded = images.length === 3 && images.every(img => img);
@@ -216,6 +263,14 @@ export default function ImageUpload({ images, setImages, onNext, onBack, isLoadi
                   <CheckCircle className="w-4 h-4 text-green-600" />
                   <span>Định dạng: JPG, JPEG, PNG (tối đa 5MB)</span>
                 </div>
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-orange-600" />
+                  <span>Ảnh nhỏ trong CCCD sẽ được phân tích tự động</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-orange-600" />
+                  <span>Hệ thống sử dụng AI nâng cao để nhận dạng</span>
+                </div>
               </div>
             </div>
 
@@ -232,7 +287,7 @@ export default function ImageUpload({ images, setImages, onNext, onBack, isLoadi
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-green-600" />
-                  <span>Hoặc nhấp "Chọn ảnh" để duyệt file</span>
+                  <span>Hoặc nhấp &quot;Chọn ảnh&quot; để duyệt file</span>
                 </div>
               </div>
             </div>
@@ -455,6 +510,14 @@ export default function ImageUpload({ images, setImages, onNext, onBack, isLoadi
         </div>
       </div>
 
+      {/* Verification Error */}
+      {verificationError && (
+        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <AlertCircle className="w-4 h-4 text-red-600" />
+          <p className="text-red-600 text-sm font-medium">{verificationError}</p>
+        </div>
+      )}
+
       {/* Action Buttons */}
       <div className="space-y-3">
         <div className="flex space-x-2">
@@ -462,15 +525,21 @@ export default function ImageUpload({ images, setImages, onNext, onBack, isLoadi
             variant="outline" 
             onClick={onBack} 
             className="w-1/2"
+            disabled={isVerifying}
           >
             Quay lại
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!allImagesUploaded || !isPrivacyAccepted || isLoading}
+            disabled={!allImagesUploaded || !isPrivacyAccepted || isLoading || isVerifying}
             className="w-1/2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3"
           >
-            {isLoading ? (
+            {isVerifying ? (
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <span>Đang xác minh khuôn mặt...</span>
+              </div>
+            ) : isLoading ? (
               <div className="flex items-center gap-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                 <span>Đang xử lý...</span>

@@ -5,9 +5,16 @@ import { Button } from "../../common/button";
 interface ResultDisplayProps {
   result: { success: boolean; message: string; details?: string } | null;
   onRestart?: () => void;
+  onRetryStep?: (stepNumber: number) => void;
+  failedStep?: number | null;
 }
 
-export default function ResultDisplay({ result, onRestart }: ResultDisplayProps) {
+export default function ResultDisplay({ 
+  result, 
+  onRestart, 
+  onRetryStep, 
+  failedStep 
+}: ResultDisplayProps) {
   const router = useRouter();
 
   const handleGoHome = () => {
@@ -75,6 +82,67 @@ export default function ResultDisplay({ result, onRestart }: ResultDisplayProps)
             <p className="text-sm text-gray-600 mt-4">
               Vui lòng kiểm tra lại thông tin và thử lại
             </p>
+            
+            {/* Show step-specific retry options */}
+            {failedStep && onRetryStep && (
+              <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <h4 className="font-medium text-yellow-800 mb-2">Chọn bước để thử lại:</h4>
+                <div className="space-y-2">
+                  {failedStep === 1 && (
+                    <Button
+                      onClick={() => onRetryStep(1)}
+                      variant="outline"
+                      className="w-full text-yellow-700 border-yellow-300 hover:bg-yellow-100"
+                    >
+                      🔄 Thử lại bước 1: Nhập số điện thoại
+                    </Button>
+                  )}
+                  {failedStep === 2 && (
+                    <>
+                      <Button
+                        onClick={() => onRetryStep(1)}
+                        variant="outline"
+                        className="w-full text-yellow-700 border-yellow-300 hover:bg-yellow-100"
+                      >
+                        🔄 Thử lại bước 1: Nhập số điện thoại
+                      </Button>
+                      <Button
+                        onClick={() => onRetryStep(2)}
+                        variant="outline"
+                        className="w-full text-yellow-700 border-yellow-300 hover:bg-yellow-100"
+                      >
+                        🔄 Thử lại bước 2: Nhập mã OTP
+                      </Button>
+                    </>
+                  )}
+                  {failedStep === 3 && (
+                    <>
+                      <Button
+                        onClick={() => onRetryStep(1)}
+                        variant="outline"
+                        className="w-full text-yellow-700 border-yellow-300 hover:bg-yellow-100"
+                      >
+                        🔄 Thử lại bước 1: Nhập số điện thoại
+                      </Button>
+                      <Button
+                        onClick={() => onRetryStep(2)}
+                        variant="outline"
+                        className="w-full text-yellow-700 border-yellow-300 hover:bg-yellow-100"
+                      >
+                        🔄 Thử lại bước 2: Nhập mã OTP
+                      </Button>
+                      <Button
+                        onClick={() => onRetryStep(3)}
+                        variant="outline"
+                        className="w-full text-yellow-700 border-yellow-300 hover:bg-yellow-100"
+                      >
+                        🔄 Thử lại bước 3: Tải ảnh xác minh
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -88,14 +156,19 @@ export default function ResultDisplay({ result, onRestart }: ResultDisplayProps)
             Về trang chủ
           </Button>
         ) : (
-          onRestart && (
-            <Button
-              onClick={onRestart}
-              className="bg-red-600 hover:bg-red-700 text-white"
-            >
-              Thử lại
-            </Button>
-          )
+          <div className="space-y-3">
+            {onRestart && (
+              <Button
+                onClick={onRestart}
+                className="w-full bg-red-600 hover:bg-red-700 text-white"
+              >
+                🔄 Bắt đầu lại từ đầu
+              </Button>
+            )}
+            <p className="text-xs text-gray-500 text-center">
+              Hoặc chọn bước cụ thể để thử lại ở trên
+            </p>
+          </div>
         )}
       </div>
     </div>

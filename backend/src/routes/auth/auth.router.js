@@ -4,6 +4,8 @@ const router = express.Router()
 const userAuthController = require("../../controller/auth/auth.controller")
 const verifyController = require("../../controller/auth/verify.controller")
 const profileRouter = require("./profile.router")
+const { upload } = require("../../middleware/upload.middleware")
+const { authenticateToken } = require("../../middleware/auth")
 
 router.post('/login', userAuthController.login);
 router.post('/register', userAuthController.register);
@@ -21,6 +23,9 @@ router.post('/phone/confirm-firebase', verifyController.confirmPhoneWithFirebase
 // Firebase Auth REST: send and verify OTP from backend (still needs recaptchaToken from client)
 router.post('/phone/send-otp-firebase', verifyController.sendOtpViaFirebase);
 router.post('/phone/verify-otp-firebase', verifyController.verifyOtpViaFirebase);
+
+// Face verification using face-api.js with file upload
+router.post('/verify-face', upload.array('images', 2), verifyController.verifyFaceImages);
 
 // Profile routes (bao gồm avatar)
 router.use('/profile', profileRouter);

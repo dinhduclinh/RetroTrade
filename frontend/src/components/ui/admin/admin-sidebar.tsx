@@ -11,25 +11,26 @@ import {
   ChevronDown,
   ChevronRight,
   LayoutDashboard,
+  Crown,
 } from "lucide-react";
 import { Button } from "@/components/ui/common/button";
 import { useState } from "react";
 
-interface ModeratorSidebarProps {
-  activeTab: "dashboard" | "requests" | "verification" | "blog";
+interface AdminSidebarProps {
+  activeTab: "dashboard" | "users" | "requests" | "verification" | "blog";
   activeBlogTab?: "posts" | "categories" | "comments" | "tags";
   onTabChange?: (
-    tab: "dashboard" | "requests" | "verification" | "blog"
+    tab: "dashboard" | "users" | "requests" | "verification" | "blog"
   ) => void;
   onBlogTabChange?: (tab: "posts" | "categories" | "comments" | "tags") => void;
 }
 
-export function ModeratorSidebar({
+export function AdminSidebar({
   activeTab,
   activeBlogTab,
   onTabChange,
   onBlogTabChange,
-}: ModeratorSidebarProps) {
+}: AdminSidebarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isBlogDropdownOpen, setIsBlogDropdownOpen] = useState(false);
 
@@ -38,21 +39,28 @@ export function ModeratorSidebar({
       id: "dashboard" as const,
       label: "Dashboard",
       icon: LayoutDashboard,
-      path: "/moderator/dashboard",
+      path: "/admin/dashboard",
       description: "Tổng quan hệ thống",
+    },
+    {
+      id: "users" as const,
+      label: "Quản lý người dùng",
+      icon: Users,
+      path: "/admin/user-management",
+      description: "Quản lý tài khoản người dùng",
     },
     {
       id: "requests" as const,
       label: "Yêu cầu kiểm duyệt",
       icon: FileText,
-      path: "/moderator/request-management",
+      path: "/admin/request-management",
       description: "Duyệt và phê duyệt nội dung",
     },
     {
       id: "verification" as const,
       label: "Xác thực tài khoản",
       icon: Shield,
-      path: "/moderator/verify-management",
+      path: "/admin/verify-management",
       description: "Xác thực danh tính người dùng",
     },
     {
@@ -90,7 +98,7 @@ export function ModeratorSidebar({
   // removed unused handleNavigation
 
   const handleTabChange = (
-    tab: "dashboard" | "requests" | "verification" | "blog"
+    tab: "dashboard" | "users" | "requests" | "verification" | "blog"
   ) => {
     console.log("Sidebar handleTabChange called with:", tab);
     if (onTabChange) {
@@ -149,11 +157,11 @@ export function ModeratorSidebar({
         <div className="p-6 h-full flex flex-col">
           {/* Header */}
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg">
-              <Shield className="w-7 h-7 text-white" />
+            <div className="w-12 h-12 bg-gradient-to-r from-red-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
+              <Crown className="w-7 h-7 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">Moderator</h2>
+              <h2 className="text-xl font-bold text-white">Admin</h2>
               <p className="text-sm text-white/70">Control Panel</p>
             </div>
           </div>
