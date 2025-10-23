@@ -250,5 +250,298 @@ const getProductByProductId = async (req, res) => {
   }
 };
 
+const searchProduct = async (req, res) => {
+  let success = false;
+  try {
+    const {
+      q,
+      categoryId,
+      minPrice,
+      maxPrice,
+      conditionIds,
+      city,
+      tagIds,
+      sortBy = "CreatedAt",
+      order = "desc",
+      page = 1,
+      limit = 20,
+    } = req.query;
 
-module.exports = { listAllItems, getProductByProductId };
+    const parsedPage = Math.max(parseInt(page) || 1, 1);
+    const parsedLimit = Math.max(Math.min(parseInt(limit) || 20, 100), 1);
+    const skip = (parsedPage - 1) * parsedLimit;
+
+    const query = { StatusId: 2, IsDeleted: false };
+
+    if (q && typeof q === "string" && q.trim()) {
+      const regex = new RegExp(q.trim(), "i");
+      query.$or = [{ Title: regex }, { ShortDescription: regex }];
+    }
+
+    if (categoryId && mongoose.Types.ObjectId.isValid(categoryId)) {
+      query.CategoryId = new mongoose.Types.ObjectId(categoryId);
+    }
+
+    const priceFilters = {};
+    if (minPrice !== undefined && minPrice !== null && !isNaN(minPrice)) {
+      priceFilters.$gte = parseFloat(minPrice);
+    }
+    if (maxPrice !== undefined && maxPrice !== null && !isNaN(maxPrice)) {
+      priceFilters.$lte = parseFloat(maxPrice);
+    }
+    if (Object.keys(priceFilters).length > 0) {
+      query.BasePrice = priceFilters;
+    }
+
+    if (conditionIds) {
+      let condArr = [];
+      if (Array.isArray(conditionIds)) condArr = conditionIds;
+      else if (typeof conditionIds === "string") condArr = conditionIds.split(",");
+      condArr = condArr
+        .map((c) => parseInt(c))
+        .filter((n) => !isNaN(n));
+      if (condArr.length > 0) {
+        query.ConditionId = { $in: condArr };
+      }
+    }
+
+    if (city && typeof city === "string" && city.trim()) {
+      query.City = new RegExp(city.trim(), "i");
+    }
+
+    let filteredItemIds = null;
+    if (tagIds) {
+      let tagArr = [];
+      if (Array.isArray(tagIds)) tagArr = tagIds;
+      else if (typeof tagIds === "string") tagArr = tagIds.split(",");
+      tagArr = tagArr.filter((id) => mongoose.Types.ObjectId.isValid(id));
+      if (tagArr.length > 0) {
+        const itemTagDocs = await ItemTag.find({
+          TagId: { $in: tagArr },
+          IsDeleted: false,
+        }).lean();
+        const ids = [...new Set(itemTagDocs.map((d) => d.ItemId.toString()))];
+        filteredItemIds = ids.map((s) => new mongoose.Types.ObjectId(s));
+        if (filteredItemIds.length === 0) {
+          return res.status(200).json({
+            success: true,
+            message: "Không có sản phẩm phù hợp",
+            data: { items: [], total: 0, page: parsedPage, limit: parsedLimit },
+          });
+        }
+        query._id = { $in: filteredItemIds };
+      }
+    }
+
+    const sortMap = {
+      CreatedAt: "CreatedAt",
+      ViewCount: "ViewCount",
+      FavoriteCount: "FavoriteCount",
+      RentCount: "RentCount",
+      BasePrice: "BasePrice",
+    };
+    const sortField = sortMap[sortBy] || "CreatedAt";
+    const sortOrder = order === "asc" ? 1 : -1;
+
+    const [total, items] = await Promise.all([
+      Item.countDocuments(query),
+      Item.find(query).sort({ [sortField]: sortOrder }).skip(skip).limit(parsedLimit).lean(),
+    ]);
+
+    if (!items || items.length === 0) {
+      success = true;
+      return res.status(200).json({
+        success: true,
+        message: "Không có sản phẩm phù hợp",
+        data: { items: [], total, page: parsedPage, limit: parsedLimit },
+      });
+    }
+
+    const itemIds = items.map((i) => i._id);
+    const [allImages, allItemTags, allConditions, allPriceUnits, owners] = await Promise.all([
+      ItemImages.find({ ItemId: { $in: itemIds }, IsDeleted: false }).sort({ Ordinal: 1 }).lean(),
+      ItemTag.find({ ItemId: { $in: itemIds }, IsDeleted: false }).lean(),
+      ItemConditions.find({ IsDeleted: false }).lean(),
+      PriceUnits.find({ IsDeleted: false }).lean(),
+      User.find({ _id: { $in: [...new Set(items.map((i) => i.OwnerId))] } }).select("FullName DisplayName AvatarUrl").lean(),
+    ]);
+
+    const tagIdsAll = allItemTags.map((t) => t.TagId);
+    const allTags = tagIdsAll.length
+      ? await Tags.find({ _id: { $in: tagIdsAll }, isDeleted: false }).lean()
+      : [];
+
+    const categories = await Categories.find({
+      _id: { $in: [...new Set(items.map((i) => i.CategoryId))] },
+      isActive: true,
+    }).lean();
+
+    const ownerMap = {};
+    owners.forEach((o) => (ownerMap[o._id.toString()] = o));
+
+    const imagesMap = {};
+    allImages.forEach((img) => {
+      const k = img.ItemId.toString();
+      if (!imagesMap[k]) imagesMap[k] = [];
+      imagesMap[k].push(img);
+    });
+
+    const tagMapById = {};
+    allTags.forEach((t) => (tagMapById[t._id.toString()] = t));
+    const tagsMap = {};
+    allItemTags.forEach((it) => {
+      const k = it.ItemId.toString();
+      if (!tagsMap[k]) tagsMap[k] = [];
+      tagsMap[k].push({ ...it, Tag: tagMapById[it.TagId.toString()] });
+    });
+
+    const categoryMap = {};
+    categories.forEach((c) => (categoryMap[c._id.toString()] = c));
+
+    const itemsWithDetails = items
+      .map((item) => ({
+        ...item,
+        Category: categoryMap[item.CategoryId?.toString()],
+        Condition: allConditions.find((c) => c.ConditionId === item.ConditionId) || null,
+        PriceUnit: allPriceUnits.find((p) => p.UnitId === item.PriceUnitId) || null,
+        Owner: ownerMap[item.OwnerId?.toString()] || null,
+        Images: imagesMap[item._id.toString()] || [],
+        Tags: tagsMap[item._id.toString()] || [],
+      }))
+      .filter((x) => x.Category);
+
+    success = true;
+    return res.status(200).json({
+      success: true,
+      message: "Tìm kiếm sản phẩm thành công",
+      data: { items: itemsWithDetails, total, page: parsedPage, limit: parsedLimit },
+    });
+  } catch (error) {
+    console.error("Lỗi tìm kiếm sản phẩm:", error);
+    if (!success) {
+      return res.status(500).json({ success: false, message: error.message || "Lỗi server khi tìm kiếm sản phẩm" });
+    }
+    return res.status(200).json({ success: true, message: "Tìm kiếm một phần thành công", data: { items: [], total: 0 } });
+  }
+};
+
+const viewFeatureProduct = async (req, res) => {
+  let success = false;
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const parsedPage = Math.max(parseInt(page) || 1, 1);
+    const parsedLimit = Math.max(Math.min(parseInt(limit) || 20, 100), 1);
+    const skip = (parsedPage - 1) * parsedLimit;
+
+    const query = { StatusId: 2, IsDeleted: false, IsTrending: true };
+
+    const [total, items] = await Promise.all([
+      Item.countDocuments(query),
+      Item.find(query).sort({ CreatedAt: -1 }).skip(skip).limit(parsedLimit).lean(),
+    ]);
+
+    if (!items || items.length === 0) {
+      success = true;
+      return res.status(200).json({
+        success: true,
+        message: "Không có sản phẩm nổi bật",
+        data: { items: [], total, page: parsedPage, limit: parsedLimit },
+      });
+    }
+
+    const itemIds = items.map((i) => i._id);
+    const [allImages, allItemTags, allConditions, allPriceUnits, owners] = await Promise.all([
+      ItemImages.find({ ItemId: { $in: itemIds }, IsDeleted: false }).sort({ Ordinal: 1 }).lean(),
+      ItemTag.find({ ItemId: { $in: itemIds }, IsDeleted: false }).lean(),
+      ItemConditions.find({ IsDeleted: false }).lean(),
+      PriceUnits.find({ IsDeleted: false }).lean(),
+      User.find({ _id: { $in: [...new Set(items.map((i) => i.OwnerId))] } }).select("FullName DisplayName AvatarUrl").lean(),
+    ]);
+
+    const tagIdsAll = allItemTags.map((t) => t.TagId);
+    const allTags = tagIdsAll.length
+      ? await Tags.find({ _id: { $in: tagIdsAll }, isDeleted: false }).lean()
+      : [];
+
+    const categories = await Categories.find({
+      _id: { $in: [...new Set(items.map((i) => i.CategoryId))] },
+      isActive: true,
+    }).lean();
+
+    const ownerMap = {};
+    owners.forEach((o) => (ownerMap[o._id.toString()] = o));
+
+    const imagesMap = {};
+    allImages.forEach((img) => {
+      const k = img.ItemId.toString();
+      if (!imagesMap[k]) imagesMap[k] = [];
+      imagesMap[k].push(img);
+    });
+
+    const tagMapById = {};
+    allTags.forEach((t) => (tagMapById[t._id.toString()] = t));
+    const tagsMap = {};
+    allItemTags.forEach((it) => {
+      const k = it.ItemId.toString();
+      if (!tagsMap[k]) tagsMap[k] = [];
+      tagsMap[k].push({ ...it, Tag: tagMapById[it.TagId.toString()] });
+    });
+
+    const categoryMap = {};
+    categories.forEach((c) => (categoryMap[c._id.toString()] = c));
+
+    const itemsWithDetails = items
+      .map((item) => ({
+        ...item,
+        Category: categoryMap[item.CategoryId?.toString()],
+        Condition: allConditions.find((c) => c.ConditionId === item.ConditionId) || null,
+        PriceUnit: allPriceUnits.find((p) => p.UnitId === item.PriceUnitId) || null,
+        Owner: ownerMap[item.OwnerId?.toString()] || null,
+        Images: imagesMap[item._id.toString()] || [],
+        Tags: tagsMap[item._id.toString()] || [],
+      }))
+      .filter((x) => x.Category);
+
+    success = true;
+    return res.status(200).json({
+      success: true,
+      message: "Lấy sản phẩm nổi bật thành công",
+      data: { items: itemsWithDetails, total, page: parsedPage, limit: parsedLimit },
+    });
+  } catch (error) {
+    console.error("Lỗi lấy sản phẩm nổi bật:", error);
+    if (!success) {
+      return res.status(500).json({ success: false, message: error.message || "Lỗi server khi lấy sản phẩm nổi bật" });
+    }
+    return res.status(200).json({ success: true, message: "Lấy một phần sản phẩm nổi bật", data: { items: [], total: 0 } });
+  }
+};
+
+const listSearchTags = async (req, res) => {
+  try {
+    const agg = await ItemTag.aggregate([
+      { $match: { IsDeleted: false } },
+      { $lookup: { from: "items", localField: "ItemId", foreignField: "_id", as: "item" } },
+      { $unwind: "$item" },
+      { $match: { "item.StatusId": 2, "item.IsDeleted": false } },
+      { $lookup: { from: "tags", localField: "TagId", foreignField: "_id", as: "tag" } },
+      { $unwind: "$tag" },
+      { $match: { "tag.isDeleted": false } },
+      { $group: { _id: "$TagId", count: { $sum: 1 }, tag: { $first: "$tag" } } },
+      { $sort: { count: -1, _id: 1 } },
+    ]);
+
+    const tags = agg.map((x) => ({
+      _id: x._id,
+      name: x.tag?.name,
+      count: x.count,
+    }));
+
+    return res.status(200).json({ success: true, message: "Lấy tags thành công", data: { tags, total: tags.length } });
+  } catch (error) {
+    console.error("Lỗi lấy tags:", error);
+    return res.status(500).json({ success: false, message: error.message || "Lỗi server khi lấy tags" });
+  }
+};
+
+module.exports = { listAllItems, getProductByProductId, searchProduct, viewFeatureProduct, listSearchTags };

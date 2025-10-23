@@ -48,6 +48,36 @@ export const getAllItems = async () => {
   }
 };
 
+export const getFeaturedItems = async (params?: { page?: number; limit?: number }) => {
+  try {
+    const query = new URLSearchParams();
+    if (params?.page) query.set("page", String(params.page));
+    if (params?.limit) query.set("limit", String(params.limit));
+    const qs = query.toString();
+    const res = await instance.get(`/products/product/featured${qs ? `?${qs}` : ""}`);
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    return await res.json();
+  } catch (error) {
+    console.error("Error fetching featured items:", error);
+    throw error;
+  }
+};
+
+export const getSearchTags = async () => {
+  try {
+    const res = await instance.get(`/products/product/tags`);
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    return await res.json();
+  } catch (error) {
+    console.error("Error fetching search tags:", error);
+    return { data: { tags: [], total: 0 } } as any;
+  }
+};
+
 export const getPublicItemById = async (id: string) => {
   try {
     const res = await instance.get(`/products/product/${id}`);

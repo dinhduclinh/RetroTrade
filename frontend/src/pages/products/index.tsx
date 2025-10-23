@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getAllItems, getAllCategories } from "@/services/products/product.api";
+import { getAllItems, getAllCategories, getFeaturedItems, getSearchTags } from "@/services/products/product.api";
+import { vietnamProvinces } from "@/lib/vietnam-locations";
 import {
   Search,
   Filter,
   MapPin,
-  Calendar,
   Eye,
   Package,
   X,
@@ -22,6 +22,12 @@ interface Category {
   name: string;
   parentCategoryId?: string | null;
   isActive?: boolean;
+}
+
+interface TagItem {
+  _id: string;
+  name: string;
+  count?: number;
 }
 
 interface Product {
@@ -117,8 +123,10 @@ export default function ProductPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [expandedRoots, setExpandedRoots] = useState<Set<string>>(new Set());
   const [maxPrice, setMaxPrice] = useState(5000000); // slider max default: 5,000,000
-  const [statusAvailable, setStatusAvailable] = useState(false);
-  const [statusRented, setStatusRented] = useState(false);
+  const [featuredItems, setFeaturedItems] = useState<Product[]>([]);
+  const [tags, setTags] = useState<TagItem[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(new Set());
+  const [selectedProvince, setSelectedProvince] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -128,9 +136,11 @@ export default function ProductPage() {
       try {
         setLoading(true);
         setError(null);
-        const [itemData, cateData] = await Promise.all([
+        const [itemData, cateData, featuredRes, tagsRes] = await Promise.all([
           getAllItems(),
           getAllCategories(),
+          getFeaturedItems({ page: 1, limit: 12 }),
+          getSearchTags(),
         ]);
 
         const normalizedItems = normalizeItems(
@@ -152,6 +162,18 @@ export default function ProductPage() {
         setAllItems(normalizedItems);
         setItems(normalizedItems);
         setCategories(processedCates);
+
+        const normalizedFeatured = normalizeItems(
+          featuredRes?.data?.items || featuredRes?.items || []
+        );
+        setFeaturedItems(normalizedFeatured);
+
+        const tagList: TagItem[] = (tagsRes?.data?.tags || []).map((t: any) => ({
+          _id: toIdString(t._id),
+          name: t.name,
+          count: t.count,
+        }));
+        setTags(tagList);
       } catch (err) {
         console.error("Error fetching product data:", err);
         setError("Không thể tải dữ liệu sản phẩm. Vui lòng thử lại.");
@@ -190,29 +212,41 @@ export default function ProductPage() {
     // Filter by max price (VND/day)
     filtered = filtered.filter((item) => item.basePrice <= maxPrice);
 
-    // Filter by search
+    // Filter by search (title, shortDescription, city, district)
     if (search) {
       filtered = filtered.filter(
         (p) =>
           p.title.toLowerCase().includes(search.toLowerCase()) ||
-          p.shortDescription?.toLowerCase().includes(search.toLowerCase())
+          p.shortDescription?.toLowerCase().includes(search.toLowerCase()) ||
+          (p.city || "").toLowerCase().includes(search.toLowerCase()) ||
+          (p.district || "").toLowerCase().includes(search.toLowerCase())
       );
     }
 
-    // Filter by availability status
-    if (statusAvailable && !statusRented) {
-      filtered = filtered.filter((item) => (item.availableQuantity ?? 0) > 0);
-    } else if (!statusAvailable && statusRented) {
-      filtered = filtered.filter((item) => (item.availableQuantity ?? 0) === 0);
+    // Filter by selected province (city)
+    if (selectedProvince) {
+      const sp = selectedProvince.toLowerCase();
+      filtered = filtered.filter((p) => (p.city || "").toLowerCase() === sp);
+    }
+
+    // Filter by selected tags
+    if (selectedTagIds.size > 0) {
+      filtered = filtered.filter((item) => {
+        const itemTagIds = new Set((item.tags || []).map((t) => toIdString(t._id)));
+        for (const id of selectedTagIds) {
+          if (itemTagIds.has(id)) return true;
+        }
+        return false;
+      });
     }
 
     setItems(filtered);
   }, [
     selectedCategory,
     maxPrice,
-    statusAvailable,
-    statusRented,
     search,
+    selectedTagIds,
+    selectedProvince,
     allItems,
   ]);
 
@@ -281,6 +315,15 @@ export default function ProductPage() {
 
   const handleRentNow = (productId: string) => {
     router.push(`/products/details?id=${productId}`);
+  };
+
+  const toggleTag = (tagId: string) => {
+    setSelectedTagIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(tagId)) next.delete(tagId);
+      else next.add(tagId);
+      return next;
+    });
   };
 
   if (loading) {
@@ -379,27 +422,43 @@ export default function ProductPage() {
                 </div>
               </div>
 
-              {/* Status */}
+              {/* Tags */}
               <div className="mb-6">
-                <h4 className="font-medium text-gray-700 mb-2">Tình trạng</h4>
-                <label className="flex items-center gap-2 mb-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={statusAvailable}
-                    onChange={(e) => setStatusAvailable(e.target.checked)}
-                    className="rounded border-gray-300"
-                  />
-                  <span className="text-sm text-gray-700">Có sẵn</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={statusRented}
-                    onChange={(e) => setStatusRented(e.target.checked)}
-                    className="rounded border-gray-300"
-                  />
-                  <span className="text-sm text-gray-700">Đã cho thuê</span>
-                </label>
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="font-medium text-gray-700">Tag phổ biến</h4>
+                  {selectedTagIds.size > 0 && (
+                    <button
+                      onClick={() => setSelectedTagIds(new Set())}
+                      className="text-xs text-blue-500 hover:underline"
+                    >
+                      Xóa lọc
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {tags.map((t) => {
+                    const active = selectedTagIds.has(t._id);
+                    return (
+                      <span
+                        key={t._id}
+                        onClick={() => {
+                          setSelectedTagIds((prev) => {
+                            const next = new Set<string>();
+                            if (!prev.has(t._id)) next.add(t._id); // single-select like blog
+                            return next;
+                          });
+                        }}
+                        className={`text-xs px-3 py-1 rounded-full cursor-pointer ${
+                          active
+                            ? "bg-blue-100 text-blue-600"
+                            : "bg-gray-100 text-gray-700 hover:bg-blue-100 hover:text-blue-600"
+                        }`}
+                      >
+                        #{t.name}
+                      </span>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Actions */}
@@ -408,8 +467,8 @@ export default function ProductPage() {
                   onClick={() => {
                     setSelectedCategory(null);
                     setMaxPrice(5000000);
-                    setStatusAvailable(false);
-                    setStatusRented(false);
+                    setSelectedTagIds(new Set());
+                    setSelectedProvince("");
                     setSearch("");
                   }}
                   className="flex-1 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 text-sm"
@@ -448,17 +507,64 @@ export default function ProductPage() {
             </div>
 
             <div className="mb-6">
-              <div className="flex items-center gap-2">
-                <Search size={20} className="text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Tìm kiếm sản phẩm..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="flex-1 border rounded-lg p-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
-                />
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2 flex-1 min-w-[260px]">
+                  <Search size={20} className="text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Tìm kiếm sản phẩm hoặc địa chỉ..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="flex-1 border rounded-lg p-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  />
+                </div>
+                <div className="min-w-[220px]">
+                  <select
+                    value={selectedProvince}
+                    onChange={(e) => setSelectedProvince(e.target.value)}
+                    className="border rounded-lg p-2 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
+                  >
+                    <option value="">Tất cả tỉnh thành</option>
+                    {vietnamProvinces.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
+
+            {featuredItems.length > 0 && (
+              <div className="mb-8">
+                <h2 className="text-xl font-semibold mb-3 flex items-center gap-2">
+                  <Star className="w-5 h-5 text-yellow-400" /> Sản phẩm nổi bật
+                </h2>
+                <div className="overflow-x-auto">
+                  <div className="flex gap-4 min-w-full">
+                    {featuredItems.map((item) => (
+                      <div
+                        key={item._id}
+                        className="min-w-[220px] max-w-[220px] bg-white rounded-xl shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition"
+                        onClick={() => handleRentNow(item._id)}
+                      >
+                        <div className="h-32 bg-gray-200">
+                          <img src={item.thumbnail} alt={item.title} className="w-full h-full object-cover" />
+                        </div>
+                        <div className="p-3">
+                          <div className="text-sm font-semibold line-clamp-2 mb-1">{item.title}</div>
+                          <div className="text-xs text-gray-600 mb-2 truncate">{item.category?.name}</div>
+                          <div className="text-blue-600 text-sm font-bold">
+                            {formatPrice(item.basePrice, item.currency)}
+                            <span className="text-xs text-gray-500">/{item.priceUnit?.UnitName || "ngày"}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {items.length > 0 ? (
@@ -513,12 +619,6 @@ export default function ProductPage() {
                         <MapPin size={14} className="text-gray-400" />
                         <span className="truncate">
                           {item.district}, {item.city}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1 text-xs text-gray-500 mb-3">
-                        <Calendar size={14} className="text-gray-400" />
-                        <span>
-                          {new Date(item.createdAt).toLocaleDateString("vi-VN")}
                         </span>
                       </div>
                       <div className="bg-blue-50 rounded-lg p-3 mb-3">
@@ -576,7 +676,7 @@ export default function ProductPage() {
                           className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
                         >
                           <Zap size={16} />
-                          Thuê ngay
+                          Xem chi tiết
                         </button>
                       </div>
                     </div>
@@ -596,8 +696,8 @@ export default function ProductPage() {
                       setSearch("");
                       setSelectedCategory(null);
                       setMaxPrice(5000000);
-                      setStatusAvailable(false);
-                      setStatusRented(false);
+                      setSelectedTagIds(new Set());
+                      setSelectedProvince("");
                     }}
                     className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700"
                   >
