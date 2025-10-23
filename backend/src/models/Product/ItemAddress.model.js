@@ -1,4 +1,3 @@
-// src/models/Product/ItemAddress.model.js
 const mongoose = require("mongoose");
 
 const itemAddressSchema = new mongoose.Schema(
@@ -7,7 +6,7 @@ const itemAddressSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true, // Index cho query theo user nhanh
+      index: true, 
     },
     Address: {
       type: String,
