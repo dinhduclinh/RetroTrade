@@ -94,11 +94,15 @@ const normalizeItems = (rawItems: any[]): Product[] => {
     priceUnit: item.PriceUnit
       ? { UnitName: item.PriceUnit.UnitName }
       : undefined,
-    tags: item.Tags
-      ? item.Tags.map((t: any) => ({
-          _id: t.TagId || t.Tag._id,
-          name: t.Tag.name,
-        }))
+    tags: Array.isArray(item.Tags)
+      ? (item.Tags
+          .map((t: any) => {
+            const id = toIdString(t.TagId || t.Tag?._id || t._id || t.id);
+            const name = t.Tag?.name || t.TagName || t.Name || t.name;
+            if (!id || !name) return null;
+            return { _id: id, name };
+          })
+          .filter(Boolean) as { _id: string; name: string }[])
       : [],
     city: item.City,
     district: item.District,
