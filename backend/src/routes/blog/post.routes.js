@@ -34,5 +34,7 @@ router.delete("/tags/:id", TagController.deleteTag);
 
 router.post("/comments/:postId", authenticateToken, CommentController.addComment);
 router.delete("/comments/:id", CommentController.deleteComment);
+router.delete("/comments/user/:id",authenticateToken, CommentController.deleteCommentByUser);
+router.put("/comments/:id", authenticateToken, CommentController.updateCommentByUser);
 router.patch("/comments/ban/:id", CommentController.banComment);
 module.exports = router; 

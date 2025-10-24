@@ -57,7 +57,7 @@ export default function BlogPage() {
         setCategories(normalizedCates);
         setTags(normalizedTags);
       } catch (err) {
-        console.error("Error fetching blog data:", err);
+        console.error("Lỗi lấy dứ liệu bài viết", err);
       }
     };
 

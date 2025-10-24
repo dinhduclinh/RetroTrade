@@ -127,8 +127,17 @@ export const getCommentsByPost = async (id: string) => {
   return handleResponse(res);
 };
 
-// Thêm comment mới
+
 export const addComment = async (id: string, data: { content: string; parentCommentId?: string }) => {
   const res = await instance.post(`/post/comments/${id}`, data);
+  return handleResponse(res);
+};
+
+export const deleteCommentByUser = async (id: string) => {
+  const res = await instance.delete(`/post/comments/user/${id}`);
+  return handleResponse(res);
+};
+export const updateCommentByUser = async (id: string, data: { content: string }) => {
+  const res = await instance.put(`/post/comments/${id}`, data);
   return handleResponse(res);
 };
