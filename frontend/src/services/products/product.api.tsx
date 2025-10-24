@@ -5,6 +5,19 @@ export const addProduct = async (productData: any): Promise<Response> => {
   return await instance.post("/products/add", productData);
 };
 
+export const getTopViewedItemsByOwner = async (ownerId: string, limit: number = 4) => {
+  try {
+    const res = await instance.get(`/products/owner/${ownerId}/top-viewed?limit=${limit}`);
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    return await res.json();
+  } catch (error) {
+    console.error("Error fetching top viewed items by owner:", error);
+    return { data: { items: [], total: 0 } } as any;
+  }
+};
+
 export const uploadImages = async (formData: FormData): Promise<Response> => {
   return await instance.post("/products/upload", formData);
 };

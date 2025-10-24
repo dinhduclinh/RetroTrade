@@ -6,7 +6,7 @@ const {
   getUserProducts,
   getProductById,
 } = require("../../controller/products/product.controller");
-const { listAllItems, getProductByProductId, searchProduct, viewFeatureProduct, listSearchTags } = require("../../controller/products/productPublic.controller");
+const { listAllItems, getProductByProductId, searchProduct, viewFeatureProduct, listSearchTags, getProductsByOwnerIdWithHighViewCount, getPublicStoreByUserGuid } = require("../../controller/products/productPublic.controller");
 const { upload } = require("../../middleware/upload.middleware");
 const { authenticateToken } = require("../../middleware/auth");
 
@@ -18,6 +18,8 @@ router.get("/product/search", searchProduct);
 router.get("/product/featured", viewFeatureProduct);
 router.get("/product/tags", listSearchTags);
 router.get("/product/:id", getProductByProductId);
+router.get('/owner/:ownerId/top-viewed', getProductsByOwnerIdWithHighViewCount);
+router.get('/store/:userGuid', getPublicStoreByUserGuid);
 
 // authenticated user/product routes
 router.get("/user", authenticateToken, getUserProducts);

@@ -127,6 +127,7 @@ export default function ProductPage() {
   const [tags, setTags] = useState<TagItem[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(new Set());
   const [selectedProvince, setSelectedProvince] = useState<string>("");
+  const [showAllProvinces, setShowAllProvinces] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -212,14 +213,11 @@ export default function ProductPage() {
     // Filter by max price (VND/day)
     filtered = filtered.filter((item) => item.basePrice <= maxPrice);
 
-    // Filter by search (title, shortDescription, city, district)
+    // Filter by search (ONLY title)
     if (search) {
       filtered = filtered.filter(
         (p) =>
-          p.title.toLowerCase().includes(search.toLowerCase()) ||
-          p.shortDescription?.toLowerCase().includes(search.toLowerCase()) ||
-          (p.city || "").toLowerCase().includes(search.toLowerCase()) ||
-          (p.district || "").toLowerCase().includes(search.toLowerCase())
+          p.title.toLowerCase().includes(search.toLowerCase())
       );
     }
 
@@ -366,6 +364,17 @@ export default function ProductPage() {
               {/* Categories - Click-to-expand inline */}
               <div className="space-y-3 mb-6">
                 <h4 className="font-medium text-gray-700">Danh mục</h4>
+                {/* All products default option */}
+                <div className="flex items-center gap-2 px-2 py-2 rounded hover:bg-gray-50">
+                  <input
+                    type="radio"
+                    name="category"
+                    checked={selectedCategory === null}
+                    onChange={() => setSelectedCategory(null)}
+                    className="border-gray-300"
+                  />
+                  <span className="text-sm text-gray-700 font-medium">Tất cả sản phẩm</span>
+                </div>
                 <div className="max-h-64 overflow-y-auto pr-1 space-y-1">
                   {getChildren(null).map((root) => (
                     <div key={root._id} className="">
@@ -399,7 +408,8 @@ export default function ProductPage() {
                 </div>
               </div>
 
-              {/* Price - Slider */}
+              {/* Price - Slider */
+              }
               <div className="mb-6">
                 <h4 className="font-medium text-gray-700 mb-2">
                   Giá thuê (VND)
@@ -419,6 +429,43 @@ export default function ProductPage() {
                 </div>
                 <div className="text-right text-sm text-gray-700 mt-1">
                   Tối đa: {new Intl.NumberFormat("vi-VN").format(maxPrice)}đ
+                </div>
+              </div>
+
+              {/* Location (Province/City) */}
+              <div className="mb-6">
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="font-medium text-gray-700">Nơi cho thuê</h4>
+                  {selectedProvince && (
+                    <button
+                      onClick={() => setSelectedProvince("")}
+                      className="text-xs text-blue-500 hover:underline"
+                    >
+                      Xóa
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {(showAllProvinces ? vietnamProvinces : vietnamProvinces.slice(0, 6)).map((p) => (
+                    <label key={p} className="flex items-center gap-2 text-sm text-gray-700">
+                      <input
+                        type="radio"
+                        name="province"
+                        checked={selectedProvince === p}
+                        onChange={() => setSelectedProvince(p)}
+                        className="accent-blue-600"
+                      />
+                      <span>{p}</span>
+                    </label>
+                  ))}
+                  {vietnamProvinces.length > 6 && (
+                    <button
+                      onClick={() => setShowAllProvinces((v) => !v)}
+                      className="text-xs text-blue-500 hover:underline"
+                    >
+                      {showAllProvinces ? "Thu gọn" : "Xem thêm"}
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -461,21 +508,7 @@ export default function ProductPage() {
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => {
-                    setSelectedCategory(null);
-                    setMaxPrice(5000000);
-                    setSelectedTagIds(new Set());
-                    setSelectedProvince("");
-                    setSearch("");
-                  }}
-                  className="flex-1 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 text-sm"
-                >
-                  Đặt lại
-                </button>
-              </div>
+              
             </div>
           </aside>
 
@@ -518,20 +551,7 @@ export default function ProductPage() {
                     className="flex-1 border rounded-lg p-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
                   />
                 </div>
-                <div className="min-w-[220px]">
-                  <select
-                    value={selectedProvince}
-                    onChange={(e) => setSelectedProvince(e.target.value)}
-                    className="border rounded-lg p-2 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
-                  >
-                    <option value="">Tất cả tỉnh thành</option>
-                    {vietnamProvinces.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                
               </div>
             </div>
 
@@ -566,7 +586,7 @@ export default function ProductPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
               {items.length > 0 ? (
                 items.map((item, index) => (
                   <div
@@ -574,7 +594,7 @@ export default function ProductPage() {
                     onClick={() => handleRentNow(item._id)}
                     role="button"
                     tabIndex={0}
-                    className="group cursor-pointer bg-white rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 overflow-hidden opacity-0 translate-y-2"
+                    className="group h-full flex flex-col cursor-pointer bg-white rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 overflow-hidden opacity-0 translate-y-2"
                     style={{
                       transitionDelay: `${index * 50}ms`,
                       opacity: mounted ? 1 : 0,
@@ -595,15 +615,12 @@ export default function ProductPage() {
                         </div>
                       )}
                     </div>
-                    <div className="p-4">
-                      <h3 className="font-bold text-gray-900 text-base mb-2 line-clamp-2">
+                    <div className="p-4 flex-1 flex flex-col">
+                      <h3 className="font-bold text-gray-900 text-base mb-2 line-clamp-2 min-h-[3.5rem]">
                         {item.title}
                       </h3>
-
-                      <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                        {item.shortDescription}
-                      </p>
-                      <div className="flex items-center gap-2 mb-3 text-xs text-gray-500">
+                      {/* Mô tả ngắn đã được bỏ theo yêu cầu */}
+                      <div className="flex items-center gap-2 mb-3 text-xs text-gray-500 min-h-[2rem]">
                         {item.category && (
                           <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded">
                             {item.category.name}
@@ -615,13 +632,13 @@ export default function ProductPage() {
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-1 text-sm text-gray-600 mb-3">
+                      <div className="flex items-center gap-1 text-sm text-gray-600 mb-3 min-h-[1.5rem]">
                         <MapPin size={14} className="text-gray-400" />
                         <span className="truncate">
                           {item.district}, {item.city}
                         </span>
                       </div>
-                      <div className="bg-blue-50 rounded-lg p-3 mb-3">
+                      <div className="bg-blue-50 rounded-lg p-3 mb-3 min-h-[4.5rem]">
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="text-xs text-gray-600 mb-1">
@@ -644,7 +661,7 @@ export default function ProductPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center justify-between text-xs text-gray-600 mb-4 pb-4 border-b border-gray-100">
+                      <div className="flex items-center justify-between text-xs text-gray-600 mb-4 pb-4 border-b border-gray-100 min-h-[2rem]">
                         <div className="flex items-center gap-1">
                           <Eye size={14} />
                           <span>{item.viewCount} lượt xem</span>
@@ -660,7 +677,7 @@ export default function ProductPage() {
                           còn lại
                         </div>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="mt-auto flex gap-2">
                         <div onClick={(e) => e.stopPropagation()} className="flex-1">
                           <AddToCartButton
                             itemId={item._id}

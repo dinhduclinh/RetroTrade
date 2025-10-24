@@ -1,20 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { useRouter } from "next/router";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "@/store/redux_store";
 import { addItemToCartAction, fetchCartItemCount } from "@/store/cart/cartActions";
-import { getPublicItemById } from "@/services/products/product.api";
+import { getPublicItemById, getTopViewedItemsByOwner } from "@/services/products/product.api";
 import {
-  Calendar,
   ChevronLeft,
   ChevronRight,
   Star,
+  Bookmark,
   ShoppingCart,
   Zap,
-  Bookmark,
+  CheckCircle,
+  Leaf,
+  MapPin,
 } from "lucide-react";
 
 interface ProductDetailDto {
@@ -65,6 +68,7 @@ export default function ProductDetailPage() {
   >("day");
   const [durationUnits, setDurationUnits] = useState<string>(""); // number as string for input control
   const [dateError, setDateError] = useState<string>("");
+  const [ownerTopItems, setOwnerTopItems] = useState<any[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -87,6 +91,23 @@ export default function ProductDetailPage() {
     };
     fetchDetail();
   }, [id]);
+
+  // Fetch featured items from same owner
+  useEffect(() => {
+    const run = async () => {
+      const ownerId = (product?.Owner as any)?._id;
+      if (!ownerId) return;
+      try {
+        const res = await getTopViewedItemsByOwner(ownerId, 4);
+        const data = res?.data ?? res;
+        const items = data?.data?.items || data?.items || [];
+        setOwnerTopItems(items);
+      } catch (e) {
+        console.warn("Failed to load owner's featured items", e);
+      }
+    };
+    run();
+  }, [product?.Owner]);
 
   const images = useMemo(
     () => product?.Images?.map((i) => i.Url).filter(Boolean) || [],
@@ -216,6 +237,23 @@ export default function ProductDetailPage() {
     monthUnitPrice,
   ]);
 
+  const baseUnitPrice = useMemo(() => {
+    if (baseUnit === "hour") return hourUnitPrice;
+    if (baseUnit === "day") return dayUnitPrice;
+    if (baseUnit === "week") return weekUnitPrice;
+    return monthUnitPrice;
+  }, [baseUnit, hourUnitPrice, dayUnitPrice, weekUnitPrice, monthUnitPrice]);
+
+  const baseUnitLabel = useMemo(() => {
+    return baseUnit === "hour"
+      ? "mỗi giờ"
+      : baseUnit === "day"
+      ? "mỗi ngày"
+      : baseUnit === "week"
+      ? "mỗi tuần"
+      : "mỗi tháng";
+  }, [baseUnit]);
+
   const totalUnits = useMemo(() => {
     const manual = Number(durationUnits);
     return Number.isFinite(manual) && manual > 0 ? manual : unitsFromDates;
@@ -264,13 +302,18 @@ export default function ProductDetailPage() {
     setSelectedImageIndex((prev) => (prev + 1) % images.length);
   };
 
-  
+  const handleCompare = () => {
+    toast.info("So sánh sản phẩm tương tự (đang phát triển)");
+  };
 
   const handleRentNow = () => {
-    // TODO: navigate to checkout or open rent modal
-    if (product && displayTotalPrice > 0 && !dateError) {
-      console.log("Rent now", product._id, dateFrom, dateTo, displayTotalPrice);
-      toast.info(`Thuê ngay với giá ${formatPrice(displayTotalPrice, product.Currency)}`);
+    if (!product) return;
+    const pay = displayTotalPrice > 0 ? displayTotalPrice : baseUnitPrice;
+    if (!dateError && pay > 0) {
+      console.log("Rent now", product._id, dateFrom, dateTo, pay);
+      toast.info(`Thuê ngay với giá ${formatPrice(pay, product.Currency)}`);
+    } else if (!!dateError) {
+      toast.error(dateError);
     }
   };
 
@@ -284,16 +327,13 @@ export default function ProductDetailPage() {
       toast.error("Sản phẩm hiện tại không khả dụng");
       return;
     }
-    if (!!dateError || totalUnits <= 0) {
-      toast.error("Vui lòng chọn thời gian thuê hợp lệ");
-      return;
-    }
 
     try {
       await dispatch(
         addItemToCartAction({
           itemId: product._id,
           quantity: 1,
+          // Ngày thuê là tùy chọn giống trang product list
           rentalStartDate: dateFrom || undefined,
           rentalEndDate: dateTo || undefined,
         })
@@ -431,8 +471,9 @@ export default function ProductDetailPage() {
             )}
           </section>
 
-          {/* Summary / Actions */}
+          {/* Summary */}
           <section>
+            <div className="space-y-5 md:space-y-6">
             <div className="flex items-start justify-between gap-4">
               <h1 className="text-2xl md:text-3xl font-semibold text-gray-900">
                 {product.Title}
@@ -445,6 +486,12 @@ export default function ProductDetailPage() {
               </button>
             </div>
 
+            {product.ShortDescription && (
+              <p className="text-sm text-gray-600 leading-relaxed">
+                {product.ShortDescription}
+              </p>
+            )}
+
             <div className="flex items-center gap-2 text-sm mt-2">
               <div className="flex items-center text-yellow-500">
                 <Star className="w-4 h-4 fill-yellow-500" />
@@ -456,254 +503,213 @@ export default function ProductDetailPage() {
               <span className="text-gray-500">(24 đánh giá)</span>
             </div>
 
-            <div className="mt-3">
-              <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
-                <span>Đặt cọc:</span>
-                <span>
-                  {formatPrice(product.DepositAmount, product.Currency)}
-                </span>
-              </div>
-            </div>
-
-            {/* Pricing plans (selectable) */}
-            <div
-              className={`grid gap-3 mt-4 ${
-                availablePlans.length === 4
-                  ? "grid-cols-4"
-                  : availablePlans.length === 3
-                  ? "grid-cols-3"
-                  : availablePlans.length === 2
-                  ? "grid-cols-2"
-                  : "grid-cols-1"
-              }`}
-            >
-              {availablePlans.map((plan) => {
-                const active = selectedPlan === plan;
-                const price =
-                  plan === "hour"
-                    ? hourUnitPrice
-                    : plan === "day"
-                    ? dayUnitPrice
-                    : plan === "week"
-                    ? weekUnitPrice
-                    : monthUnitPrice;
-                const label =
-                  plan === "hour"
-                    ? "mỗi giờ"
-                    : plan === "day"
-                    ? "mỗi ngày"
-                    : plan === "week"
-                    ? "mỗi tuần"
-                    : "mỗi tháng";
-                return (
-                  <button
-                    key={plan}
-                    onClick={() => setSelectedPlan(plan)}
-                    className={`border rounded-xl p-3 text-center transition-colors ${
-                      active
-                        ? "border-blue-600 bg-blue-50 text-blue-700 font-semibold"
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
-                  >
-                    <div
-                      className={`text-lg ${
-                        active ? "font-bold" : "font-semibold"
-                      }`}
-                    >
-                      {formatPrice(price, product.Currency)}
+            <div className="rounded-2xl border bg-blue-50/60 p-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-xs text-gray-600">Giá thuê</div>
+                  <div className="mt-1 flex items-baseline gap-1">
+                    <div className="text-3xl font-extrabold text-blue-600">
+                      {formatPrice(baseUnitPrice, product.Currency)}
                     </div>
-                    <div className="text-xs">{label}</div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Dates */}
-            <div className="mt-4 space-y-3">
-              <div>
-                <label className="text-sm text-gray-600 block mb-1">
-                  Từ ngày
-                </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    min={todayStr}
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                    className="w-full border rounded-lg p-2 pr-10 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                  />
-                  <Calendar className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                    <div className="text-sm text-gray-600">{baseUnitLabel}</div>
+                  </div>
                 </div>
-              </div>
-              <div>
-                <label className="text-sm text-gray-600 block mb-1">
-                  Đến ngày
-                </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    min={todayStr}
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                    className="w-full border rounded-lg p-2 pr-10 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                  />
-                  <Calendar className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                <div className="text-right">
+                  <div className="text-xs text-gray-600">Đặt cọc</div>
+                  <div className="mt-1 text-2xl font-semibold text-gray-900">
+                    {formatPrice(product.DepositAmount, product.Currency)}
+                  </div>
                 </div>
-              </div>
-              {dateError && <p className="text-sm text-red-500">{dateError}</p>}
-              <div>
-                <label className="text-sm text-gray-600 block mb-1">
-                  Số{" "}
-                  {selectedPlan === "hour"
-                    ? "giờ"
-                    : selectedPlan === "day"
-                    ? "ngày"
-                    : selectedPlan === "week"
-                    ? "tuần"
-                    : "tháng"}{" "}
-                  (tùy chọn)
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  placeholder={unitsFromDates ? unitsFromDates.toString() : "1"}
-                  value={durationUnits}
-                  onChange={(e) =>
-                    setDurationUnits(e.target.value.replace(/[^0-9]/g, ""))
-                  }
-                  className="w-full border rounded-lg p-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
-                />
-                <p className="mt-2 text-sm text-gray-700">
-                  Tổng tiền:{" "}
-                  <span className="font-semibold text-blue-600">
-                    {formatPrice(totalPrice, product.Currency)}
-                  </span>
-                </p>
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="mt-4 space-y-3">
-              <button className="w-full flex items-center justify-center gap-2 border border-gray-300 text-gray-700 py-3 rounded-lg hover:bg-gray-50">
-                So sánh sản phẩm tương tự
+            <div className="space-y-3">
+              <button
+                onClick={handleCompare}
+                className="w-full flex items-center justify-center gap-2 border border-gray-300 text-gray-700 py-3 rounded-lg hover:bg-gray-50"
+              >
+                So sánh sản phẩm
               </button>
-              {outOfStock ? (
+              <div className="grid grid-cols-2 gap-3">
                 <button
-                  disabled
-                  className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-red-600 text-white cursor-not-allowed`}
-                >
-                  Hết hàng
-                </button>
-              ) : (
-                <button
-                  disabled={totalUnits <= 0 || !!dateError}
-                  onClick={handleRentNow}
+                  onClick={handleAddToCart}
+                  disabled={outOfStock}
                   className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg ${
-                    totalUnits <= 0 || !!dateError
+                    outOfStock
+                      ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                      : "bg-gray-100 text-gray-800 hover:bg-gray-200"
+                  }`}
+                >
+                  <ShoppingCart className="w-5 h-5" /> Thêm vào giỏ
+                </button>
+                <button
+                  onClick={handleRentNow}
+                  disabled={outOfStock}
+                  className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg ${
+                    outOfStock
                       ? "bg-gray-300 text-gray-600 cursor-not-allowed"
                       : "bg-blue-600 text-white hover:bg-blue-700"
                   }`}
                 >
                   <Zap className="w-5 h-5" /> Thuê ngay
                 </button>
-              )}
-              <button
-                onClick={handleAddToCart}
-                className="w-full flex items-center justify-center gap-2 bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200"
-              >
-                <ShoppingCart className="w-5 h-5" /> Thêm vào giỏ
-              </button>
+              </div>
+
+              <div className="rounded-xl bg-white p-4 space-y-4">
+                <div className="flex items-start gap-3 p-3 bg-white rounded-lg shadow-sm border border-gray-100">
+                  <CheckCircle className="w-6 h-6 text-green-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-gray-700">
+                    <span className="font-semibold text-gray-900">RetroTrade</span> cam kết: nhận sản phẩm đúng mô tả hoặc hoàn tiền. Thông tin thanh toán của bạn được bảo mật tuyệt đối.
+                  </p>
+                </div>
+                <div className="flex items-start gap-3 p-3 bg-white rounded-lg shadow-sm border border-gray-100">
+                  <Leaf className="w-6 h-6 text-green-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-gray-700">
+                    <span className="font-semibold text-gray-900">RetroTrade</span> - Nền tảng cho thuê đồ vì một trái đất xanh hơn!
+                  </p>
+                </div>
+              </div>
             </div>
 
-            {/* Owner card */}
-            <div className="mt-6 bg-white border rounded-2xl p-4">
-              <div className="flex items-start justify-between">
-                <h3 className="font-semibold">Thông tin chủ sở hữu</h3>
-                <button className="text-sm text-blue-600 hover:underline">
-                  Liên hệ với chủ sở hữu
-                </button>
-              </div>
-              <div className="mt-3 flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden">
-                  {product.Owner?.AvatarUrl ? (
-                    <img
-                      src={product.Owner.AvatarUrl}
-                      alt={product.Owner?.DisplayName || product.Owner?.FullName || "avatar"}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400">
-                      👤
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <div className="font-medium text-gray-900">
-                    {product.Owner?.DisplayName ||
-                      product.Owner?.FullName ||
-                      "Người dùng"}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    Xác minh • Thường trả lời trong vòng 2 giờ
-                  </div>
-                </div>
-              </div>
             </div>
+
           </section>
         </div>
 
-        {/* Description + Specs */}
-        <div className="mt-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <section className="lg:col-span-2">
-            <h2 className="text-xl font-semibold mb-3">Miêu tả Sản phẩm</h2>
-            <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-              {product.Description ||
-                product.ShortDescription ||
-                "Chưa có mô tả."}
-            </p>
-          </section>
+        {/* Owner full-width section */}
+        <div className="mt-8">
+          <div className="bg-white border rounded-2xl p-4">
+            <div className="flex items-start justify-between">
+              <h3 className="font-semibold">Thông tin chủ sở hữu</h3>
+              <button className="text-sm text-blue-600 hover:underline">
+                Liên hệ với chủ sở hữu
+              </button>
+            </div>
+            <div className="mt-3 flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-gray-200 overflow-hidden">
+                {product.Owner?.AvatarUrl ? (
+                  <img
+                    src={product.Owner.AvatarUrl}
+                    alt={product.Owner?.DisplayName || product.Owner?.FullName || "avatar"}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-400">👤</div>
+                )}
+              </div>
+              <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <div className="font-medium text-gray-900">
+                    {product.Owner?.DisplayName || product.Owner?.FullName || "Người dùng"}
+                  </div>
+                  <div className="text-xs text-gray-500">Hoạt động gần đây • Phản hồi nhanh</div>
+                  <div className="mt-2 flex gap-2">
+                    <button className="px-3 py-1 text-sm rounded-md border text-red-600 border-red-200 bg-red-50">Chat ngay</button>
+                    <button
+                      onClick={() => {
+                        const ownerId = (product as any)?.Owner?._id || (product as any)?.Owner?.userGuid || (product as any)?.Owner?.UserGuid;
+                        if (ownerId) router.push(`/store/${ownerId}`);
+                      }}
+                      className="px-3 py-1 text-sm rounded-md border text-gray-700"
+                    >
+                      Xem shop
+                    </button>
+                  </div>
+                </div>
+                <div className="text-sm text-gray-600 flex items-center justify-between md:justify-start gap-8 md:col-span-3">
+                  <div>
+                    <div>Tỉ lệ phản hồi</div>
+                    <div className="text-orange-600 font-semibold">84%</div>
+                  </div>
+                  <div>
+                    <div>Tham gia</div>
+                    <div className="text-orange-600 font-semibold">7 năm trước</div>
+                  </div>
+                  <div>
+                    <div>Người theo dõi</div>
+                    <div className="text-orange-600 font-semibold">10,4k</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-          <aside>
+        {/* Bottom 10-col grid: left 7 info+desc, right 3 featured */}
+        <div className="mt-10 grid grid-cols-1 lg:grid-cols-10 gap-8">
+          <section className="lg:col-span-7 space-y-6">
             <div className="bg-white border rounded-2xl p-4">
               <h3 className="font-semibold mb-3">Thông tin sản phẩm</h3>
               <div className="space-y-2 text-sm text-gray-700">
                 <div className="flex justify-between">
                   <span>Tình trạng:</span>
-                  <span className="font-medium">
-                    {product.Condition?.ConditionName || "-"}
-                  </span>
+                  <span className="font-medium">{product.Condition?.ConditionName || "-"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Khu vực:</span>
-                  <span className="font-medium">
-                    {product.District || ""}
-                    {product.City ? `, ${product.City}` : ""}
-                  </span>
+                  <span className="font-medium">{product.District || ""}{product.City ? `, ${product.City}` : ""}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Kho (sản phẩm):</span>
-                  <span className="font-medium">
-                    {typeof product.Quantity === "number"
-                      ? product.Quantity
-                      : "-"}
-                  </span>
+                  <span className="font-medium">{typeof product.Quantity === "number" ? product.Quantity : "-"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Có sẵn (sản phẩm):</span>
-                  <span className="font-medium">
-                    {typeof product.AvailableQuantity === "number"
-                      ? product.AvailableQuantity
-                      : "-"}
-                  </span>
+                  <span className="font-medium">{typeof product.AvailableQuantity === "number" ? product.AvailableQuantity : "-"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Ngày đăng:</span>
-                  <span className="font-medium">
-                    {product.CreatedAt
-                      ? new Date(product.CreatedAt).toLocaleDateString("vi-VN")
-                      : "-"}
-                  </span>
+                  <span className="font-medium">{product.CreatedAt ? new Date(product.CreatedAt).toLocaleDateString("vi-VN") : "-"}</span>
                 </div>
+              </div>
+            </div>
+
+            <div className="bg-white border rounded-2xl p-4">
+              <h3 className="font-semibold mb-3">Mô tả sản phẩm</h3>
+              <p className="text-gray-700 leading-relaxed whitespace-pre-line">
+                {product.Description || product.ShortDescription || "Chưa có mô tả."}
+              </p>
+            </div>
+          </section>
+
+          <aside className="lg:col-span-3 space-y-4">
+            <div className="bg-white border rounded-2xl p-4">
+              <h3 className="font-semibold mb-3">Sản phẩm nổi bật</h3>
+              <div className="space-y-4">
+                {(ownerTopItems || []).slice(0,4).map((it) => {
+                  const thumb = it?.Images?.[0]?.Url;
+                  const href = `/products/details?id=${it._id}`;
+                  return (
+                    <Link key={it._id} href={href} className="block">
+                      <div className="rounded-xl border bg-white overflow-hidden hover:shadow-md transition cursor-pointer">
+                        <div className="w-full aspect-video bg-gray-100">
+                          {thumb ? (
+                            <img src={thumb} alt={it.Title} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-400">No image</div>
+                          )}
+                        </div>
+                        <div className="p-3">
+                          <div className="text-sm font-medium text-gray-900 line-clamp-2">
+                            {it.Title}
+                          </div>
+                          <div className="text-orange-600 font-semibold mt-1">
+                            {formatPrice(it.BasePrice, it.Currency)}
+                          </div>
+                          {(it.City || it.District) && (
+                            <div className="mt-1 flex items-center gap-1 text-xs text-gray-600">
+                              <MapPin className="w-3.5 h-3.5" />
+                              <span>{it.District || ""}{it.City ? `${it.District ? ", " : ""}${it.City}` : ""}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+                {ownerTopItems.length === 0 && (
+                  <div className="text-sm text-gray-500">Chưa có sản phẩm nổi bật</div>
+                )}
               </div>
             </div>
           </aside>
