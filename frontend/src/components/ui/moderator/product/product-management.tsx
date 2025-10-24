@@ -31,6 +31,7 @@ interface PendingProduct {
   currency: string;
   priceUnitName?: string;
   createdAt: string;
+  createdAtTimestamp: number;
   status: "pending";
 }
 
@@ -112,24 +113,26 @@ export default function PendingProductsManager() {
       const data = apiData.data || [];
       if (!Array.isArray(data)) throw new Error("Dữ liệu không hợp lệ");
       const processedData = data
-        .map((item) => ({
-          id: item._id || item.id || "",
-          title: item.Title || item.title || "",
-          ownerId: item.ownerId || item.OwnerId || "",
-          ownerName: item.ownerName || "",
-          thumbnailUrl:
-            item.thumbnailUrl ||
-            item.images?.[0]?.url ||
-            "/placeholder-image.jpg",
-          categoryName: item.categoryName || "N/A",
-          basePrice: item.basePrice || item.BasePrice || 0,
-          currency: item.currency || "VND",
-          priceUnitName: item.priceUnitName || "N/A",
-          createdAt:
-            item.createdAt ||
-            new Date(item.CreatedAt).toLocaleDateString("vi-VN"),
-          status: "pending" as const,
-        }))
+        .map((item) => {
+          const createdDate = new Date(item.createdAt || item.CreatedAt);
+          return {
+            id: item._id || item.id || "",
+            title: item.Title || item.title || "",
+            ownerId: item.ownerId || item.OwnerId || "",
+            ownerName: item.ownerName || "",
+            thumbnailUrl:
+              item.thumbnailUrl ||
+              item.images?.[0]?.url ||
+              "/placeholder-image.jpg",
+            categoryName: item.categoryName || "N/A",
+            basePrice: item.basePrice || item.BasePrice || 0,
+            currency: item.currency || "VND",
+            priceUnitName: item.priceUnitName || "N/A",
+            createdAt: createdDate.toLocaleDateString("vi-VN"),
+            createdAtTimestamp: createdDate.getTime(),
+            status: "pending" as const,
+          };
+        })
         .filter((p) => p.id);
       setProducts(processedData);
     } catch (err) {
@@ -154,9 +157,7 @@ export default function PendingProductsManager() {
     filtered.sort((a, b) => {
       let cmp: number;
       if (sort.field === "createdAt") {
-        const aDate = new Date(a.createdAt);
-        const bDate = new Date(b.createdAt);
-        cmp = aDate.getTime() - bDate.getTime();
+        cmp = a.createdAtTimestamp - b.createdAtTimestamp;
       } else if (sort.field === "basePrice") {
         cmp = a.basePrice - b.basePrice;
       } else {
@@ -552,16 +553,16 @@ export default function PendingProductsManager() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-white">
+                    <td className="px-4 py-4 whitespace-nowrap max-w-48">
+                      <div className="text-sm font-medium text-white truncate">
                         {product.title}
                       </div>
-                      <div className="text-xs text-white/70">
+                      <div className="text-xs text-white/70 truncate">
                         {product.categoryName}
                       </div>
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-sm text-white">
+                    <td className="px-4 py-4 whitespace-nowrap max-w-32">
+                      <div className="text-sm text-white truncate">
                         {product.ownerName || product.ownerId}
                       </div>
                     </td>
@@ -569,8 +570,10 @@ export default function PendingProductsManager() {
                       {product.basePrice.toLocaleString()} {product.currency}/
                       {product.priceUnitName}
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-white/70">
-                      {product.createdAt}
+                    <td className="px-4 py-4 whitespace-nowrap max-w-32">
+                      <div className="text-sm text-white/70 truncate">
+                        {product.createdAt}
+                      </div>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
                       <span className="text-xs font-semibold px-3 py-1 rounded-full bg-yellow-900/20 text-yellow-400 border border-yellow-400/30">
