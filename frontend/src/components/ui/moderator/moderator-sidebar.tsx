@@ -24,7 +24,7 @@ interface ModeratorSidebarProps {
     | "verification"
     | "productManagement"
     | "blog";
-  activeProductTab?: "products" | "categories";
+  activeProductTab?: "products" | "categories" | "highlights";
   activeBlogTab?: "posts" | "categories" | "comments" | "tags";
   onTabChange?: (
     tab:
@@ -35,7 +35,7 @@ interface ModeratorSidebarProps {
       | "productManagement"
       | "blog"
   ) => void;
-  onProductTabChange?: (tab: "products" | "categories") => void;
+  onProductTabChange?: (tab: "products" | "categories" | "highlights") => void;
   onBlogTabChange?: (tab: "posts" | "categories" | "comments" | "tags") => void;
 }
 
@@ -100,6 +100,11 @@ export function ModeratorSidebar({
       label: "Quản lý danh mục",
       description: "Quản lý danh mục sản phẩm",
     },
+    {
+      id: "highlights" as const,
+      label: "Quản lý nổi bật",
+      description: "Chọn và quản lý sản phẩm nổi bật",
+    },
   ];
 
   const blogSubmenuItems = [
@@ -152,7 +157,7 @@ export function ModeratorSidebar({
     setIsMobileMenuOpen(false);
   };
 
-  const handleProductTabChange = (tab: "products" | "categories") => {
+  const handleProductTabChange = (tab: "products" | "categories" | "highlights") => {
     console.log("Sidebar handleProductTabChange called with:", tab);
     if (onProductTabChange) {
       console.log("Calling onProductTabChange with:", tab);

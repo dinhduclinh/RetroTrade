@@ -14,6 +14,8 @@ const {
   getPendingProductDetails,
   approveProduct,
   rejectProduct,
+  getTopProductsForHighlight,
+  toggleHighlight,
 } = require("../../controller/products/moderator.product.controller");
 
 const {
@@ -35,6 +37,8 @@ router.get("/pending", authenticateToken, getPendingProducts);
 router.get("/pending/:id", authenticateToken, getPendingProductDetails);
 router.put("/pending/:id/approve", authenticateToken, approveProduct);
 router.put("/pending/:id/reject", authenticateToken, rejectProduct);
+router.get("/top-for-highlight", authenticateToken, getTopProductsForHighlight);
+router.put("/approve/:id/highlight", authenticateToken, toggleHighlight);
 
 //product public
 router.get("/product/public", listAllItems);
