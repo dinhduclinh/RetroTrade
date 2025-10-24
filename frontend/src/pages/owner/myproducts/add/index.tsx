@@ -66,8 +66,8 @@ const AddProductPage: React.FC = () => {
   const [description, setDescription] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [conditionId, setConditionId] = useState("");
-  const [rawBasePrice, setRawBasePrice] = useState(""); 
-  const [rawDepositAmount, setRawDepositAmount] = useState(""); 
+  const [rawBasePrice, setRawBasePrice] = useState("");
+  const [rawDepositAmount, setRawDepositAmount] = useState("");
   const [priceUnitId, setPriceUnitId] = useState("");
   const [minRentalDuration, setMinRentalDuration] = useState("");
   const [maxRentalDuration, setMaxRentalDuration] = useState("");
@@ -86,7 +86,7 @@ const AddProductPage: React.FC = () => {
   const [userAddresses, setUserAddresses] = useState<UserAddress[]>([]);
   const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
   const [addressesLoading, setAddressesLoading] = useState(false);
-  const [settingDefault, setSettingDefault] = useState(false); 
+  const [settingDefault, setSettingDefault] = useState(false);
 
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedPath, setSelectedPath] = useState<string[]>([]);
@@ -126,26 +126,34 @@ const AddProductPage: React.FC = () => {
       const data = await res.json();
       const addresses = Array.isArray(data.data) ? data.data : [];
       setUserAddresses(addresses);
-
-      const defaultAddress = addresses.find(
-        (addr: UserAddress) => addr.IsDefault
-      );
-      if (defaultAddress && (!address || !city || !district)) {
-        setAddress(defaultAddress.Address || "");
-        setCity(defaultAddress.City || "");
-        setDistrict(defaultAddress.District || "");
-      }
     } catch (error) {
       console.error("Error fetching user addresses:", error);
       toast.error("Không thể tải địa chỉ gợi ý");
     } finally {
       setAddressesLoading(false);
     }
-  }, [isAuthenticated, address, city, district]);
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (userAddresses.length > 0 && !address && !city && !district) {
+      const defaultAddress = userAddresses.find(
+        (addr: UserAddress) => addr.IsDefault
+      );
+      if (defaultAddress) {
+        setAddress(defaultAddress.Address || "");
+        setCity(defaultAddress.City || "");
+        setDistrict(defaultAddress.District || "");
+      }
+    }
+  }, [userAddresses]);
 
   useEffect(() => {
     fetchInitialData();
   }, []);
+
+  useEffect(() => {
+    fetchUserAddresses();
+  }, [fetchUserAddresses]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -162,10 +170,6 @@ const AddProductPage: React.FC = () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
-
-useEffect(() => {
-  fetchUserAddresses();
-}, [fetchUserAddresses]);
 
   useEffect(() => {
     if (priceUnitId && priceUnits.length > 0) {

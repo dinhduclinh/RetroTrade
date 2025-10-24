@@ -103,7 +103,7 @@ export function ModeratorSidebar({
     {
       id: "highlights" as const,
       label: "Quản lý nổi bật",
-      description: "Chọn và quản lý sản phẩm nổi bật",
+      description: "Chọn sản phẩm nổi bật",
     },
   ];
 
