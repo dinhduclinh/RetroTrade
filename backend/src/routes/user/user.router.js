@@ -11,9 +11,9 @@ router.get('/:id', userController.getUserById);
 
 
 router.get('/profile/me', authenticateToken, userController.getProfile);
-router.post('/', authenticateToken, authorizeRoles('admin', 'moderator'), userController.createUser);
-router.put('/:id', authenticateToken, authorizeRoles('admin', 'moderator'), userController.updateUser);
+router.post('/', authenticateToken, authorizeRoles('admin'), userController.createUser);
+router.put('/:id', authenticateToken, authorizeRoles('admin'), userController.updateUser);
 router.delete('/:id', authenticateToken, authorizeRoles('admin'), userController.deleteUser);
-router.put('/role/update', authenticateToken, authorizeRoles('admin', 'moderator'), userController.updateUserRole);
+router.put('/role/update', authenticateToken, authorizeRoles('admin'), userController.updateUserRole);
 
 module.exports = router;

@@ -8,8 +8,9 @@ const userSchema = new mongoose.Schema({
     },
     email: {
         type: String,
-        required: true,
+        required: false, // Not required, but must be unique if provided
         unique: true,
+        sparse: true, // Allows multiple null values
         lowercase: true,
         trim: true
     },
@@ -58,5 +59,25 @@ const userSchema = new mongoose.Schema({
 });
 
 userSchema.index({ reputationScore: -1 });
+
+// Add compound index to handle phone + email combinations better
+userSchema.index({ phone: 1, email: 1 }, { 
+    unique: true, 
+    sparse: true,
+    partialFilterExpression: { 
+        $or: [
+            { phone: { $exists: true, $ne: null } },
+            { email: { $exists: true, $ne: null } }
+        ]
+    }
+});
+
+// Custom validation to ensure user has either email or phone
+userSchema.pre('save', function(next) {
+    if (!this.email && !this.phone) {
+        return next(new Error('User must have either email or phone number'));
+    }
+    next();
+});
 
 module.exports = mongoose.model('User', userSchema);

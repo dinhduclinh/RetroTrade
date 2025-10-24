@@ -11,74 +11,57 @@ import {
   ChevronDown,
   ChevronRight,
   LayoutDashboard,
-  Package,
+  Crown,
 } from "lucide-react";
 import { Button } from "@/components/ui/common/button";
 import { useState } from "react";
 
-interface ModeratorSidebarProps {
-  activeTab:
-    | "dashboard"
-    | "users"
-    | "requests"
-    | "verification"
-    | "productManagement"
-    | "blog";
-  activeProductTab?: "products" | "categories";
+interface AdminSidebarProps {
+  activeTab: "dashboard" | "users" | "requests" | "verification" | "blog";
   activeBlogTab?: "posts" | "categories" | "comments" | "tags";
   onTabChange?: (
-    tab:
-      | "dashboard"
-      | "users"
-      | "requests"
-      | "verification"
-      | "productManagement"
-      | "blog"
+    tab: "dashboard" | "users" | "requests" | "verification" | "blog"
   ) => void;
-  onProductTabChange?: (tab: "products" | "categories") => void;
   onBlogTabChange?: (tab: "posts" | "categories" | "comments" | "tags") => void;
 }
 
-export function ModeratorSidebar({
+export function AdminSidebar({
   activeTab,
-  activeProductTab,
   activeBlogTab,
   onTabChange,
-  onProductTabChange,
   onBlogTabChange,
-}: ModeratorSidebarProps) {
+}: AdminSidebarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isBlogDropdownOpen, setIsBlogDropdownOpen] = useState(false);
-  const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
 
   const menuItems = [
     {
       id: "dashboard" as const,
       label: "Dashboard",
       icon: LayoutDashboard,
-      path: "/moderator/dashboard",
+      path: "/admin/dashboard",
       description: "Tổng quan hệ thống",
+    },
+    {
+      id: "users" as const,
+      label: "Quản lý người dùng",
+      icon: Users,
+      path: "/admin/user-management",
+      description: "Quản lý tài khoản người dùng",
     },
     {
       id: "requests" as const,
       label: "Yêu cầu kiểm duyệt",
       icon: FileText,
-      path: "/moderator/request-management",
+      path: "/admin/request-management",
       description: "Duyệt và phê duyệt nội dung",
     },
     {
       id: "verification" as const,
       label: "Xác thực tài khoản",
       icon: Shield,
-      path: "/moderator/verify-management",
+      path: "/admin/verify-management",
       description: "Xác thực danh tính người dùng",
-    },
-    {
-      id: "productManagement" as const,
-      label: "Quản lý sản phẩm",
-      icon: Package,
-      description: "Quản lý sản phẩm và danh mục",
-      hasSubmenu: true,
     },
     {
       id: "blog" as const,
@@ -86,19 +69,6 @@ export function ModeratorSidebar({
       icon: BookOpen,
       description: "Quản lý bài viết và nội dung",
       hasSubmenu: true,
-    },
-  ];
-
-  const productSubmenuItems = [
-    {
-      id: "products" as const,
-      label: "Quản lý sản phẩm",
-      description: "Duyệt và phê duyệt sản phẩm",
-    },
-    {
-      id: "categories" as const,
-      label: "Quản lý danh mục",
-      description: "Quản lý danh mục sản phẩm",
     },
   ];
 
@@ -125,14 +95,10 @@ export function ModeratorSidebar({
     },
   ];
 
+  // removed unused handleNavigation
+
   const handleTabChange = (
-    tab:
-      | "dashboard"
-      | "users"
-      | "requests"
-      | "verification"
-      | "productManagement"
-      | "blog"
+    tab: "dashboard" | "users" | "requests" | "verification" | "blog"
   ) => {
     console.log("Sidebar handleTabChange called with:", tab);
     if (onTabChange) {
@@ -145,21 +111,7 @@ export function ModeratorSidebar({
     if (tab !== "blog") {
       setIsBlogDropdownOpen(false);
     }
-    if (tab !== "productManagement") {
-      setIsProductDropdownOpen(false);
-    }
 
-    setIsMobileMenuOpen(false);
-  };
-
-  const handleProductTabChange = (tab: "products" | "categories") => {
-    console.log("Sidebar handleProductTabChange called with:", tab);
-    if (onProductTabChange) {
-      console.log("Calling onProductTabChange with:", tab);
-      onProductTabChange(tab);
-    } else {
-      console.log("onProductTabChange is not provided!");
-    }
     setIsMobileMenuOpen(false);
   };
 
@@ -173,50 +125,8 @@ export function ModeratorSidebar({
     } else {
       console.log("onBlogTabChange is not provided!");
     }
+    // Không đóng dropdown khi chọn submenu
     setIsMobileMenuOpen(false);
-  };
-
-  const renderSubmenu = (
-    item: (typeof menuItems)[number],
-    submenuItems: typeof productSubmenuItems | typeof blogSubmenuItems,
-    isDropdownOpen: boolean,
-    activeSubTab?: string,
-    onSubTabChange?: (tab: string) => void,
-    dropdownKey: "product" | "blog"
-  ) => {
-    if (!item.hasSubmenu || !isDropdownOpen) return null;
-
-    const isProduct = dropdownKey === "product";
-    const activeTabKey = isProduct ? activeProductTab : activeBlogTab;
-
-    return (
-      <div className="ml-8 mt-2 space-y-2 animate-slide-in-left">
-        {submenuItems.map((subItem) => {
-          const isSubActive =
-            activeTab === item.id && activeSubTab === subItem.id;
-          return (
-            <Button
-              key={subItem.id}
-              variant="ghost"
-              className={`
-                w-full justify-start h-12 px-4 text-sm transition-all duration-200
-                ${
-                  isSubActive
-                    ? "bg-white/15 text-white border border-white/20"
-                    : "text-white/60 hover:text-white hover:bg-white/5"
-                }
-              `}
-              onClick={() => onSubTabChange?.(subItem.id)}
-            >
-              <div className="text-left">
-                <div className="font-medium">{subItem.label}</div>
-                <div className="text-xs opacity-70">{subItem.description}</div>
-              </div>
-            </Button>
-          );
-        })}
-      </div>
-    );
   };
 
   return (
@@ -247,11 +157,11 @@ export function ModeratorSidebar({
         <div className="p-6 h-full flex flex-col">
           {/* Header */}
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg">
-              <Shield className="w-7 h-7 text-white" />
+            <div className="w-12 h-12 bg-gradient-to-r from-red-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
+              <Crown className="w-7 h-7 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">Moderator</h2>
+              <h2 className="text-xl font-bold text-white">Admin</h2>
               <p className="text-sm text-white/70">Control Panel</p>
             </div>
           </div>
@@ -261,10 +171,7 @@ export function ModeratorSidebar({
             {menuItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
-              const isProductActive = activeTab === "productManagement";
               const isBlogActive = activeTab === "blog";
-              const isProduct = item.id === "productManagement";
-              const isBlog = item.id === "blog";
 
               return (
                 <div key={item.id}>
@@ -280,12 +187,9 @@ export function ModeratorSidebar({
                     `}
                     onClick={() => {
                       if (item.hasSubmenu) {
-                        if (isProduct) {
-                          setIsProductDropdownOpen(!isProductDropdownOpen);
-                        } else if (isBlog) {
-                          setIsBlogDropdownOpen(!isBlogDropdownOpen);
-                        }
-                        handleTabChange(item.id);
+                        // Chỉ toggle dropdown khi click vào menu chính
+                        setIsBlogDropdownOpen(!isBlogDropdownOpen);
+                        handleTabChange("blog");
                       } else {
                         handleTabChange(item.id);
                       }
@@ -312,11 +216,7 @@ export function ModeratorSidebar({
                       </div>
                       {item.hasSubmenu && (
                         <div className="ml-auto">
-                          {(
-                            isProduct
-                              ? isProductDropdownOpen
-                              : isBlogDropdownOpen
-                          ) ? (
+                          {isBlogDropdownOpen ? (
                             <ChevronDown className="w-4 h-4" />
                           ) : (
                             <ChevronRight className="w-4 h-4" />
@@ -326,34 +226,52 @@ export function ModeratorSidebar({
                     </div>
                   </Button>
 
-                  {/* Product submenu */}
-                  {isProduct &&
-                    renderSubmenu(
-                      item,
-                      productSubmenuItems,
-                      isProductDropdownOpen,
-                      activeProductTab,
-                      handleProductTabChange,
-                      "product"
-                    )}
-
                   {/* Blog submenu */}
-                  {isBlog &&
-                    renderSubmenu(
-                      item,
-                      blogSubmenuItems,
-                      isBlogDropdownOpen,
-                      activeBlogTab,
-                      handleBlogTabChange,
-                      "blog"
-                    )}
+                  {item.hasSubmenu && isBlogDropdownOpen && (
+                    <div className="ml-8 mt-2 space-y-2 animate-slide-in-left">
+                      {blogSubmenuItems.map((subItem) => {
+                        const isSubActive =
+                          isBlogActive && activeBlogTab === subItem.id;
+                        return (
+                          <Button
+                            key={subItem.id}
+                            variant="ghost"
+                            className={`
+                              w-full justify-start h-12 px-4 text-sm transition-all duration-200
+                              ${
+                                isSubActive
+                                  ? "bg-white/15 text-white border border-white/20"
+                                  : "text-white/60 hover:text-white hover:bg-white/5"
+                              }
+                            `}
+                            onClick={() => handleBlogTabChange(subItem.id)}
+                          >
+                            <div className="text-left">
+                              <div className="font-medium">{subItem.label}</div>
+                              <div className="text-xs opacity-70">
+                                {subItem.description}
+                              </div>
+                            </div>
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })}
           </nav>
 
           {/* Logout button */}
-          <div className="mt-auto"></div>
+          <div className="mt-auto">
+            <Button
+              variant="ghost"
+              className="w-full justify-start h-12 px-4 text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all duration-200 hover:scale-105"
+            >
+              <LogOut className="w-5 h-5 mr-3" />
+              Đăng xuất
+            </Button>
+          </div>
         </div>
       </div>
 

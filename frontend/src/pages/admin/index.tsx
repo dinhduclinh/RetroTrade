@@ -27,7 +27,7 @@ export default function AdminPanel() {
             <CardContent>
               <p className="text-gray-600 mb-4">Quản lý tài khoản người dùng, phân quyền và trạng thái</p>
               <Button className="w-full">
-                <Link href="/admin/users" className="w-full">
+                <Link href="/admin/user-management" className="w-full">
                   Truy cập
                 </Link>
               </Button>

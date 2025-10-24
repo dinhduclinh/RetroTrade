@@ -4,6 +4,8 @@ import Script from 'next/script';
 import { Home } from 'lucide-react';
 import { sendOtpFirebase, verifyOtpFirebase } from '../../../services/auth/auth.api';
 import VerificationForm from '../../../components/ui/auth/verify/VerificationForm';
+import { FaceVerificationResponse } from '../../../services/auth/faceVerification.api';
+import { getUserProfile } from '../../../services/auth/user.api';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_WEB_API_KEY as string,
@@ -19,6 +21,13 @@ export default function VerificationPage() {
   const [sessionInfo, setSessionInfo] = useState<string>('');
   const [result, setResult] = useState<{ success: boolean; message: string; details?: string } | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [userProfile, setUserProfile] = useState<{
+    isIdVerified: boolean;
+    isPhoneConfirmed: boolean;
+    email?: string;
+    fullName?: string;
+  } | null>(null);
+  const [isCheckingVerification, setIsCheckingVerification] = useState<boolean>(true);
 
   // Breadcrumb navigation
   const breadcrumbs = [
@@ -59,6 +68,36 @@ export default function VerificationPage() {
       container.id = containerId;
       document.body.appendChild(container);
     }
+  }, []);
+
+  // Check user verification status
+  useEffect(() => {
+    const checkUserVerificationStatus = async () => {
+      try {
+        setIsCheckingVerification(true);
+        const response = await getUserProfile();
+        
+        if (response.code === 200 && response.user) {
+          setUserProfile(response.user);
+          
+          // Check if user is already verified
+          if (response.user.isIdVerified && response.user.isPhoneConfirmed) {
+            setResult({
+              success: true,
+              message: 'Bạn đã xác minh danh tính thành công',
+              details: `Tài khoản ${response.user.email || response.user.fullName || 'của bạn'} đã được xác minh đầy đủ. Bạn có thể sử dụng tất cả các tính năng của hệ thống.`
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error checking user verification status:', error);
+        // Continue with normal flow if there's an error
+      } finally {
+        setIsCheckingVerification(false);
+      }
+    };
+
+    checkUserVerificationStatus();
   }, []);
 
   // Format phone number for Firebase
@@ -143,29 +182,35 @@ export default function VerificationPage() {
     }
   };
 
-  const handleSubmitVerification = async () => {
+  const handleSubmitVerification = async (verificationResult?: FaceVerificationResponse) => {
     try {
       setIsLoading(true);
       
-      // Simulate verification process
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      // Mock verification result - replace with actual API call
-      const isSuccess = Math.random() > 0.3; // 70% success rate for demo
-      
-      setResult({
-        success: isSuccess,
-        message: isSuccess ? 'Xác minh thành công!' : 'Xác minh thất bại',
-        details: isSuccess 
-          ? 'Thông tin của bạn đã được xác minh thành công. Tài khoản đã được kích hoạt.'
-          : 'Thông tin không khớp hoặc ảnh không rõ nét. Vui lòng thử lại với ảnh chất lượng tốt hơn.'
-      });
-    } catch {
-      setResult({
-        success: false,
-        message: 'Có lỗi xảy ra',
-        details: 'Vui lòng thử lại sau hoặc liên hệ hỗ trợ.'
-      });
+      if (verificationResult) {
+        // Use the face verification result from API
+        const { isMatch, similarityPercentage } = verificationResult.data;
+        const { message } = verificationResult;
+        const { phoneConfirmed } = verificationResult.data;
+        
+        setResult({
+          success: isMatch,
+          message: message,
+          details: isMatch 
+            ? `Xác minh khuôn mặt thành công với độ tương đồng ${similarityPercentage}%. ${phoneConfirmed ? 'Số điện thoại đã được xác minh.' : ''} Thông tin của bạn đã được xác minh thành công.`
+            : `Khuôn mặt không khớp (độ tương đồng: ${similarityPercentage}%). Hệ thống đã sử dụng thuật toán nâng cao để phân tích ảnh CCCD với nhiều thông tin và ảnh nhỏ. Vui lòng thử lại với ảnh chất lượng tốt hơn hoặc đảm bảo ảnh chụp rõ nét.`
+        });
+      } else {
+        // Fallback if no verification result provided
+        setResult({
+          success: false,
+          message: 'Không có kết quả xác minh',
+          details: 'Vui lòng thử lại sau hoặc liên hệ hỗ trợ.'
+        });
+      }
+    } catch (error) {
+      console.error('Verification error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra khi xác minh khuôn mặt';
+      throw new Error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -178,6 +223,23 @@ export default function VerificationPage() {
     setSessionInfo('');
     setResult(null);
   };
+
+  // Show loading while checking verification status
+  if (isCheckingVerification) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Đang kiểm tra trạng thái xác minh...</p>
+          {userProfile && (
+            <p className="text-sm text-gray-500 mt-2">
+              Tài khoản: {userProfile.email || userProfile.fullName || 'Đang tải...'}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
