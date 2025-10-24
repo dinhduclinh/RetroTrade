@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { ModeratorSidebar } from "@/components/ui/moderator/moderator-sidebar";
 import { ModeratorHeader } from "@/components/ui/moderator/moderator-header";
 import { ModeratorStats } from "@/components/ui/moderator/moderator-stats";
-import { UserManagementTable } from "@/components/ui/moderator/user-management-table";
+
 import { RequestManagementTable } from "@/components/ui/moderator/request-management-table";
 import { VerificationQueue } from "@/components/ui/moderator/verification-queue";
 import { BlogManagementTable } from "@/components/ui/moderator/blog/blog-management-table";
@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import ProductCategoryManager from "@/components/ui/moderator/categories/category-management";
 import ProductManagement from "@/components/ui/moderator/product/product-management";
+import { CategoryManagementTable } from "@/components/ui/moderator/blog/category-management-table";
 
 // JWT token payload interface
 interface JwtPayload {
@@ -199,9 +200,7 @@ export default function ModeratorDashboard() {
           return <BlogManagementTable />;
         case "categories":
           return (
-            <div className="text-white p-8 text-center">
-              Quản lý danh mục blog (Chưa triển khai)
-            </div>
+           <CategoryManagementTable/>
           );
         case "comments":
           return <CommentManagementTable />;
@@ -227,7 +226,7 @@ export default function ModeratorDashboard() {
       case "dashboard":
         return <DashboardOverview />;
       case "users":
-        return <UserManagementTable />;
+      
       case "requests":
         return <RequestManagementTable />;
       case "verification":

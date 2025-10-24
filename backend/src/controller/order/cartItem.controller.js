@@ -8,7 +8,7 @@ const Categories = require("../../models/Product/Categories.model");
 // Get all cart items for a user
 const getCartItems = async (req, res) => {
   try {
-    const userId = req.user._id; // Changed from req.user.userId to req.user._id
+    const userId = req.user._id; 
     
     const cartItems = await CartItem.find({ userId })
       .populate({
