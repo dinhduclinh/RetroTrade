@@ -590,3 +590,38 @@ module.exports.refreshToken = async (req, res) => {
     }
 };
 
+/*
+==========================================
+AUTH CONTROLLER - FUNCTIONALITY SUMMARY
+==========================================
+
+✅ COMPLETED FUNCTIONS:
+1. login - User login with email/password validation
+2. register - User registration with email verification
+3. verifyEmail - Email verification via OTP
+4. resendEmailVerification - Resend verification email
+5. forgotPassword - Send password reset email
+6. resetPassword - Reset password with OTP verification
+7. refreshToken - Refresh access token using refresh token
+8. logout - User logout (token blacklisting)
+
+🔧 FEATURES IMPLEMENTED:
+- JWT token generation and validation
+- Password hashing with salt
+- Email verification system
+- OTP generation and validation
+- Password reset functionality
+- Token refresh mechanism
+- User role management
+- Email sending integration
+
+📝 NOTES:
+- Email verification is required for login
+- Phone and ID verification are commented out
+- Refresh token mechanism implemented
+- Error handling with proper HTTP status codes
+- Vietnamese error messages for better UX
+
+==========================================
+*/
+

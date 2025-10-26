@@ -27,6 +27,7 @@ interface ExtendedRequestInit extends RequestInit {
 const customFetch = async (url: string, options: ExtendedRequestInit = {}): Promise<Response> => {
   // Request interceptor - add auth token
   const token = store.getState().auth?.accessToken;
+  
   if (token) {
     options.headers = {
       ...options.headers,
