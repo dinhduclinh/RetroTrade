@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import {
   Edit2,
   Trash2,
@@ -253,7 +252,7 @@ export default function OwnerPanel() {
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
                   <Settings className="w-8 h-8 text-indigo-600" />
-                  Bảng điều khiển Owner
+                  Sản phẩm của tôi
                 </h1>
                 <p className="text-gray-600">
                   Quản lý và theo dõi các sản phẩm cho thuê của bạn
@@ -338,11 +337,10 @@ export default function OwnerPanel() {
                   >
                     <div className="relative h-48 bg-gray-200 overflow-hidden">
                       {product.Images && product.Images.length > 0 ? (
-                        <Image
+                        <img
                           src={product.Images[0].Url}
                           alt={product.Title}
-                          fill
-                          className="object-cover group-hover:scale-110 transition-transform duration-300"
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">

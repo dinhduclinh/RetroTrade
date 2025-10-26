@@ -2,6 +2,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import { persistStore, persistReducer } from 'redux-persist';
 import { combineReducers } from 'redux';
 import authReducer from '@/store/auth/authReducer';
+import cartReducer from '@/store/cart/cartReducer';
 
 // Import storage with proper error handling
 import createWebStorage from 'redux-persist/lib/storage/createWebStorage';
@@ -38,6 +39,7 @@ const persistConfig = {
 // Combine reducers nếu có nhiều slice
 const rootReducer = combineReducers({
     auth: persistReducer(authPersistConfig, authReducer),
+    cart: cartReducer,
     
     // thêm các slice khác ở đây
 });
