@@ -1,4 +1,4 @@
-import Footer from "@/components/common/Footer";
+import Footer from "@/components/common/footer";
 import Header from "@/components/common/header";
 import "@/styles/globals.css";
 import type { AppProps } from "next/app";
@@ -10,17 +10,24 @@ import { store, persistor } from "@/store/redux_store";
 import Head from "next/head";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { useRouter } from "next/router";
+import AdminLayout from "./admin/layout";
+
+
+
 
 export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  
+
   useEffect(() => setMounted(true), []);
 
   const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
 
-  const isManagementPage = router.pathname.startsWith('/admin') || 
-                          router.pathname.startsWith('/moderator');
+  const isManagementPage = router.pathname.startsWith('/admin') ||
+    router.pathname.startsWith('/moderator');
+
+  const showAdminSidebar = router.pathname.startsWith("/admin") && router.pathname !== "/admin";
+  
 
   return (
     <GoogleOAuthProvider clientId={googleClientId}>
@@ -29,14 +36,23 @@ export default function App({ Component, pageProps }: AppProps) {
           <Head>
             <title>RetroTrade</title>
           </Head>
-          
+
           {!isManagementPage && <Header />}
-          
+
           <div className={isManagementPage ? "min-h-screen" : "pt-20 bg-white min-h-screen"}>
-            <Component {...pageProps} />
-            
+            {showAdminSidebar ? (
+              <AdminLayout>
+                <Component {...pageProps} />
+              </AdminLayout>
+            ) : (
+              <Component {...pageProps} />
+            )}
+
             {!isManagementPage && <Footer />}
-            
+
+          
+
+
             {mounted && (
               <Toaster
                 richColors
