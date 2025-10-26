@@ -3,6 +3,26 @@ import instance from "../customizeAPI";
 export const getUserAddresses = async (): Promise<Response> => {
   return await instance.get("/products/user/addresses");
 };
+
+export const getProductsByCategoryId = async (
+  categoryId: string,
+  params?: { page?: number; limit?: number }
+) => {
+  try {
+    const query = new URLSearchParams();
+    if (params?.page) query.set("page", String(params.page));
+    if (params?.limit) query.set("limit", String(params.limit));
+    const qs = query.toString();
+    const res = await instance.get(`/products/product/category/${categoryId}${qs ? `?${qs}` : ""}`);
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    return await res.json();
+  } catch (error) {
+    console.error("Error fetching products by category:", error);
+    return { data: { items: [], total: 0 } } as any;
+  }
+};
 export const setDefaultAddress = (addressData: {Address: string;City: string;District: string;}) => {
   return instance.post("/products/addresses/default", addressData);
 };

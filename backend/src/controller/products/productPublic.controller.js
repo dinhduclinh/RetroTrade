@@ -163,6 +163,102 @@ const listAllItems = async (req, res) => {
   }
 };
 
+// Get public products by CategoryId (e.g., cùng máy ảnh/cùng điện thoại)
+const getProductsByCategoryId = async (req, res) => {
+  let success = false;
+  try {
+    const { categoryId } = req.params;
+    const { page = 1, limit = 20 } = req.query;
+    if (!categoryId || !mongoose.Types.ObjectId.isValid(categoryId)) {
+      return res.status(400).json({ success: false, message: "categoryId không hợp lệ" });
+    }
+
+    const parsedPage = Math.max(parseInt(page) || 1, 1);
+    const parsedLimit = Math.max(Math.min(parseInt(limit) || 20, 100), 1);
+    const skip = (parsedPage - 1) * parsedLimit;
+
+    const baseQuery = {
+      StatusId: 2,
+      IsDeleted: false,
+      CategoryId: new mongoose.Types.ObjectId(categoryId),
+    };
+
+    const [total, items] = await Promise.all([
+      Item.countDocuments(baseQuery),
+      Item.find(baseQuery).sort({ CreatedAt: -1 }).skip(skip).limit(parsedLimit).lean(),
+    ]);
+
+    if (!items || items.length === 0) {
+      success = true;
+      return res.status(200).json({
+        success: true,
+        message: "Không có sản phẩm thuộc danh mục này",
+        data: { items: [], total, page: parsedPage, limit: parsedLimit },
+      });
+    }
+
+    const itemIds = items.map((i) => i._id);
+    const [allImages, allItemTags, allConditions, allPriceUnits, categories, owners] = await Promise.all([
+      ItemImages.find({ ItemId: { $in: itemIds }, IsDeleted: false }).sort({ Ordinal: 1 }).lean(),
+      ItemTag.find({ ItemId: { $in: itemIds }, IsDeleted: false }).lean(),
+      ItemConditions.find({ IsDeleted: false }).lean(),
+      PriceUnits.find({ IsDeleted: false }).lean(),
+      Categories.find({ _id: { $in: [...new Set(items.map((i) => i.CategoryId))] }, isActive: true }).lean(),
+      User.find({ _id: { $in: [...new Set(items.map((i) => i.OwnerId))] } }).select("FullName DisplayName AvatarUrl").lean(),
+    ]);
+
+    const imagesMap = {};
+    allImages.forEach((img) => {
+      const k = img.ItemId.toString();
+      if (!imagesMap[k]) imagesMap[k] = [];
+      imagesMap[k].push(img);
+    });
+
+    const tagIdsAll = allItemTags.map((t) => t.TagId);
+    const allTags = tagIdsAll.length
+      ? await Tags.find({ _id: { $in: tagIdsAll }, isDeleted: false }).lean()
+      : [];
+    const tagMapById = {};
+    allTags.forEach((t) => (tagMapById[t._id.toString()] = t));
+    const tagsMap = {};
+    allItemTags.forEach((it) => {
+      const k = it.ItemId.toString();
+      if (!tagsMap[k]) tagsMap[k] = [];
+      tagsMap[k].push({ ...it, Tag: tagMapById[it.TagId.toString()] });
+    });
+
+    const categoryMap = {};
+    categories.forEach((c) => (categoryMap[c._id.toString()] = c));
+    const ownerMap = {};
+    owners.forEach((o) => (ownerMap[o._id.toString()] = o));
+
+    const itemsWithDetails = items
+      .map((item) => ({
+        ...item,
+        Category: categoryMap[item.CategoryId?.toString()] || null,
+        Condition: allConditions.find((c) => c.ConditionId === item.ConditionId) || null,
+        PriceUnit: allPriceUnits.find((p) => p.UnitId === item.PriceUnitId) || null,
+        Owner: ownerMap[item.OwnerId?.toString()] || null,
+        Images: imagesMap[item._id.toString()] || [],
+        Tags: tagsMap[item._id.toString()] || [],
+      }))
+      .filter((x) => x.Category);
+
+    success = true;
+    return res.status(200).json({
+      success: true,
+      message: "Lấy sản phẩm theo danh mục thành công",
+      data: { items: itemsWithDetails, total, page: parsedPage, limit: parsedLimit },
+    });
+  } catch (error) {
+    console.error("Lỗi khi lấy sản phẩm theo danh mục:", error);
+    if (!success) {
+      return res.status(500).json({ success: false, message: error.message || "Lỗi server khi lấy sản phẩm theo danh mục" });
+    }
+    return res.status(200).json({ success: true, message: "Trả về rỗng", data: { items: [], total: 0 } });
+  }
+};
+
 // Get public store by owner's userGuid
 const getPublicStoreByUserGuid = async (req, res) => {
   let success = false;
@@ -720,4 +816,4 @@ const getProductsByOwnerIdWithHighViewCount = async (req, res) => {
   }
 };
 
-module.exports = { listAllItems, getProductByProductId, searchProduct, viewFeatureProduct, listSearchTags, getProductsByOwnerIdWithHighViewCount, getPublicStoreByUserGuid };
+module.exports = { listAllItems, getProductByProductId, searchProduct, viewFeatureProduct, listSearchTags, getProductsByOwnerIdWithHighViewCount, getPublicStoreByUserGuid, getProductsByCategoryId };
