@@ -1,91 +1,39 @@
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/common/card";
-import { Button } from "@/components/ui/common/button";
-import { Crown, Users, Package, BarChart3, Settings } from "lucide-react";
-import Link from "next/link";
+import React from "react";
+import AdminLayout from "./layout";
+import { Sparkles, Crown } from "lucide-react";
 
-export default function AdminPanel() {
+export default function AdminDashboard() {
   return (
-    <div className="min-h-screen bg-gray-50 pt-20">
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
-            <Crown className="w-8 h-8 text-yellow-600" />
-            Admin Panel
-          </h1>
-          <p className="text-gray-600">Quản lý hệ thống và người dùng</p>
+    <AdminLayout>
+      <div className="relative min-h-[80vh] flex flex-col items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white shadow-2xl p-10">
+        {/* Hiệu ứng ánh sáng mờ */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.2),_transparent_50%)] pointer-events-none" />
+
+        {/* Nội dung chính */}
+        <div className="relative z-10 text-center space-y-6">
+          <div className="flex items-center justify-center gap-3">
+            <Crown className="w-10 h-10 text-yellow-300 animate-bounce drop-shadow-lg" />
+            <h1 className="text-5xl font-extrabold tracking-tight drop-shadow-lg">
+              Chào mừng đến với RetroTrade Admin
+            </h1>
+            <Sparkles className="w-8 h-8 text-yellow-200 animate-pulse" />
+          </div>
+
+          <p className="text-lg text-indigo-100 max-w-2xl mx-auto leading-relaxed drop-shadow">
+            Đây là bảng điều khiển quản trị hệ thống — nơi bạn có thể theo dõi, quản lý
+            người dùng, sản phẩm, giao dịch ví, và thống kê tổng thể.
+          </p>
+
+          <div className="mt-8">
+            <button className="px-6 py-3 bg-white/20 backdrop-blur-md text-white font-semibold rounded-xl shadow-lg hover:bg-white/30 hover:scale-105 transition transform">
+              Bắt đầu quản lý ngay
+            </button>
+          </div>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-blue-600" />
-                Quản lý người dùng
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 mb-4">Quản lý tài khoản người dùng, phân quyền và trạng thái</p>
-              <Button className="w-full">
-                <Link href="/admin/users" className="w-full">
-                  Truy cập
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="w-5 h-5 text-green-600" />
-                Quản lý sản phẩm
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 mb-4">Quản lý danh mục sản phẩm và kiểm duyệt</p>
-              <Button className="w-full">
-                <Link href="/admin/products" className="w-full">
-                  Truy cập
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-purple-600" />
-                Thống kê
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 mb-4">Xem báo cáo và thống kê hệ thống</p>
-              <Button className="w-full">
-                <Link href="/admin/analytics" className="w-full">
-                  Truy cập
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="w-5 h-5 text-gray-600" />
-                Cài đặt hệ thống
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 mb-4">Cấu hình và cài đặt hệ thống</p>
-              <Button className="w-full">
-                <Link href="/admin/settings" className="w-full">
-                  Truy cập
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Hiệu ứng nền bay */}
+        <div className="absolute w-[600px] h-[600px] bg-pink-400/30 blur-[120px] rounded-full -bottom-40 -right-40 animate-pulse" />
       </div>
-    </div>
+    </AdminLayout>
   );
 }
