@@ -480,7 +480,7 @@ export default function CartPage() {
         <div className="mb-8">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-2 flex items-center gap-3">
             <ShoppingCart className="w-8 h-8 text-purple-600" />
-            Giỏ hàng của bạn
+            Giỏ hàng thuê của bạn
           </h1>
           <p className="text-slate-600">Bạn có {cartItems.length} sản phẩm trong giỏ hàng</p>
         </div>

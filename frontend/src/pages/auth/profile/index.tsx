@@ -105,9 +105,16 @@ export default function ProfilePage() {
   };
 
   const handleRegisterRentalClick = () => {
-    toast.info('Tính năng đăng ký cho thuê đang được phát triển');
-    // TODO: Implement rental registration functionality
-    // router.push('/products/myproducts/create');
+    // This is for owner role - redirect to product creation
+    if (userProfile?.role === 'owner') {
+      router.push('/products/myproducts/create');
+    } else if (userProfile?.role === 'renter') {
+      // For renter, the QuickActionsCard will handle showing the dialog
+      // Don't show toast here
+      toast.info('Vui lòng yêu cầu cấp quyền Owner trước');
+    } else {
+      toast.info('Tính năng đăng ký cho thuê đang được phát triển');
+    }
   };
 
   const handleProfileUpdate = (updatedProfile: UserProfile) => {
@@ -209,6 +216,7 @@ export default function ProfilePage() {
                 onEditProfile={handleEditClick} 
                 onChangePassword={handleChangePasswordClick}
                 onRegisterRental={handleRegisterRentalClick}
+                userRole={userProfile?.role}
               />
             </div>
           </div>
