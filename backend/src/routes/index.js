@@ -9,6 +9,8 @@ const uploadproductRouter = require("./products/upload/upload.routes");
 
 const userRouter = require("./user/user.router")
 const blogRoutes = require("../routes/blog/post.routes");
+const walletRoutes = require("../routes/wallet/wallet.routes");
+const messagesRouter = require("../routes/messages/messages.router");
 
 module.exports = (app) => {
     const api = "/api/v1";
@@ -20,6 +22,10 @@ module.exports = (app) => {
     app.use(api + "/products/upload", uploadproductRouter);
     app.use(api + "/conditions", conditionsRouter);
     app.use(api + "/price-units", priceUnitsRouter);
-    
+
     app.use(api + "/post", blogRoutes);
+    app.use(api + "/wallet", walletRoutes);
+    app.use(api + "/messages", messagesRouter)
+
+
 }
