@@ -26,6 +26,7 @@ const {
   listSearchTags,
   getProductsByOwnerIdWithHighViewCount,
   getPublicStoreByUserGuid,
+  getProductsByCategoryId,
 } = require("../../controller/products/productPublic.controller");
 const { upload } = require("../../middleware/upload.middleware");
 const { authenticateToken } = require("../../middleware/auth");
@@ -48,6 +49,7 @@ router.get("/product/tags", listSearchTags);
 router.get("/product/:id", getProductByProductId);
 router.get('/owner/:ownerId/top-viewed', getProductsByOwnerIdWithHighViewCount);
 router.get('/store/:userGuid', getPublicStoreByUserGuid);
+router.get('/product/category/:categoryId', getProductsByCategoryId);
 
 //owner
 router.get("/user", authenticateToken, getUserProducts);

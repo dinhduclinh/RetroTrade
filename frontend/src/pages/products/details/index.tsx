@@ -4,20 +4,21 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useRouter } from "next/router";
-import { useDispatch, useSelector } from "react-redux";
-import { RootState, AppDispatch } from "@/store/redux_store";
-import { addItemToCartAction, fetchCartItemCount } from "@/store/cart/cartActions";
-import { getPublicItemById, getTopViewedItemsByOwner } from "@/services/products/product.api";
+import AddToCartButton from "@/components/ui/common/AddToCartButton";
+import { getPublicItemById, getTopViewedItemsByOwner, getProductsByCategoryId } from "@/services/products/product.api";
 import {
   ChevronLeft,
   ChevronRight,
   Star,
   Bookmark,
-  ShoppingCart,
   Zap,
   CheckCircle,
   Leaf,
   MapPin,
+  ShieldCheck,
+  Calendar,
+  MessageCircle,
+  Truck,
 } from "lucide-react";
 
 interface ProductDetailDto {
@@ -54,8 +55,7 @@ const formatPrice = (price: number, currency: string) => {
 export default function ProductDetailPage() {
   const router = useRouter();
   const { id } = router.query as { id?: string };
-  const dispatch = useDispatch<AppDispatch>();
-  const { accessToken } = useSelector((state: RootState) => state.auth);
+  
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +69,7 @@ export default function ProductDetailPage() {
   const [durationUnits, setDurationUnits] = useState<string>(""); // number as string for input control
   const [dateError, setDateError] = useState<string>("");
   const [ownerTopItems, setOwnerTopItems] = useState<any[]>([]);
+  const [similarItems, setSimilarItems] = useState<any[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -98,16 +99,36 @@ export default function ProductDetailPage() {
       const ownerId = (product?.Owner as any)?._id;
       if (!ownerId) return;
       try {
-        const res = await getTopViewedItemsByOwner(ownerId, 4);
+        const res = await getTopViewedItemsByOwner(ownerId, 6);
         const data = res?.data ?? res;
         const items = data?.data?.items || data?.items || [];
-        setOwnerTopItems(items);
+        const filtered = (items || []).filter((it: any) => it?._id !== product?._id).slice(0, 5);
+        setOwnerTopItems(filtered);
       } catch (e) {
         console.warn("Failed to load owner's featured items", e);
       }
     };
     run();
   }, [product?.Owner]);
+
+  // Fetch similar items by same category
+  useEffect(() => {
+    const run = async () => {
+      const catId = (product?.Category as any)?._id;
+      if (!catId) return;
+      try {
+        const res = await getProductsByCategoryId(catId, { page: 1, limit: 12 });
+        const data = res?.data ?? res;
+        const items = data?.data?.items || data?.items || [];
+        const filtered = (items || []).filter((it: any) => it?._id !== product?._id).slice(0, 8);
+        setSimilarItems(filtered);
+      } catch (e) {
+        console.warn("Failed to load similar items", e);
+        setSimilarItems([]);
+      }
+    };
+    run();
+  }, [product?.Category]);
 
   const images = useMemo(
     () => product?.Images?.map((i) => i.Url).filter(Boolean) || [],
@@ -317,33 +338,7 @@ export default function ProductDetailPage() {
     }
   };
 
-  const handleAddToCart = async () => {
-    if (!product) return;
-    if (!accessToken) {
-      toast.error("Vui lòng đăng nhập để thêm vào giỏ hàng");
-      return;
-    }
-    if (outOfStock) {
-      toast.error("Sản phẩm hiện tại không khả dụng");
-      return;
-    }
-
-    try {
-      await dispatch(
-        addItemToCartAction({
-          itemId: product._id,
-          quantity: 1,
-          // Ngày thuê là tùy chọn giống trang product list
-          rentalStartDate: dateFrom || undefined,
-          rentalEndDate: dateTo || undefined,
-        })
-      );
-      dispatch(fetchCartItemCount());
-      toast.success("Đã thêm vào giỏ hàng thành công");
-    } catch {
-      toast.error("Có lỗi xảy ra khi thêm vào giỏ hàng");
-    }
-  };
+  // Add to cart handled by shared AddToCartButton component
 
   // Validate dates on change
   useEffect(() => {
@@ -531,17 +526,16 @@ export default function ProductDetailPage() {
                 So sánh sản phẩm
               </button>
               <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={handleAddToCart}
-                  disabled={outOfStock}
-                  className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg ${
-                    outOfStock
-                      ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                      : "bg-gray-100 text-gray-800 hover:bg-gray-200"
-                  }`}
-                >
-                  <ShoppingCart className="w-5 h-5" /> Thêm vào giỏ
-                </button>
+                <div className="w-full">
+                  <AddToCartButton
+                    itemId={product._id}
+                    availableQuantity={product.AvailableQuantity ?? 0}
+                    size="md"
+                    variant="outline"
+                    showText
+                    className="w-full py-3"
+                  />
+                </div>
                 <button
                   onClick={handleRentNow}
                   disabled={outOfStock}
@@ -576,14 +570,11 @@ export default function ProductDetailPage() {
           </section>
         </div>
 
-        {/* Owner full-width section */}
+        {/* Seller info section (based on provided design) */}
         <div className="mt-8">
           <div className="bg-white border rounded-2xl p-4">
             <div className="flex items-start justify-between">
-              <h3 className="font-semibold">Thông tin chủ sở hữu</h3>
-              <button className="text-sm text-blue-600 hover:underline">
-                Liên hệ với chủ sở hữu
-              </button>
+              <h3 className="font-semibold">Thông tin người bán</h3>
             </div>
             <div className="mt-3 flex items-center gap-4">
               <div className="w-14 h-14 rounded-full bg-gray-200 overflow-hidden">
@@ -597,37 +588,68 @@ export default function ProductDetailPage() {
                   <div className="w-full h-full flex items-center justify-center text-gray-400">👤</div>
                 )}
               </div>
-              <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                  <div className="font-medium text-gray-900">
-                    {product.Owner?.DisplayName || product.Owner?.FullName || "Người dùng"}
+              <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                <div className="md:col-span-5">
+                  <div className="flex items-center gap-2">
+                    <div className="font-medium text-gray-900">
+                      {product.Owner?.DisplayName || product.Owner?.FullName || "Người dùng"}
+                    </div>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-orange-50 text-orange-700 border border-orange-200">
+                      <CheckCircle className="w-3.5 h-3.5" /> Đã xác minh
+                    </span>
                   </div>
-                  <div className="text-xs text-gray-500">Hoạt động gần đây • Phản hồi nhanh</div>
+                  <div className="mt-1 text-sm text-gray-600">
+                    (0 đánh giá) • 0 sản phẩm • 0 đã bán
+                  </div>
                   <div className="mt-2 flex gap-2">
-                    <button className="px-3 py-1 text-sm rounded-md border text-red-600 border-red-200 bg-red-50">Chat ngay</button>
+                    <button
+                      onClick={() => {
+                        const ownerId = (product as any)?.Owner?._id || (product as any)?.Owner?.userGuid || (product as any)?.Owner?.UserGuid;
+                        if (!ownerId) return;
+                        // TODO: update to actual chat route when available
+                        toast.info("Tính năng chat đang phát triển");
+                      }}
+                      className="px-3 py-1.5 text-sm rounded-md border text-red-600 border-red-200 bg-red-50 hover:bg-red-100"
+                    >
+                      Chat ngay
+                    </button>
                     <button
                       onClick={() => {
                         const ownerId = (product as any)?.Owner?._id || (product as any)?.Owner?.userGuid || (product as any)?.Owner?.UserGuid;
                         if (ownerId) router.push(`/store/${ownerId}`);
                       }}
-                      className="px-3 py-1 text-sm rounded-md border text-gray-700"
+                      className="px-3 py-1.5 text-sm rounded-md border text-gray-700 hover:bg-gray-50"
                     >
                       Xem shop
                     </button>
                   </div>
                 </div>
-                <div className="text-sm text-gray-600 flex items-center justify-between md:justify-start gap-8 md:col-span-3">
-                  <div>
-                    <div>Tỉ lệ phản hồi</div>
-                    <div className="text-orange-600 font-semibold">84%</div>
-                  </div>
-                  <div>
-                    <div>Tham gia</div>
-                    <div className="text-orange-600 font-semibold">7 năm trước</div>
-                  </div>
-                  <div>
-                    <div>Người theo dõi</div>
-                    <div className="text-orange-600 font-semibold">10,4k</div>
+                <div className="md:col-span-7">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="flex items-center gap-2 text-gray-700">
+                      <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+                        <ShieldCheck className="w-5 h-5" />
+                      </div>
+                      <div className="text-sm">Đáng tin cậy</div>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-700">
+                      <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+                        <Calendar className="w-5 h-5" />
+                      </div>
+                      <div className="text-sm">Thành viên từ {product.CreatedAt ? new Date(product.CreatedAt).getFullYear() : "-"}</div>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-700">
+                      <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+                        <MessageCircle className="w-5 h-5" />
+                      </div>
+                      <div className="text-sm">Phản hồi nhanh</div>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-700">
+                      <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+                        <Truck className="w-5 h-5" />
+                      </div>
+                      <div className="text-sm">Giao hàng nhanh</div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -670,18 +692,59 @@ export default function ProductDetailPage() {
                 {product.Description || product.ShortDescription || "Chưa có mô tả."}
               </p>
             </div>
+
+            <div className="bg-white rounded-2xl p-4">
+              <h3 className="font-semibold mb-3">Sản phẩm tương tự</h3>
+              {similarItems.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {similarItems.map((it: any) => {
+                    const thumb = it?.Images?.[0]?.Url;
+                    const href = `/products/details?id=${it._id}`;
+                    return (
+                      <Link key={it._id} href={href} className="block">
+                        <div className="rounded-xl border bg-white overflow-hidden cursor-pointer transition-transform duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
+                          <div className="w-full aspect-video bg-gray-100">
+                            {thumb ? (
+                              <img src={thumb} alt={it.Title} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-gray-400">No image</div>
+                            )}
+                          </div>
+                          <div className="p-3">
+                            <div className="text-sm font-medium text-gray-900 line-clamp-2">
+                              {it.Title}
+                            </div>
+                            <div className="text-orange-600 font-semibold mt-1">
+                              {formatPrice(it.BasePrice, it.Currency)}
+                            </div>
+                            {(it.City || it.District) && (
+                              <div className="mt-1 flex items-center gap-1 text-xs text-gray-600">
+                                <MapPin className="w-3.5 h-3.5" />
+                                <span>{it.District || ""}{it.City ? `${it.District ? ", " : ""}${it.City}` : ""}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500">Chưa có sản phẩm tương tự</div>
+              )}
+            </div>
           </section>
 
           <aside className="lg:col-span-3 space-y-4">
             <div className="bg-white border rounded-2xl p-4">
               <h3 className="font-semibold mb-3">Sản phẩm nổi bật</h3>
               <div className="space-y-4">
-                {(ownerTopItems || []).slice(0,4).map((it) => {
+                {(ownerTopItems || []).map((it) => {
                   const thumb = it?.Images?.[0]?.Url;
                   const href = `/products/details?id=${it._id}`;
                   return (
                     <Link key={it._id} href={href} className="block">
-                      <div className="rounded-xl border bg-white overflow-hidden hover:shadow-md transition cursor-pointer">
+                      <div className="rounded-xl border bg-white overflow-hidden cursor-pointer transition-transform duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
                         <div className="w-full aspect-video bg-gray-100">
                           {thumb ? (
                             <img src={thumb} alt={it.Title} className="w-full h-full object-cover" />

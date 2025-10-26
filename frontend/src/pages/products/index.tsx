@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { getAllItems, getAllCategories, getFeaturedItems, getSearchTags } from "@/services/products/product.api";
 import { vietnamProvinces } from "@/lib/vietnam-locations";
 import {
@@ -14,6 +14,8 @@ import {
   ShoppingCart,
   Zap,
   Star,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import AddToCartButton from "@/components/ui/common/AddToCartButton";
 
@@ -22,6 +24,7 @@ interface Category {
   name: string;
   parentCategoryId?: string | null;
   isActive?: boolean;
+  level?: number;
 }
 
 interface TagItem {
@@ -118,6 +121,8 @@ const formatPrice = (price: number, currency: string) => {
 
 export default function ProductPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
 
   const [mounted, setMounted] = useState(false);
   const [allItems, setAllItems] = useState<Product[]>([]);
@@ -125,8 +130,8 @@ export default function ProductPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [expandedRoots, setExpandedRoots] = useState<Set<string>>(new Set());
-  const [maxPrice, setMaxPrice] = useState(5000000); // slider max default: 5,000,000
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [maxPrice, setMaxPrice] = useState(5000000);
   const [featuredItems, setFeaturedItems] = useState<Product[]>([]);
   const [tags, setTags] = useState<TagItem[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(new Set());
@@ -134,7 +139,58 @@ export default function ProductPage() {
   const [showAllProvinces, setShowAllProvinces] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 9;
 
+  // Initialize currentPage from URL
+  useEffect(() => {
+    const p = Number(searchParams?.get("page") || "");
+    if (Number.isFinite(p) && p >= 1) {
+      setCurrentPage(p);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const updatePageInUrl = (page: number) => {
+    try {
+      const sp = new URLSearchParams(searchParams?.toString() || "");
+      if (page <= 1) sp.delete("page");
+      else sp.set("page", String(page));
+      const qs = sp.toString();
+      router.push(qs ? `${pathname}?${qs}` : pathname);
+    } catch {}
+  };
+
+  const goToPage = (page: number) => {
+    const clamped = Math.max(1, Math.min(totalPages, page));
+    setCurrentPage(clamped);
+    updatePageInUrl(clamped);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const bannerImages = useMemo(
+    () => [
+      "/banners/banner-5.jpeg",
+      "/banners/banner-9.jpeg",
+      "/banners/banner-3.jpg",
+    ],
+    []
+  );
+  const [activeBanner, setActiveBanner] = useState(0);
+  const autoplayRef = useRef<NodeJS.Timeout | null>(null);
+  const bannerContainerRef = useRef<HTMLDivElement | null>(null);
+  const [imgRatios, setImgRatios] = useState<number[]>([]);
+  const [computedBannerHeight, setComputedBannerHeight] = useState<number>(0);
+  const targetBannerRatio = useMemo(() => {
+    const vals = (imgRatios || []).filter((v) => typeof v === "number" && v > 0);
+    if (!vals.length) return 0.53; // close to provided image ratio ~542/1021
+    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+    return Math.max(0.4, Math.min(0.65, avg));
+  }, [imgRatios]);
+
+  // Fetch data
   useEffect(() => {
     setMounted(true);
     const fetchData = async () => {
@@ -161,6 +217,7 @@ export default function ProductPage() {
                 ? null
                 : toIdString(c.parentCategoryId),
             isActive: c.isActive,
+            level: typeof c.level === "number" ? c.level : undefined,
           })
         );
 
@@ -190,16 +247,49 @@ export default function ProductPage() {
     fetchData();
   }, []);
 
+  // Autoplay banner
+  useEffect(() => {
+    if (bannerImages.length <= 1) return;
+    if (autoplayRef.current) clearInterval(autoplayRef.current);
+    autoplayRef.current = setInterval(() => {
+      setActiveBanner((p) => (p + 1) % bannerImages.length);
+    }, 8000);
+    return () => {
+      if (autoplayRef.current) clearInterval(autoplayRef.current);
+    };
+  }, [bannerImages.length]);
+
+  // Recalculate banner height based on container width & a stable target ratio
+  useEffect(() => {
+    const recalc = () => {
+      const container = bannerContainerRef.current;
+      if (!container) return;
+
+      const containerWidth = container.clientWidth;
+      const naturalHeight = containerWidth * targetBannerRatio;
+
+      const minH = 260;
+      const maxH = 560;
+      const targetH = Math.max(minH, Math.min(maxH, Math.round(naturalHeight)));
+
+      setComputedBannerHeight(targetH);
+    };
+
+    recalc();
+    window.addEventListener("resize", recalc);
+    return () => window.removeEventListener("resize", recalc);
+  }, [targetBannerRatio]);
+
+  // Filter items
   useEffect(() => {
     let filtered = [...allItems];
 
-    // Filter by selected category
     if (selectedCategory) {
       const selected = categories.find((c) => c._id === selectedCategory);
       if (selected) {
-        const isRoot = (selected.parentCategoryId ?? null) === null;
+        const isRoot = (selected.level ?? 0) === 0;
         if (isRoot) {
-          const allowed = new Set<string>([
+          const allowed = new Set([
             selectedCategory,
             ...getDescendantIds(selectedCategory),
           ]);
@@ -214,35 +304,28 @@ export default function ProductPage() {
       }
     }
 
-    // Filter by max price (VND/day)
     filtered = filtered.filter((item) => item.basePrice <= maxPrice);
 
-    // Filter by search (ONLY title)
     if (search) {
-      filtered = filtered.filter(
-        (p) =>
-          p.title.toLowerCase().includes(search.toLowerCase())
+      filtered = filtered.filter((p) =>
+        p.title.toLowerCase().includes(search.toLowerCase())
       );
     }
 
-    // Filter by selected province (city)
     if (selectedProvince) {
       const sp = selectedProvince.toLowerCase();
       filtered = filtered.filter((p) => (p.city || "").toLowerCase() === sp);
     }
 
-    // Filter by selected tags
     if (selectedTagIds.size > 0) {
       filtered = filtered.filter((item) => {
         const itemTagIds = new Set((item.tags || []).map((t) => toIdString(t._id)));
-        for (const id of selectedTagIds) {
-          if (itemTagIds.has(id)) return true;
-        }
-        return false;
+        return [...selectedTagIds].some((id) => itemTagIds.has(id));
       });
     }
 
     setItems(filtered);
+    setCurrentPage(1);
   }, [
     selectedCategory,
     maxPrice,
@@ -250,7 +333,30 @@ export default function ProductPage() {
     selectedTagIds,
     selectedProvince,
     allItems,
+    categories,
   ]);
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(items.length / itemsPerPage)),
+    [items.length]
+  );
+
+  // Clamp currentPage when totalPages changes
+  useEffect(() => {
+    setCurrentPage((p) => {
+      const clamped = Math.max(1, Math.min(totalPages, p));
+      if (clamped !== p) {
+        updatePageInUrl(clamped);
+      }
+      return clamped;
+    });
+  }, [totalPages]);
+
+  const pagedItems = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    return items.slice(start, end);
+  }, [items, currentPage]);
 
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategory((prev) => (prev === categoryId ? null : categoryId));
@@ -258,6 +364,9 @@ export default function ProductPage() {
 
   const getChildren = (parentId: string | null) =>
     categories.filter((c) => (c.parentCategoryId ?? null) === parentId);
+
+  const getRootCategories = () =>
+    categories.filter((c) => (c.level ?? 0) === 0);
 
   const getDescendantIds = (categoryId: string): string[] => {
     const direct = getChildren(categoryId);
@@ -276,12 +385,16 @@ export default function ProductPage() {
       <div className="space-y-1">
         {children.map((child) => (
           <div key={child._id}>
-            <div className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50">
+            <div
+              className="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-50 cursor-pointer"
+              onClick={() => toggleExpand(child._id)}
+            >
               <input
                 id={`cat-${child._id}`}
                 type="radio"
                 name="category"
                 checked={selectedCategory === child._id}
+                onClick={(e) => e.stopPropagation()}
                 onChange={() => handleCategorySelect(child._id)}
                 className="border-gray-300"
               />
@@ -292,27 +405,26 @@ export default function ProductPage() {
               >
                 {child.name}
               </label>
+              {getChildren(child._id).length > 0 && (
+                <span className="ml-auto text-xs text-gray-500">{expandedNodes.has(child._id) ? "−" : "+"}</span>
+              )}
             </div>
-            {renderChildTree(child._id, level + 1)}
+            {expandedNodes.has(child._id) && (
+              <div className="pl-4">{renderChildTree(child._id, level + 1)}</div>
+            )}
           </div>
         ))}
       </div>
     );
   };
 
-  const toggleRoot = (rootId: string) => {
-    setExpandedRoots((prev) => {
+  const toggleExpand = (id: string) => {
+    setExpandedNodes((prev) => {
       const next = new Set(prev);
-      if (next.has(rootId)) next.delete(rootId);
-      else next.add(rootId);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
-  };
-
-  const handleAddToCart = (product: Product) => {
-    // Implement add to cart logic here (e.g., dispatch to Redux store)
-    console.log("Added to cart:", product.title);
-    // For now, just log or show toast
   };
 
   const handleRentNow = (productId: string) => {
@@ -328,6 +440,7 @@ export default function ProductPage() {
     });
   };
 
+  // Loading
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center">
@@ -339,6 +452,7 @@ export default function ProductPage() {
     );
   }
 
+  // Error
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center">
@@ -357,18 +471,140 @@ export default function ProductPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 py-6">
+      {/* BANNER - HOÀN CHỈNH & RESPONSIVE */}
+      <div className="container mx-auto px-4 max-w-7xl mb-6">
+        <div
+          ref={bannerContainerRef}
+          className="relative bg-white rounded-2xl shadow overflow-hidden"
+          style={{ height: computedBannerHeight > 0 ? `${computedBannerHeight}px` : undefined, minHeight: 260, maxHeight: 600 }}
+        >
+          <div
+            className="flex h-full transition-transform duration-700 ease-out will-change-transform"
+            style={{
+              transform: `translateX(-${bannerImages.length > 0 ? (activeBanner * (100 / bannerImages.length)) : 0}%)`,
+              width: `${bannerImages.length * 100}%`,
+            }}
+          >
+            {bannerImages.map((src, idx) => (
+              <div
+                key={idx}
+                className="relative h-full shrink-0 bg-gray-50"
+                style={{ width: `${bannerImages.length > 0 ? (100 / bannerImages.length) : 100}%` }}
+              >
+                <img
+                  src={src}
+                  alt={`banner-${idx + 1}`}
+                  className="absolute inset-0 w-full h-full object-contain"
+                  onLoad={(e) => {
+                    const img = e.currentTarget as HTMLImageElement;
+                    if (img.naturalWidth && img.naturalHeight) {
+                      const ratio = img.naturalHeight / img.naturalWidth;
+                      setImgRatios((prev) => {
+                        const next = [...prev];
+                        next[idx] = ratio;
+                        return next;
+                      });
+                    }
+                  }}
+                  onError={(e) => {
+                    const img = e.currentTarget as HTMLImageElement;
+                    if ((img as any)._fallbackApplied) return;
+                    (img as any)._fallbackApplied = true;
+                    img.src = "/banners/banner-1.jpg";
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* Dots */}
+          {bannerImages.length > 1 && (
+            <div className="absolute inset-x-0 bottom-3 flex justify-center gap-2">
+              {bannerImages.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setActiveBanner(i)}
+                  className={`transition-all duration-300 rounded-full ${
+                    i === activeBanner
+                      ? "bg-blue-600 w-8 h-2"
+                      : "bg-gray-300 w-2 h-2"
+                  }`}
+                  aria-label={`Go to banner ${i + 1}`}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Navigation Arrows */}
+          {bannerImages.length > 1 && (
+            <>
+              <button
+                onClick={() =>
+                  setActiveBanner(
+                    (p) => (p - 1 + bannerImages.length) % bannerImages.length
+                  )
+                }
+                className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white p-2 rounded-full shadow-md transition"
+                aria-label="Previous"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() =>
+                  setActiveBanner((p) => (p + 1) % bannerImages.length)
+                }
+                className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white p-2 rounded-full shadow-md transition"
+                aria-label="Next"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
       <div className="container mx-auto px-4 max-w-7xl">
+        {/* Featured Products */}
+        {featuredItems.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold mb-3 flex items-center gap-2">
+              <Star className="w-5 h-5 text-yellow-400" /> Sản phẩm nổi bật
+            </h2>
+            <div className="overflow-x-auto">
+              <div className="flex gap-4 min-w-full">
+                {featuredItems.map((item) => (
+                  <div
+                    key={item._id}
+                    className="min-w-[220px] max-w-[220px] bg-white rounded-xl shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition"
+                    onClick={() => handleRentNow(item._id)}
+                  >
+                    <div className="h-32 bg-gray-200">
+                      <img src={item.thumbnail} alt={item.title} className="w-full h-full object-cover" />
+                    </div>
+                    <div className="p-3">
+                      <div className="text-sm font-semibold line-clamp-2 mb-1">{item.title}</div>
+                      <div className="text-xs text-gray-600 mb-2 truncate">{item.category?.name}</div>
+                      <div className="text-blue-600 text-sm font-bold">
+                        {formatPrice(item.basePrice, item.currency)}
+                        <span className="text-xs text-gray-500">/{item.priceUnit?.UnitName || "ngày"}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-8">
           {/* Sidebar */}
           <aside className="w-72 hidden lg:block">
-            {/* Unified Filter Panel */}
             <div className="bg-white shadow rounded-2xl p-4 sticky top-6">
               <h3 className="font-semibold mb-4">Bộ lọc</h3>
 
-              {/* Categories - Click-to-expand inline */}
+              {/* Categories */}
               <div className="space-y-3 mb-6">
                 <h4 className="font-medium text-gray-700">Danh mục</h4>
-                {/* All products default option */}
                 <div className="flex items-center gap-2 px-2 py-2 rounded hover:bg-gray-50">
                   <input
                     type="radio"
@@ -380,11 +616,11 @@ export default function ProductPage() {
                   <span className="text-sm text-gray-700 font-medium">Tất cả sản phẩm</span>
                 </div>
                 <div className="max-h-64 overflow-y-auto pr-1 space-y-1">
-                  {getChildren(null).map((root) => (
-                    <div key={root._id} className="">
+                  {getRootCategories().map((root) => (
+                    <div key={root._id}>
                       <div
                         className="flex items-center gap-2 px-2 py-2 rounded hover:bg-gray-50 cursor-pointer"
-                        onClick={() => toggleRoot(root._id)}
+                        onClick={() => toggleExpand(root._id)}
                       >
                         <input
                           type="radio"
@@ -398,26 +634,22 @@ export default function ProductPage() {
                           {root.name}
                         </span>
                         <span className="text-xs text-gray-500">
-                          {expandedRoots.has(root._id) ? "−" : "+"}
+                          {expandedNodes.has(root._id) ? "−" : "+"}
                         </span>
                       </div>
-                      {expandedRoots.has(root._id) &&
-                        getChildren(root._id).length > 0 && (
-                          <div className="pl-6 py-1">
-                            {renderChildTree(root._id)}
-                          </div>
-                        )}
+                      {expandedNodes.has(root._id) && getChildren(root._id).length > 0 && (
+                        <div className="pl-6 py-1">
+                          {renderChildTree(root._id)}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Price - Slider */
-              }
+              {/* Price */}
               <div className="mb-6">
-                <h4 className="font-medium text-gray-700 mb-2">
-                  Giá thuê (VND)
-                </h4>
+                <h4 className="font-medium text-gray-700 mb-2">Giá thuê (VND)</h4>
                 <input
                   type="range"
                   min={0}
@@ -429,14 +661,14 @@ export default function ProductPage() {
                 />
                 <div className="flex justify-between text-xs text-gray-600 mt-1">
                   <span>0</span>
-                  <span>{new Intl.NumberFormat("vi-VN").format(5000000)}</span>
+                  <span>5.000.000</span>
                 </div>
                 <div className="text-right text-sm text-gray-700 mt-1">
                   Tối đa: {new Intl.NumberFormat("vi-VN").format(maxPrice)}đ
                 </div>
               </div>
 
-              {/* Location (Province/City) */}
+              {/* Province */}
               <div className="mb-6">
                 <div className="flex justify-between items-center mb-2">
                   <h4 className="font-medium text-gray-700">Nơi cho thuê</h4>
@@ -492,27 +724,19 @@ export default function ProductPage() {
                     return (
                       <span
                         key={t._id}
-                        onClick={() => {
-                          setSelectedTagIds((prev) => {
-                            const next = new Set<string>();
-                            if (!prev.has(t._id)) next.add(t._id); // single-select like blog
-                            return next;
-                          });
-                        }}
-                        className={`text-xs px-3 py-1 rounded-full cursor-pointer ${
+                        onClick={() => toggleTag(t._id)}
+                        className={`text-xs px-3 py-1 rounded-full cursor-pointer transition ${
                           active
                             ? "bg-blue-100 text-blue-600"
                             : "bg-gray-100 text-gray-700 hover:bg-blue-100 hover:text-blue-600"
                         }`}
                       >
-                        #{t.name}
+                        #{t.count ? `${t.name} (${t.count})` : t.name}
                       </span>
                     );
                   })}
                 </div>
               </div>
-
-              
             </div>
           </aside>
 
@@ -555,44 +779,12 @@ export default function ProductPage() {
                     className="flex-1 border rounded-lg p-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
                   />
                 </div>
-                
               </div>
             </div>
 
-            {featuredItems.length > 0 && (
-              <div className="mb-8">
-                <h2 className="text-xl font-semibold mb-3 flex items-center gap-2">
-                  <Star className="w-5 h-5 text-yellow-400" /> Sản phẩm nổi bật
-                </h2>
-                <div className="overflow-x-auto">
-                  <div className="flex gap-4 min-w-full">
-                    {featuredItems.map((item) => (
-                      <div
-                        key={item._id}
-                        className="min-w-[220px] max-w-[220px] bg-white rounded-xl shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition"
-                        onClick={() => handleRentNow(item._id)}
-                      >
-                        <div className="h-32 bg-gray-200">
-                          <img src={item.thumbnail} alt={item.title} className="w-full h-full object-cover" />
-                        </div>
-                        <div className="p-3">
-                          <div className="text-sm font-semibold line-clamp-2 mb-1">{item.title}</div>
-                          <div className="text-xs text-gray-600 mb-2 truncate">{item.category?.name}</div>
-                          <div className="text-blue-600 text-sm font-bold">
-                            {formatPrice(item.basePrice, item.currency)}
-                            <span className="text-xs text-gray-500">/{item.priceUnit?.UnitName || "ngày"}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
-              {items.length > 0 ? (
-                items.map((item, index) => (
+              {pagedItems.length > 0 ? (
+                pagedItems.map((item, index) => (
                   <div
                     key={item._id}
                     onClick={() => handleRentNow(item._id)}
@@ -602,9 +794,7 @@ export default function ProductPage() {
                     style={{
                       transitionDelay: `${index * 50}ms`,
                       opacity: mounted ? 1 : 0,
-                      transform: mounted
-                        ? "translateY(0)"
-                        : "translateY(0.5rem)",
+                      transform: mounted ? "translateY(0)" : "translateY(0.5rem)",
                     }}
                   >
                     <div className="relative h-48 bg-gray-200 overflow-hidden">
@@ -623,7 +813,6 @@ export default function ProductPage() {
                       <h3 className="font-bold text-gray-900 text-base mb-2 line-clamp-2 min-h-[3.5rem]">
                         {item.title}
                       </h3>
-                      {/* Mô tả ngắn đã được bỏ theo yêu cầu */}
                       <div className="flex items-center gap-2 mb-3 text-xs text-gray-500 min-h-[2rem]">
                         {item.category && (
                           <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded">
@@ -645,9 +834,7 @@ export default function ProductPage() {
                       <div className="bg-blue-50 rounded-lg p-3 mb-3 min-h-[4.5rem]">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-xs text-gray-600 mb-1">
-                              Giá thuê
-                            </p>
+                            <p className="text-xs text-gray-600 mb-1">Giá thuê</p>
                             <p className="text-lg font-bold text-blue-600">
                               {formatPrice(item.basePrice, item.currency)}
                               <span className="text-sm font-normal text-gray-600">
@@ -656,9 +843,7 @@ export default function ProductPage() {
                             </p>
                           </div>
                           <div className="text-right">
-                            <p className="text-xs text-gray-600 mb-1">
-                              Đặt cọc
-                            </p>
+                            <p className="text-xs text-gray-600 mb-1">Đặt cọc</p>
                             <p className="text-sm font-semibold text-gray-700">
                               {formatPrice(item.depositAmount, item.currency)}
                             </p>
@@ -693,7 +878,10 @@ export default function ProductPage() {
                           />
                         </div>
                         <button
-                          onClick={() => handleRentNow(item._id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRentNow(item._id);
+                          }}
                           className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
                         >
                           <Zap size={16} />
@@ -727,6 +915,47 @@ export default function ProductPage() {
                 </div>
               )}
             </div>
+
+            {/* Pagination */}
+            {items.length > itemsPerPage && (
+              <div className="mt-6 flex items-center justify-center gap-2 select-none">
+                <button
+                  onClick={() => goToPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className={`px-3 py-2 rounded border text-sm ${
+                    currentPage === 1
+                      ? "text-gray-400 border-gray-200 cursor-not-allowed"
+                      : "text-gray-700 border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  Trước
+                </button>
+                {Array.from({ length: totalPages }).map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => goToPage(i + 1)}
+                    className={`w-9 h-9 rounded border text-sm font-medium ${
+                      currentPage === i + 1
+                        ? "bg-blue-600 text-white border-blue-600"
+                        : "text-gray-700 border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+                <button
+                  onClick={() => goToPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className={`px-3 py-2 rounded border text-sm ${
+                    currentPage === totalPages
+                      ? "text-gray-400 border-gray-200 cursor-not-allowed"
+                      : "text-gray-700 border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  Sau
+                </button>
+              </div>
+            )}
           </main>
         </div>
       </div>
