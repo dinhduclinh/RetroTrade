@@ -135,10 +135,10 @@ const addProduct = async (req, res) => {
       throw new Error("Danh mục là bắt buộc và phải hợp lệ");
     }
     if (!ConditionId || isNaN(parseInt(ConditionId))) {
-      throw new Error("Tình trạng là bắt buộc và phải là số hợp lệ");
+      throw new Error("Tình trạng là bắt buộc");
     }
     if (!PriceUnitId || isNaN(parseInt(PriceUnitId))) {
-      throw new Error("Đơn vị giá là bắt buộc và phải là số hợp lệ");
+      throw new Error("Đơn vị giá là bắt buộc  ");
     }
     if (!Description || Description.trim().length === 0) {
       throw new Error("Mô tả là bắt buộc");
@@ -469,7 +469,6 @@ const updateProduct = async (req, res) => {
     }
     console.log("Processed tagsArray for update:", tagsArray);
 
-    // Validation mới: Nếu cung cấp ImageUrls, phải >=2; nếu không, kiểm tra ảnh cũ
     let currentImageCount = await ItemImages.countDocuments({
       ItemId: id,
       IsDeleted: false,
@@ -494,7 +493,6 @@ const updateProduct = async (req, res) => {
       );
     }
 
-    // Validation từng trường riêng lẻ, sử dụng giá trị mới hoặc cũ
     if (!Title) {
       throw new Error("Tiêu đề là bắt buộc");
     }
@@ -519,10 +517,10 @@ const updateProduct = async (req, res) => {
       throw new Error("Danh mục là bắt buộc và phải hợp lệ");
     }
     if (!ConditionId || isNaN(parseInt(ConditionId))) {
-      throw new Error("Tình trạng là bắt buộc và phải là số hợp lệ");
+      throw new Error("Tình trạng là bắt buộc");
     }
     if (!PriceUnitId || isNaN(parseInt(PriceUnitId))) {
-      throw new Error("Đơn vị giá là bắt buộc và phải là số hợp lệ");
+      throw new Error("Đơn vị giá là bắt buộc");
     }
     if (!Description || Description.trim().length === 0) {
       throw new Error("Mô tả là bắt buộc");
@@ -848,7 +846,7 @@ const setDefaultAddress = async (req, res) => {
       throw new Error("Thành phố là bắt buộc");
     }
     if (!District || !District.trim()) {
-      throw new Error("Quận/Huyện là bắt buộc");
+      throw new Error("Xã/Phường là bắt buộc");
     }
 
     const query = {
@@ -988,7 +986,7 @@ const deleteProduct = async (req, res) => {
             PrimaryKeyValue: id.toString(),
             Operation: "DELETE",
             ChangedByUserId: userId,
-            ChangeSummary: `Deleted product: ${existingItem.Title}`,
+            ChangeSummary: `Đã xóa sản phẩm: ${existingItem.Title}`,
           },
         ],
         { session }

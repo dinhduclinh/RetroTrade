@@ -36,8 +36,8 @@ app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-// cập nhật lúc 0h mỗi ngày (midnight)
-cron.schedule('0 15 * * *', updateTrendingItems);
+// cập nhật lúc 0h mỗi ngày
+cron.schedule('0 0 * * *', updateTrendingItems);
 
 // Test CORS route
 app.get('/api/v1/test-cors', (req, res) => {
