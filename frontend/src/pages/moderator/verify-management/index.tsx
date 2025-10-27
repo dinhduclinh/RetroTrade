@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ModeratorSidebar } from "@/components/ui/moderator/moderator-sidebar";
 import { ModeratorHeader } from "@/components/ui/moderator/moderator-header";
-import { ModeratorStats } from "@/components/ui/moderator/moderator-stats";
 import { VerificationQueue } from "@/components/ui/moderator/verification-queue";
 
 import { BlogManagementTable } from "@/components/ui/moderator/blog/blog-management-table";
@@ -80,14 +78,9 @@ export default function VerificationManagementDashboard() {
       <div className="absolute -bottom-8 left-20 w-96 h-96 bg-pink-400 rounded-full mix-blend-multiply filter blur-3xl opacity-15 animate-blob animation-delay-4000" />
 
       <div className="relative z-10 flex">
-        <ModeratorSidebar
-          activeTab={activeTab}
-          activeBlogTab={activeBlogTab}
-          onTabChange={setActiveTab}
-          onBlogTabChange={handleBlogTabChange}
-        />
+        {/* No sidebar for this page */}
 
-        <div className="flex-1 lg:ml-72">
+        <div className="flex-1">
           <ModeratorHeader />
 
           <main className="p-4 lg:p-8">

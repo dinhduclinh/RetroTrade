@@ -9,8 +9,6 @@ import { toast } from "sonner";
 import { ModeratorSidebar } from "@/components/ui/moderator/moderator-sidebar";
 import { ModeratorHeader } from "@/components/ui/moderator/moderator-header";
 import { ModeratorStats } from "@/components/ui/moderator/moderator-stats";
-import { UserManagementTable } from "@/components/ui/admin/user-management-table";
-import { RequestManagementTable } from "@/components/ui/moderator/request-management-table";
 import { VerificationQueue } from "@/components/ui/moderator/verification-queue";
 import { BlogManagementTable } from "@/components/ui/moderator/blog/blog-management-table";
 import { CommentManagementTable } from "@/components/ui/moderator/blog/comment-management-table";
@@ -57,7 +55,6 @@ export default function ModeratorDashboard() {
   const { accessToken } = useSelector((state: RootState) => state.auth);
   const [activeTab, setActiveTab] = useState<
     | "dashboard"
-    | "users"
     | "requests"
     | "verification"
     | "blog"
@@ -75,7 +72,6 @@ export default function ModeratorDashboard() {
   const handleTabChange = (
     tab:
       | "dashboard"
-      | "users"
       | "requests"
       | "verification"
       | "blog"
@@ -121,7 +117,6 @@ export default function ModeratorDashboard() {
       tab &&
       [
         "dashboard",
-        "users",
         "requests",
         "verification",
         "blog",
@@ -132,7 +127,6 @@ export default function ModeratorDashboard() {
       setActiveTab(
         tab as
           | "dashboard"
-          | "users"
           | "requests"
           | "verification"
           | "blog"
@@ -229,10 +223,9 @@ export default function ModeratorDashboard() {
     switch (activeTab) {
       case "dashboard":
         return <DashboardOverview />;
-      case "users":
-        return <UserManagementTable />;
       case "requests":
-        return <RequestManagementTable />;
+        // return <RequestManagementTable />; // Component removed
+        return <div className="p-4 text-white">Chức năng đang được phát triển...</div>;
       case "verification":
         return <VerificationQueue />;
       default:
@@ -270,8 +263,6 @@ export default function ModeratorDashboard() {
     switch (activeTab) {
       case "dashboard":
         return "Dashboard Tổng quan";
-      case "users":
-        return "Quản lý người dùng";
       case "requests":
         return "Yêu cầu kiểm duyệt";
       case "verification":
@@ -311,8 +302,6 @@ export default function ModeratorDashboard() {
     switch (activeTab) {
       case "dashboard":
         return "Tổng quan về hoạt động và thống kê hệ thống";
-      case "users":
-        return "Theo dõi và quản lý tài khoản người dùng trong hệ thống";
       case "requests":
         return "Duyệt và phê duyệt các yêu cầu từ người dùng";
       case "verification":

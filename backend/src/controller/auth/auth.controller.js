@@ -4,6 +4,7 @@ const { generateSalt, hashPasswordWithSalt, comparePasswordWithSalt } = require(
 const { sendEmail } = require("../../utils/sendEmail")
 const { generateOtp } = require("../../utils/generateOtp")
 const Otp = require("../../models/otp")
+const { createNotification } = require("../../utils/createNotification")
 
 
 
@@ -52,6 +53,19 @@ module.exports.login = async (req, res) => {
         const refreshToken = jwt.sign(dataToken, process.env.REFRESH_TOKEN_SECRET, { expiresIn: "7d" });
 
         await User.findOneAndUpdate({ email: user.email }, { re_token: refreshToken }, { new: true });
+
+        // Create notification for successful login
+        try {
+            await createNotification(
+                user._id,
+                "Login Success",
+                "Đăng nhập thành công",
+                `Xin chào ${user.fullName}, bạn đã đăng nhập vào RetroTrade thành công vào lúc ${new Date().toLocaleString("vi-VN")}`,
+                { loginTime: new Date().toISOString(), ip: req.ip || 'unknown' }
+            );
+        } catch (notificationError) {
+            console.error("Error creating login notification:", notificationError);
+        }
 
         return res.json({
             code: 200,
@@ -215,6 +229,19 @@ module.exports.register = async (req, res) => {
 
         await sendEmail(email, subject, html);
 
+        // Create notification for successful registration
+        try {
+            await createNotification(
+                user._id,
+                "Registration Success",
+                "Chào mừng đến với RetroTrade!",
+                `Xin chào ${fullName}, cảm ơn bạn đã đăng ký tài khoản trên RetroTrade. Vui lòng xác minh email để tiếp tục sử dụng.`,
+                { registrationTime: new Date().toISOString(), email: email }
+            );
+        } catch (notificationError) {
+            console.error("Error creating registration notification:", notificationError);
+        }
+
         return res.json({
             code: 200,
             message: "Đăng ký thành công",
@@ -241,6 +268,20 @@ module.exports.verifyEmail = async (req, res) => {
             });
         }
         const user = await User.findOneAndUpdate({ email }, { isEmailConfirmed: true }, { new: true });
+
+        // Create notification for successful email verification
+        try {
+            await createNotification(
+                user._id,
+                "Email Verified",
+                "Email đã được xác minh",
+                `Xin chào ${user.fullName}, email của bạn đã được xác minh thành công. Bạn có thể sử dụng đầy đủ các tính năng của RetroTrade.`,
+                { verifiedAt: new Date().toISOString() }
+            );
+        } catch (notificationError) {
+            console.error("Error creating email verification notification:", notificationError);
+        }
+
         return res.json({
             code: 200,
             message: "Xác minh email tài khoản thành công",

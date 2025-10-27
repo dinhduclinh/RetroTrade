@@ -13,6 +13,8 @@ const blogRoutes = require("../routes/blog/post.routes");
 const walletRoutes = require("../routes/wallet/wallet.routes");
 const messagesRouter = require("../routes/messages/messages.router");
 const cartItemRouter = require("./order/cartItem.routes");
+const notificationRouter = require("./community/notification.routes");
+const ownerRequestRouter = require("./moderator/ownerRequest.routes");
 
 
 module.exports = (app) => {
@@ -29,4 +31,6 @@ module.exports = (app) => {
     app.use(api + "/messages", messagesRouter)
     app.use(api + "/cart", cartItemRouter);
 
+    app.use(api + "/notifications", notificationRouter);
+    app.use(api + "/owner-requests", ownerRequestRouter);
 }
