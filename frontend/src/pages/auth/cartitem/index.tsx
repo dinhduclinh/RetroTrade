@@ -44,9 +44,27 @@ export default function CartPage() {
   // Loading state for individual items
   const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set())
 
+  // Selected items state for checkout
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
+
   useEffect(() => {
     dispatch(fetchCartItems())
   }, [dispatch])
+
+  // Initialize all items as selected when cart items change
+  useEffect(() => {
+    if (cartItems.length === 0) return
+    
+    const getDisplayKeyLocal = (item: typeof cartItems[0]) => {
+      if (item.rentalStartDate && item.rentalEndDate) {
+        return `${item.itemId}_${item.rentalStartDate}_${item.rentalEndDate}`
+      }
+      return item._id
+    }
+    const allItemKeys = new Set(cartItems.map(item => getDisplayKeyLocal(item)))
+    setSelectedItems(allItemKeys)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartItems.length]) // Only depend on length to prevent unnecessary updates
 
   // Breadcrumb data
   const breadcrumbs = [
@@ -134,6 +152,37 @@ export default function CartPage() {
       })
     }
   }, [dispatch, showPopup])
+
+  // Create unique display key for each cart item based on product + rental dates
+  // This allows same products with different rental dates to be treated as separate items
+  const getDisplayKey = useCallback((item: typeof cartItems[0]) => {
+    if (item.rentalStartDate && item.rentalEndDate) {
+      return `${item.itemId}_${item.rentalStartDate}_${item.rentalEndDate}`
+    }
+    return item._id
+  }, [])
+
+  // Toggle item selection
+  const toggleItemSelection = useCallback((displayKey: string) => {
+    setSelectedItems(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(displayKey)) {
+        newSet.delete(displayKey)
+      } else {
+        newSet.add(displayKey)
+      }
+      return newSet
+    })
+  }, [])
+
+  // Select/Deselect all items
+  const toggleSelectAll = useCallback(() => {
+    if (selectedItems.size === cartItems.length) {
+      setSelectedItems(new Set())
+    } else {
+      setSelectedItems(new Set(cartItems.map(item => getDisplayKey(item))))
+    }
+  }, [selectedItems.size, cartItems, getDisplayKey])
 
   // Helper functions for editing dates
   const startEditingDates = useCallback((cartItemId: string, rentalStartDate?: string, rentalEndDate?: string) => {
@@ -319,10 +368,13 @@ export default function CartPage() {
     }
   }
 
-  // Calculate totals
+  // Calculate totals for selected items only
   const subtotal = cartItems.reduce((sum, item) => {
-    const rentalDuration = calculateRentalDuration(item.rentalStartDate, item.rentalEndDate, item.priceUnit)
-    return sum + (item.basePrice * item.quantity * rentalDuration)
+    if (selectedItems.has(getDisplayKey(item))) {
+      const rentalDuration = calculateRentalDuration(item.rentalStartDate, item.rentalEndDate, item.priceUnit)
+      return sum + (item.basePrice * item.quantity * rentalDuration)
+    }
+    return sum
   }, 0)
 
   const tax = subtotal * 0.1
@@ -488,18 +540,56 @@ export default function CartPage() {
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Cart Items */}
           <div className="lg:col-span-2 space-y-4">
+            {/* Select All Header */}
+            <Card className="border-purple-200/50 bg-white/80 backdrop-blur-sm">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedItems.size === cartItems.length && cartItems.length > 0}
+                      onChange={toggleSelectAll}
+                      className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer transition-all"
+                    />
+                    <span className="text-sm font-medium text-slate-700">
+                      Chọn tất cả ({selectedItems.size}/{cartItems.length})
+                    </span>
+                  </div>
+                  {selectedItems.size > 0 && (
+                    <span className="text-sm text-blue-600 font-semibold">
+                      Đã chọn {selectedItems.size} sản phẩm
+                    </span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
             {cartItems.map((item, index) => {
               const rentalDuration = calculateRentalDuration(item.rentalStartDate, item.rentalEndDate, item.priceUnit)
               const itemTotal = item.basePrice * item.quantity * rentalDuration
+              const displayKey = getDisplayKey(item)
 
               return (
                 <Card
                   key={item._id}
-                  className={`border-purple-200/50 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300 overflow-hidden ${updatingItems.has(item._id) ? 'ring-2 ring-blue-200 shadow-lg' : ''}`}
+                  className={`border-purple-200/50 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300 overflow-hidden ${updatingItems.has(item._id) ? 'ring-2 ring-blue-200 shadow-lg' : ''} ${!selectedItems.has(displayKey) ? 'opacity-60' : ''}`}
                   style={{ animationDelay: `${index * 100}ms` }}
                 >
                   <CardContent className="p-6">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                      {/* Checkbox */}
+                      <div className="md:col-span-4 flex items-center gap-3 pb-2 border-b border-purple-200/50">
+                        <input
+                          type="checkbox"
+                          checked={selectedItems.has(displayKey)}
+                          onChange={() => toggleItemSelection(displayKey)}
+                          className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer transition-all"
+                        />
+                        <span className="text-sm font-medium text-slate-700">
+                          Chọn sản phẩm này để thanh toán
+                        </span>
+                      </div>
+
                       {/* Product Image */}
                       <div className="relative w-full h-40 rounded-xl overflow-hidden flex-shrink-0 bg-gradient-to-br from-purple-100 to-blue-100 shadow-md">
                         <Image
@@ -736,6 +826,15 @@ export default function CartPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 pt-6">
+                {/* Warning when no items selected */}
+                {selectedItems.size === 0 && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
+                    <p className="text-sm text-amber-700 font-medium">
+                      ⚠️ Vui lòng chọn ít nhất một sản phẩm để thanh toán
+                    </p>
+                  </div>
+                )}
+
                 {/* Subtotal */}
                 <div className="flex justify-between items-center">
                   <span className="text-slate-700">Tạm tính:</span>
@@ -762,8 +861,11 @@ export default function CartPage() {
                 </div>
 
                 {/* Checkout Button */}
-                <Button className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-6 mt-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300">
-                  Thanh toán
+                <Button 
+                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-6 mt-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed" 
+                  disabled={selectedItems.size === 0}
+                >
+                  Thanh toán {selectedItems.size > 0 && `(${selectedItems.size} sản phẩm)`}
                 </Button>
 
                 {/* Continue Shopping */}
