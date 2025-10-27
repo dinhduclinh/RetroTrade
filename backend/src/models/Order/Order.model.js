@@ -1,7 +1,18 @@
 const mongoose = require("mongoose");
 const { Types } = mongoose;
 
-
+const addressSchema = new mongoose.Schema(
+  {
+    label: { type: String, trim: true },
+    fullName: { type: String, trim: true },
+    street: { type: String, required: true },
+    ward: { type: String, required: true },
+    district: { type: String, required: true },
+    province: { type: String, required: true },
+    phone: { type: String, required: true },
+  },
+  { _id: false }
+);
 
 const orderSchema = new mongoose.Schema(
   {
@@ -9,7 +20,7 @@ const orderSchema = new mongoose.Schema(
       type: String,
       default: () => require("crypto").randomUUID(),
       unique: true,
-      index: true, 
+      index: true,
     },
     renterId: { type: Types.ObjectId, ref: "User", required: true },
     ownerId: { type: Types.ObjectId, ref: "User", required: true },
@@ -32,13 +43,14 @@ const orderSchema = new mongoose.Schema(
         validator: function (value) {
           return value > this.startAt;
         },
-        message: "endAt must be greater than startAt", 
+        message: "endAt must be greater than startAt",
       },
     },
     totalAmount: { type: Number, required: true, min: 0 },
     depositAmount: { type: Number, default: 0, min: 0 },
     serviceFee: { type: Number, default: 0, min: 0 },
     currency: { type: String, default: "VND", enum: ["VND", "USD"] },
+    shippingAddress: addressSchema,
     paymentMethod: {
       type: String,
       enum: ["Wallet", "VNPay", "CashOnDelivery"],
