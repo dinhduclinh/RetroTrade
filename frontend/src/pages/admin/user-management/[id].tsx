@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ModeratorSidebar } from "@/components/ui/moderator/moderator-sidebar"
-import { ModeratorHeader } from "@/components/ui/moderator/moderator-header"
+import { AdminSidebar } from "@/components/ui/admin/admin-sidebar"
+import { AdminHeader } from "@/components/ui/admin/admin-header"
 import { Button } from "@/components/ui/common/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/common/card"
 import { Badge } from "@/components/ui/common/badge"
@@ -51,18 +51,18 @@ export default function UserProfilePage() {
   const handleTabChange = (tab: "dashboard" | "users" | "requests" | "verification" | "blog") => {
     console.log("User profile page - handleTabChange called with:", tab)
     
-    // Navigate to the main moderator page with the selected tab
+    // Navigate to the main admin page with the selected tab
     if (tab === "users") {
       // If clicking on users, go back to user management list
-      router.push('/moderator/user-management')
+      router.push('/admin/user-management')
     } else {
-      // For other tabs, go to main moderator page with query parameter
-      router.push(`/moderator?tab=${tab}`)
+      // For other tabs, go to main admin page with query parameter
+      router.push(`/admin?tab=${tab}`)
     }
   }
 
   const handleBack = () => {
-    router.push('/moderator/user-management')
+    router.push('/admin/user-management')
   }
 
   const formatDate = (dateString: string) => {
@@ -162,13 +162,13 @@ export default function UserProfilePage() {
       <div className="absolute -bottom-8 left-20 w-96 h-96 bg-pink-400 rounded-full mix-blend-multiply filter blur-3xl opacity-15 animate-blob animation-delay-4000" />
 
       <div className="relative z-10 flex">
-        <ModeratorSidebar 
+        <AdminSidebar 
           activeTab="users" 
           onTabChange={handleTabChange}
         />
 
         <div className="flex-1 lg:ml-72">
-          <ModeratorHeader />
+          <AdminHeader />
 
           <main className="p-4 lg:p-8">
             {/* Header */}

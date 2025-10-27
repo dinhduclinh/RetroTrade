@@ -17,7 +17,7 @@ import {
   formatPaginationInfo,
   type PaginationState 
 } from "@/lib/pagination"
-import { RoleChangeModal } from "@/components/ui/moderator/role-change-modal"
+import { RoleChangeModal } from "@/components/ui/admin/role-change-modal"
 
 export function UserManagementTable() {
   const router = useRouter()
@@ -79,7 +79,7 @@ export function UserManagementTable() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleViewUser = (userId: string) => {
-    router.push(`/moderator/user-management/${userId}`)
+    router.push(`/admin/user-management/${userId}`)
   }
 
   const handleRoleChangeClick = (user: UserProfile) => {

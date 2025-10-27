@@ -1,23 +1,38 @@
 "use client";
 
-import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { useSelector } from "react-redux"
-import { RootState } from "@/store/redux_store"
-import { jwtDecode } from "jwt-decode"
-import { toast } from "sonner"
-import { ModeratorSidebar } from "@/components/ui/moderator/moderator-sidebar"
-import { ModeratorHeader } from "@/components/ui/moderator/moderator-header"
-import { ModeratorStats } from "@/components/ui/moderator/moderator-stats"
-import { UserManagementTable } from "@/components/ui/moderator/user-management-table"
-import { RequestManagementTable } from "@/components/ui/moderator/request-management-table"
-import { VerificationQueue } from "@/components/ui/moderator/verification-queue"
-import { BlogManagementTable } from "@/components/ui/moderator/blog/blog-management-table"
-import { CategoryManagementTable } from "@/components/ui/moderator/blog/category-management-table"
-import { CommentManagementTable } from "@/components/ui/moderator/blog/comment-management-table"
-import { TagManagementTable } from "@/components/ui/moderator/blog/tag-management"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/common/card"
-import { BarChart3, TrendingUp, Users, FileText, Shield, AlertTriangle, Activity } from "lucide-react"
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store/redux_store";
+import { jwtDecode } from "jwt-decode";
+import { toast } from "sonner";
+import { ModeratorSidebar } from "@/components/ui/moderator/moderator-sidebar";
+import { ModeratorHeader } from "@/components/ui/moderator/moderator-header";
+import { ModeratorStats } from "@/components/ui/moderator/moderator-stats";
+import { UserManagementTable } from "@/components/ui/admin/user-management-table";
+import { RequestManagementTable } from "@/components/ui/moderator/request-management-table";
+import { VerificationQueue } from "@/components/ui/moderator/verification-queue";
+import { BlogManagementTable } from "@/components/ui/moderator/blog/blog-management-table";
+import { CommentManagementTable } from "@/components/ui/moderator/blog/comment-management-table";
+import { TagManagementTable } from "@/components/ui/moderator/blog/tag-management";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/common/card";
+import {
+  BarChart3,
+  TrendingUp,
+  Users,
+  FileText,
+  Shield,
+  AlertTriangle,
+  Activity,
+} from "lucide-react";
+import ProductCategoryManager from "@/components/ui/moderator/categories/category-management";
+import ProductManagement from "@/components/ui/moderator/product/product-management";
+import TopHighlightTable from "@/components/ui/moderator/product/top-highlight-table";
 
 // JWT token payload interface
 interface JwtPayload {
@@ -41,20 +56,48 @@ export default function ModeratorDashboard() {
   const searchParams = useSearchParams();
   const { accessToken } = useSelector((state: RootState) => state.auth);
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "users" | "requests" | "verification" | "blog"
+    | "dashboard"
+    | "users"
+    | "requests"
+    | "verification"
+    | "blog"
+    | "productManagement"
   >("dashboard");
   const [activeBlogTab, setActiveBlogTab] = useState<
     "posts" | "categories" | "comments" | "tags"
   >("posts");
+  const [activeProductTab, setActiveProductTab] = useState<
+    "products" | "categories" | "highlights"
+  >("products");
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   const handleTabChange = (
-    tab: "dashboard" | "users" | "requests" | "verification" | "blog"
+    tab:
+      | "dashboard"
+      | "users"
+      | "requests"
+      | "verification"
+      | "blog"
+      | "productManagement"
   ) => {
     console.log("Moderator handleTabChange called with:", tab);
     setActiveTab(tab);
     console.log("State updated: activeTab=", tab);
+  };
+
+  const handleProductTabChange = (tab: "products" | "categories" | "highlights") => {
+    console.log("Moderator handleProductTabChange called with:", tab);
+    setActiveProductTab(tab);
+    setActiveTab("productManagement");
+  };
+
+  const handleBlogTabChange = (
+    tab: "posts" | "categories" | "comments" | "tags"
+  ) => {
+    console.log("Moderator handleBlogTabChange called with:", tab);
+    setActiveBlogTab(tab);
+    setActiveTab("blog");
   };
 
   // Debug: Track state changes
@@ -63,9 +106,11 @@ export default function ModeratorDashboard() {
       "State changed - activeTab:",
       activeTab,
       "activeBlogTab:",
-      activeBlogTab
+      activeBlogTab,
+      "activeProductTab:",
+      activeProductTab
     );
-  }, [activeTab, activeBlogTab]);
+  }, [activeTab, activeBlogTab, activeProductTab]);
 
   // Check URL query parameter for tab navigation
   useEffect(() => {
@@ -74,15 +119,27 @@ export default function ModeratorDashboard() {
 
     if (
       tab &&
-      ["dashboard", "users", "requests", "verification", "blog"].includes(tab)
+      [
+        "dashboard",
+        "users",
+        "requests",
+        "verification",
+        "blog",
+        "productManagement",
+      ].includes(tab)
     ) {
       console.log("Setting activeTab from URL query parameter:", tab);
       setActiveTab(
-        tab as "dashboard" | "users" | "requests" | "verification" | "blog"
+        tab as
+          | "dashboard"
+          | "users"
+          | "requests"
+          | "verification"
+          | "blog"
+          | "productManagement"
       );
     }
   }, [searchParams]);
-
 
   useEffect(() => {
     if (!accessToken) {
@@ -136,38 +193,50 @@ export default function ModeratorDashboard() {
     return null;
   }
 
-  const handleBlogTabChange = (tab: "posts" | "categories" | "comments" | "tags") => {
-    setActiveBlogTab(tab)
-    setActiveTab("blog")
-  }
-
   const renderContent = () => {
     if (activeTab === "blog") {
       switch (activeBlogTab) {
         case "posts":
           return <BlogManagementTable />;
         case "categories":
-          return <CategoryManagementTable />;
+          return (
+            <div className="text-white p-8 text-center">
+              Quản lý danh mục blog (Chưa triển khai)
+            </div>
+          );
         case "comments":
-          return <CommentManagementTable />
+          return <CommentManagementTable />;
         case "tags":
-          return <TagManagementTable />
+          return <TagManagementTable />;
         default:
           return <BlogManagementTable />;
       }
     }
 
+    if (activeTab === "productManagement") {
+      switch (activeProductTab) {
+        case "categories":
+          return <ProductCategoryManager />;
+        case "products":
+          return <ProductManagement />;
+        case "highlights":
+          return <TopHighlightTable />;
+        default:
+          return <ProductCategoryManager />;
+      }
+    }
+
     switch (activeTab) {
       case "dashboard":
-        return <DashboardOverview />
+        return <DashboardOverview />;
       case "users":
-        return <UserManagementTable />
+        return <UserManagementTable />;
       case "requests":
-        return <RequestManagementTable />
+        return <RequestManagementTable />;
       case "verification":
-        return <VerificationQueue />
+        return <VerificationQueue />;
       default:
-        return <DashboardOverview />
+        return <DashboardOverview />;
     }
   };
 
@@ -182,6 +251,19 @@ export default function ModeratorDashboard() {
           return "Quản lý bình luận";
         default:
           return "Quản lý bài viết";
+      }
+    }
+
+    if (activeTab === "productManagement") {
+      switch (activeProductTab) {
+        case "categories":
+          return "Quản lý danh mục sản phẩm";
+        case "products":
+          return "Quản lý sản phẩm";
+        case "highlights":
+          return "Quản lý sản phẩm nổi bật";
+        default:
+          return "Quản lý danh mục sản phẩm";
       }
     }
 
@@ -213,6 +295,19 @@ export default function ModeratorDashboard() {
       }
     }
 
+    if (activeTab === "productManagement") {
+      switch (activeProductTab) {
+        case "categories":
+          return "Tạo, chỉnh sửa và quản lý danh mục sản phẩm";
+        case "products":
+          return "Duyệt và quản lý sản phẩm từ người dùng";
+        case "highlights":
+          return "Quản lý các sản phẩm nổi bật trong hệ thống";
+        default:
+          return "Tạo, chỉnh sửa và quản lý danh mục sản phẩm";
+      }
+    }
+
     switch (activeTab) {
       case "dashboard":
         return "Tổng quan về hoạt động và thống kê hệ thống";
@@ -238,8 +333,10 @@ export default function ModeratorDashboard() {
       <div className="relative z-10 flex">
         <ModeratorSidebar
           activeTab={activeTab}
+          activeProductTab={activeProductTab}
           activeBlogTab={activeBlogTab}
           onTabChange={handleTabChange}
+          onProductTabChange={handleProductTabChange}
           onBlogTabChange={handleBlogTabChange}
         />
 
@@ -398,12 +495,13 @@ function DashboardOverview() {
                 className="flex items-center gap-4 p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors duration-200"
               >
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center ${activity.status === "success"
-                    ? "bg-green-500/20 text-green-400"
-                    : activity.status === "warning"
+                  className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    activity.status === "success"
+                      ? "bg-green-500/20 text-green-400"
+                      : activity.status === "warning"
                       ? "bg-orange-500/20 text-orange-400"
                       : "bg-blue-500/20 text-blue-400"
-                    }`}
+                  }`}
                 >
                   {activity.type === "renter" && <Users className="w-5 h-5" />}
                   {activity.type === "post" && <FileText className="w-5 h-5" />}

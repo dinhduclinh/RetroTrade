@@ -20,8 +20,8 @@ export default function AdminDashboard() {
           </div>
 
           <p className="text-lg text-indigo-100 max-w-2xl mx-auto leading-relaxed drop-shadow">
-            Đây là bảng điều khiển quản trị hệ thống — nơi bạn có thể theo dõi, quản lý
-            người dùng, sản phẩm, giao dịch ví, và thống kê tổng thể.
+            Đây là bảng điều khiển quản trị hệ thống — nơi bạn có thể theo dõi,
+            quản lý người dùng, sản phẩm, giao dịch ví, và thống kê tổng thể.
           </p>
 
           <div className="mt-8">
