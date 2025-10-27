@@ -55,17 +55,5 @@ export const notificationApi = {
     const response = await api.put('/notifications/read-all', {});
     if (!response.ok) throw new Error('Failed to mark all notifications as read');
   },
-
-  // Delete a notification
-  deleteNotification: async (id: string): Promise<void> => {
-    const response = await api.delete(`/notifications/${id}`);
-    if (!response.ok) throw new Error('Failed to delete notification');
-  },
-
-  // Delete all read notifications
-  deleteAllReadNotifications: async (): Promise<void> => {
-    const response = await api.delete('/notifications/read/all');
-    if (!response.ok) throw new Error('Failed to delete read notifications');
-  },
 };
 

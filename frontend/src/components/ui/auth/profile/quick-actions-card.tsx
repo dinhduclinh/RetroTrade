@@ -15,9 +15,20 @@ interface QuickActionsCardProps {
   onChangePassword?: () => void;
   onRegisterRental?: () => void;
   userRole?: string;
+  isPhoneConfirmed?: boolean;
+  isIdVerified?: boolean;
 }
 
-export function QuickActionsCard({ onEditProfile, onChangePassword, onRegisterRental, userRole }: QuickActionsCardProps) {
+export function QuickActionsCard({ 
+  onEditProfile, 
+  onChangePassword, 
+  onRegisterRental, 
+  userRole,
+  isPhoneConfirmed = false,
+  isIdVerified = false
+}: QuickActionsCardProps) {
+  // Check if user meets verification requirements
+  const isVerified = isPhoneConfirmed && isIdVerified;
   const router = useRouter();
   const [showRequestDialog, setShowRequestDialog] = useState(false);
   const [reason, setReason] = useState("");
@@ -92,19 +103,19 @@ export function QuickActionsCard({ onEditProfile, onChangePassword, onRegisterRe
         : userRole === "owner"
           ? "Tạo sản phẩm cho thuê"
           : userRole === "renter"
-            ? "Yêu cầu cấp quyền Owner"
+            ? "Yêu cầu cấp quyền cho thuê"
             : "Đăng ký cho thuê", 
       color: "from-indigo-500/20 to-purple-500/20", 
       iconColor: "text-indigo-600", 
       action: () => {
         console.log("Button clicked", { userRole, hasPendingRequest });
         
-        // For renter - show owner request dialog
+        // For renter - show rental request dialog
         if (userRole === "renter") {
           if (hasPendingRequest) {
             toast.info("Bạn đã có yêu cầu đang chờ xử lý");
           } else {
-            console.log("Opening owner request dialog...");
+            console.log("Opening rental request dialog...");
             handleRequestOwner();
           }
         } 
@@ -164,7 +175,7 @@ export function QuickActionsCard({ onEditProfile, onChangePassword, onRegisterRe
         ))}
       </CardContent>
 
-      {/* Request Owner Dialog */}
+      {/* Rental Request Dialog */}
       <Dialog open={showRequestDialog} onOpenChange={(open) => {
         setShowRequestDialog(open);
         if (!open) {
@@ -174,9 +185,9 @@ export function QuickActionsCard({ onEditProfile, onChangePassword, onRegisterRe
       }}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Yêu cầu cấp quyền Owner</DialogTitle>
+            <DialogTitle>Yêu cầu quyền cho thuê</DialogTitle>
             <DialogDescription>
-              Vui lòng điền thông tin để yêu cầu quyền cho thuê đồ của bạn
+              Vui lòng điền thông tin để yêu cầu quyền cho thuê
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -185,11 +196,47 @@ export function QuickActionsCard({ onEditProfile, onChangePassword, onRegisterRe
               <div className="text-sm text-blue-900">
                 <p className="font-semibold mb-1">Điều kiện yêu cầu:</p>
                 <ul className="list-disc list-inside space-y-1 text-xs">
-                  <li>Đã xác minh danh tính (isIdVerified = true)</li>
-                  <li>Đã xác minh email</li>
+                  <li>Đã xác minh số điện thoại</li>
+                  <li>Đã xác minh danh tính</li>
                   <li>Chỉ dành cho tài khoản Renter</li>
                 </ul>
               </div>
+            </div>
+
+            {/* Verification Status */}
+            <div className={`border rounded-lg p-3 ${isVerified ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+              <p className="font-semibold mb-2 text-sm">Trạng thái xác minh của bạn:</p>
+              <div className="space-y-1.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span>Số điện thoại:</span>
+                  <span className={`font-medium ${isPhoneConfirmed ? 'text-green-600' : 'text-red-600'}`}>
+                    {isPhoneConfirmed ? '✓ Đã xác minh' : '✗ Chưa xác minh'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Danh tính:</span>
+                  <span className={`font-medium ${isIdVerified ? 'text-green-600' : 'text-red-600'}`}>
+                    {isIdVerified ? '✓ Đã xác minh' : '✗ Chưa xác minh'}
+                  </span>
+                </div>
+              </div>
+              {!isVerified && (
+                <div className="mt-3 pt-3 border-t border-red-200">
+                  <p className="text-xs text-red-600 mb-2 italic">
+                    Vui lòng hoàn tất xác minh để có thể gửi yêu cầu
+                  </p>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setShowRequestDialog(false);
+                      router.push('/auth/verify');
+                    }}
+                    className="w-full bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white text-xs py-1.5"
+                  >
+                    Chuyển đến trang xác minh
+                  </Button>
+                </div>
+              )}
             </div>
 
             <div>
@@ -233,10 +280,10 @@ export function QuickActionsCard({ onEditProfile, onChangePassword, onRegisterRe
             <Button
               type="button"
               onClick={handleSubmitRequest}
-              disabled={isSubmitting || !reason.trim()}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              disabled={isSubmitting || !reason.trim() || !isVerified}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? "Đang gửi..." : "Gửi yêu cầu"}
+              {!isVerified ? "Hoàn tất xác minh trước" : isSubmitting ? "Đang gửi..." : "Gửi yêu cầu"}
             </Button>
           </DialogFooter>
         </DialogContent>

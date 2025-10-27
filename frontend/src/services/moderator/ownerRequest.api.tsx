@@ -1,5 +1,15 @@
 import api from '../customizeAPI';
 
+export interface Document {
+  documentType: string;
+  documentNumber: string;
+  fileUrl: string;
+  status: 'pending' | 'approved' | 'rejected';
+  submittedAt: string;
+  reviewedAt?: string;
+  rejectionReason?: string;
+}
+
 export interface OwnerRequest {
   _id: string;
   user: {
@@ -8,6 +18,8 @@ export interface OwnerRequest {
     fullName: string;
     avatarUrl?: string;
     role: string;
+    phone?: string;
+    documents?: Document[];
   };
   status: "pending" | "approved" | "rejected" | "cancelled";
   reason: string;
@@ -46,36 +58,6 @@ export interface OwnerRequestStats {
 }
 
 export const ownerRequestApi = {
-  // User: Create a new owner request
-  createOwnerRequest: async (data: CreateOwnerRequestRequest): Promise<OwnerRequest> => {
-    const response = await api.post('/owner-requests-user', data);
-    const result = await response.json();
-    if (result.code !== 200) throw new Error(result.message || 'Failed to create owner request');
-    return result.data;
-  },
-
-  // User: Get my requests
-  getMyOwnerRequests: async (): Promise<OwnerRequest[]> => {
-    const response = await api.get('/owner-requests-user/my-requests');
-    const result = await response.json();
-    if (result.code !== 200) throw new Error(result.message || 'Failed to fetch my requests');
-    return result.data?.items || [];
-  },
-
-  // User: Get single request by ID
-  getOwnerRequestById: async (id: string): Promise<OwnerRequest> => {
-    const response = await api.get(`/owner-requests-user/${id}`);
-    const result = await response.json();
-    if (result.code !== 200) throw new Error(result.message || 'Failed to fetch request');
-    return result.data;
-  },
-
-  // User: Cancel own request
-  cancelOwnerRequest: async (id: string): Promise<void> => {
-    const response = await api.put(`/owner-requests-user/${id}/cancel`, {});
-    const result = await response.json();
-    if (result.code !== 200) throw new Error(result.message || 'Failed to cancel request');
-  },
 
   // Moderator: Get all owner requests
   getAllOwnerRequests: async (params?: { limit?: number; skip?: number; status?: string }): Promise<{ items: OwnerRequest[]; totalItems: number }> => {

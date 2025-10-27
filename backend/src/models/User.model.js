@@ -46,13 +46,6 @@ const userSchema = new mongoose.Schema({
         submittedAt: { type: Date, default: Date.now },
         reviewedAt: Date,
         rejectionReason: String
-    }],
-    externalLogins: [{
-        provider: String,
-        providerKey: String,
-        email: String,
-        accessToken: String,
-        refreshToken: String
     }]
 }, {
     timestamps: true

@@ -3,6 +3,7 @@ const { getAdmin } = require("../../config/firebase");
 const fs = require('fs');
 const path = require('path');
 const { uploadToCloudinary } = require('../../middleware/upload.middleware');
+const { createNotification } = require("../../middleware/createNotification");
 
 // Lazy load sharp to avoid module not found errors
 let sharp;
@@ -429,18 +430,51 @@ module.exports.verifyOtpViaFirebase = async (req, res) => {
             });
         }
 
-        // Skip database operations - just return verification result
-        console.log('Skipping database update, returning verification result only');
-        
-        return res.json({ 
-            code: 200, 
-            message: "Xác minh OTP thành công", 
-            data: { 
-                phone: formattedPhone, 
-                userId: null, // No user ID since we're not updating database
-                isPhoneConfirmed: true // Assume confirmed since OTP was verified
-            } 
-        });
+        // Get userId from request (should be authenticated user)
+        const userId = req.user?._id;
+        if (!userId) {
+            return res.status(401).json({ 
+                code: 401, 
+                message: "User chưa đăng nhập. Vui lòng đăng nhập trước khi xác minh" 
+            });
+        }
+
+        // Update user in database with phone number and confirmation status
+        try {
+            const updatedUser = await User.findByIdAndUpdate(
+                userId,
+                { 
+                    phone: formattedPhone,
+                    isPhoneConfirmed: true
+                },
+                { new: true }
+            );
+
+            if (!updatedUser) {
+                return res.status(404).json({ 
+                    code: 404, 
+                    message: "Không tìm thấy người dùng" 
+                });
+            }
+
+            return res.json({ 
+                code: 200, 
+                message: "Xác minh số điện thoại thành công", 
+                data: { 
+                    phone: formattedPhone, 
+                    userId: updatedUser._id,
+                    isPhoneConfirmed: updatedUser.isPhoneConfirmed,
+                    user: updatedUser
+                } 
+            });
+        } catch (dbError) {
+            console.error('Database update error:', dbError);
+            return res.status(500).json({ 
+                code: 500, 
+                message: "Lỗi cơ sở dữ liệu khi cập nhật số điện thoại", 
+                error: dbError.message 
+            });
+        }
     } catch (error) {
         console.error('OTP verification error:', error);
         
@@ -501,18 +535,51 @@ module.exports.confirmPhoneWithFirebaseIdToken = async (req, res) => {
             });
         }
 
-        // Skip database operations - just return verification result
-        console.log('Skipping database update, returning verification result only');
-        
-        return res.json({ 
-            code: 200, 
-            message: "Xác minh số điện thoại (Firebase) thành công", 
-            data: { 
-                userId: null, // No user ID since we're not updating database
-                phone: formattedPhone,
-                isPhoneConfirmed: true // Assume confirmed since Firebase verified
-            } 
-        });
+        // Get userId from request (should be authenticated user)
+        const userId = req.user?._id;
+        if (!userId) {
+            return res.status(401).json({ 
+                code: 401, 
+                message: "User chưa đăng nhập. Vui lòng đăng nhập trước khi xác minh" 
+            });
+        }
+
+        // Update user in database with phone number and confirmation status
+        try {
+            const updatedUser = await User.findByIdAndUpdate(
+                userId,
+                { 
+                    phone: formattedPhone,
+                    isPhoneConfirmed: true
+                },
+                { new: true }
+            );
+
+            if (!updatedUser) {
+                return res.status(404).json({ 
+                    code: 404, 
+                    message: "Không tìm thấy người dùng" 
+                });
+            }
+
+            return res.json({ 
+                code: 200, 
+                message: "Xác minh số điện thoại (Firebase) thành công", 
+                data: { 
+                    phone: formattedPhone,
+                    userId: updatedUser._id,
+                    isPhoneConfirmed: updatedUser.isPhoneConfirmed,
+                    user: updatedUser
+                } 
+            });
+        } catch (dbError) {
+            console.error('Database update error:', dbError);
+            return res.status(500).json({ 
+                code: 500, 
+                message: "Lỗi cơ sở dữ liệu khi cập nhật số điện thoại", 
+                error: dbError.message 
+            });
+        }
     } catch (error) {
         return res.status(500).json({ code: 500, message: "Xác minh Firebase ID token thất bại", error: error.message });
     }
@@ -580,41 +647,31 @@ const loadModels = async () => {
 module.exports.verifyFaceImages = async (req, res) => {
     try {
         // Check if files are uploaded
-        if (!req.files || req.files.length < 2) {
+        if (!req.files || req.files.length < 3) {
             return res.status(400).json({ 
                 code: 400, 
-                message: "Thiếu hình ảnh người dùng hoặc hình ảnh căn cước công dân" 
+                message: "Vui lòng upload đủ 3 ảnh: ảnh chân dung, mặt trước căn cước, mặt sau căn cước" 
             });
         }
 
-        // Get phone number from request body
-        const { phoneNumber } = req.body;
-        if (!phoneNumber) {
-            return res.status(400).json({ 
-                code: 400, 
-                message: "Thiếu số điện thoại" 
+        // Get userId from authenticated user
+        const userId = req.user?._id;
+        if (!userId) {
+            return res.status(401).json({ 
+                code: 401, 
+                message: "User chưa đăng nhập. Vui lòng đăng nhập trước khi xác minh" 
             });
         }
-
-        // Validate phone number format
-        if (!validateVietnamesePhoneNumber(phoneNumber)) {
-            return res.status(400).json({ 
-                code: 400, 
-                message: "Số điện thoại không đúng định dạng Việt Nam" 
-            });
-        }
-
-        // Format phone number
-        const formattedPhone = formatPhoneNumber(phoneNumber);
 
         const files = req.files;
-        const userImageFile = files[0]; // First file should be user image
-        const idCardImageFile = files[1]; // Second file should be ID card image
+        const userImageFile = files[0]; // Ảnh chân dung người dùng
+        const idCardFrontFile = files[1]; // Mặt trước căn cước
+        const idCardBackFile = files[2]; // Mặt sau căn cước
 
-        if (!userImageFile || !idCardImageFile) {
+        if (!userImageFile || !idCardFrontFile || !idCardBackFile) {
             return res.status(400).json({ 
                 code: 400, 
-                message: "Thiếu hình ảnh người dùng hoặc hình ảnh căn cước công dân" 
+                message: "Thiếu ảnh. Vui lòng upload đủ 3 ảnh" 
             });
         }
 
@@ -628,7 +685,7 @@ module.exports.verifyFaceImages = async (req, res) => {
         
         // Load images from files
         const userImageBuffer = fs.readFileSync(userImageFile.path);
-        const idCardImageBuffer = fs.readFileSync(idCardImageFile.path);
+        const idCardImageBuffer = fs.readFileSync(idCardFrontFile.path);
         
         // Try to load Sharp for image processing
         const sharpInstance = await loadSharp();
@@ -819,71 +876,115 @@ module.exports.verifyFaceImages = async (req, res) => {
             }
         });
 
-        // Upload files to Cloudinary in user-documents folder
-        let uploadedFiles = [];
-        try {
-            uploadedFiles = await uploadToCloudinary(files, "retrotrade/user-documents/");
-            console.log('Files uploaded to Cloudinary:', uploadedFiles);
-        } catch (uploadError) {
-            console.error('Error uploading to Cloudinary:', uploadError);
-            // Continue with verification even if upload fails
-        }
-
-        // If face verification is successful, update user phone confirmation
+        // If face verification is successful, upload files and update user
         let updatedUser = null;
         if (isMatch) {
             try {
-                // Update user with phone confirmation and ID verification
-                updatedUser = await User.findOneAndUpdate(
-                    { phone: formattedPhone },
+                // Upload files to Cloudinary in user-documents folder
+                let uploadedFiles = [];
+                try {
+                    uploadedFiles = await uploadToCloudinary(files, "retrotrade/user-documents/");
+                    console.log('Files uploaded to Cloudinary:', uploadedFiles);
+                    
+                    if (!uploadedFiles || uploadedFiles.length !== 3) {
+                        return res.status(400).json({
+                            code: 400,
+                            message: "Lỗi khi upload ảnh. Vui lòng thử lại"
+                        });
+                    }
+                } catch (uploadError) {
+                    console.error('Error uploading to Cloudinary:', uploadError);
+                    return res.status(500).json({
+                        code: 500,
+                        message: "Lỗi khi upload ảnh lên server",
+                        error: uploadError.message
+                    });
+                }
+
+                // Prepare documents array to save
+                const documentTypes = ['selfie', 'idCardFront', 'idCardBack'];
+                const documents = uploadedFiles.map((file, index) => {
+                    return {
+                        documentType: documentTypes[index] || 'document',
+                        documentNumber: `DOC-${Date.now()}-${index}`,
+                        fileUrl: file.Url,
+                        status: 'approved',
+                        submittedAt: new Date()
+                    };
+                });
+
+                // Update user with ID verification and save documents
+                updatedUser = await User.findByIdAndUpdate(
+                    userId,
                     { 
-                        isPhoneConfirmed: true,
                         isIdVerified: true,
-                        phone: formattedPhone // Ensure phone is stored in correct format
+                        $push: { documents: { $each: documents } }
                     },
                     { new: true }
                 );
 
                 if (!updatedUser) {
-                    console.log('User not found with phone:', formattedPhone);
-                    // If user doesn't exist, create a new user record
-                    updatedUser = await User.create({
-                        phone: formattedPhone,
-                        isPhoneConfirmed: true,
-                        isIdVerified: true,
-                        role: 'renter' // Default role
+                    return res.status(404).json({ 
+                        code: 404, 
+                        message: "Không tìm thấy người dùng" 
                     });
                 }
 
-                console.log('User updated successfully:', updatedUser._id);
+                console.log('User ID verification updated successfully:', updatedUser._id);
+
+                // Send notification to user
+                try {
+                    await createNotification(
+                        userId,
+                        "Identity Verified",
+                        "Xác minh danh tính thành công",
+                        `Xin chào ${updatedUser.fullName || 'bạn'}, danh tính của bạn đã được xác minh thành công vào lúc ${new Date().toLocaleString("vi-VN")}.`,
+                        { 
+                            verificationTime: new Date().toISOString(),
+                            documentTypes: documentTypes
+                        }
+                    );
+                } catch (notificationError) {
+                    console.error("Error creating identity verification notification:", notificationError);
+                }
             } catch (userUpdateError) {
                 console.error('Error updating user:', userUpdateError);
-                // Continue with response even if user update fails
+                return res.status(500).json({
+                    code: 500,
+                    message: "Lỗi cơ sở dữ liệu khi cập nhật xác minh danh tính",
+                    error: userUpdateError.message
+                });
             }
         }
 
-        return res.json({
-            code: 200,
-            message: isMatch ? "Xác minh khuôn mặt thành công" : "Khuôn mặt không khớp",
-            data: {
-                isMatch,
-                similarityPercentage,
-                distance: bestDistance,
-                threshold,
-                userFacesDetected: userFaces.length,
-                idCardFacesDetected: idCardFaces.length,
-                uploadedFiles: uploadedFiles, // Include uploaded file URLs
-                userId: updatedUser ? updatedUser._id : null,
-                phoneConfirmed: isMatch && updatedUser ? updatedUser.isPhoneConfirmed : false,
-                detectionDetails: {
-                    userFaceScore: bestMatch.userFace.detection.score,
-                    idCardFaceScore: bestMatch.idCardFace.detection.score,
-                    idCardFaceSize: {
-                        width: bestMatch.idCardFace.detection.box.width,
-                        height: bestMatch.idCardFace.detection.box.height
-                    }
+        const responseData = {
+            isMatch,
+            similarityPercentage,
+            distance: bestDistance,
+            threshold,
+            userFacesDetected: userFaces.length,
+            idCardFacesDetected: idCardFaces.length,
+            detectionDetails: {
+                userFaceScore: bestMatch.userFace.detection.score,
+                idCardFaceScore: bestMatch.idCardFace.detection.score,
+                idCardFaceSize: {
+                    width: bestMatch.idCardFace.detection.box.width,
+                    height: bestMatch.idCardFace.detection.box.height
                 }
             }
+        };
+
+        // Only include upload and user info if verification was successful
+        if (isMatch && updatedUser) {
+            responseData.userId = updatedUser._id;
+            responseData.isIdVerified = updatedUser.isIdVerified;
+            responseData.documents = updatedUser.documents || [];
+        }
+
+        return res.json({
+            code: isMatch ? 200 : 400,
+            message: isMatch ? "Xác minh danh tính thành công" : "Khuôn mặt không khớp",
+            data: responseData
         });
 
     } catch (error) {

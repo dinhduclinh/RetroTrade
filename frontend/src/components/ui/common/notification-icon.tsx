@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { Bell, CheckCircle, Trash2, CheckCheck } from "lucide-react";
+import { Bell, CheckCircle, CheckCheck, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/common/button";
 import {
   DropdownMenu,
@@ -11,12 +11,14 @@ import {
 } from '@/components/ui/common/dropdown-menu';
 import { notificationApi, Notification } from "@/services/auth/notification.api";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface NotificationIconProps {
   className?: string;
 }
 
 export function NotificationIcon({ className }: NotificationIconProps) {
+  const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
@@ -95,18 +97,6 @@ export function NotificationIcon({ className }: NotificationIconProps) {
     }
   };
 
-  const handleDelete = async (id: string, event: React.MouseEvent) => {
-    event.stopPropagation();
-    try {
-      await notificationApi.deleteNotification(id);
-      setNotifications(prev => prev.filter(n => n._id !== id));
-      toast.success("Đã xóa thông báo");
-    } catch (error) {
-      console.error("Error deleting notification:", error);
-      toast.error("Không thể xóa thông báo");
-    }
-  };
-
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -161,20 +151,37 @@ export function NotificationIcon({ className }: NotificationIconProps) {
       <DropdownMenuContent className="w-80 max-h-96 overflow-y-auto" align="end">
         <div className="p-2">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="font-semibold text-sm">Thông báo</h3>
-            {unreadCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-xs h-7"
-                onClick={handleMarkAllAsRead}
-              >
-                <CheckCheck className="h-3 w-3 mr-1" />
-                Đánh dấu tất cả đã đọc
-              </Button>
-            )}
+            <h3 className="font-semibold text-base">Thông báo</h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs h-7"
+              onClick={() => {
+                router.push('/auth/notifications');
+                setIsOpen(false);
+              }}
+            >
+              <ExternalLink className="h-3 w-3 mr-1" />
+              Xem tất cả
+            </Button>
           </div>
-          <DropdownMenuSeparator />
+          
+          {unreadCount > 0 && (
+            <>
+              <div className="flex justify-end mb-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-7"
+                  onClick={handleMarkAllAsRead}
+                >
+                  <CheckCheck className="h-3 w-3 mr-1" />
+                  Đánh dấu tất cả đã đọc
+                </Button>
+              </div>
+              <DropdownMenuSeparator />
+            </>
+          )}
         </div>
 
         {isLoading ? (
@@ -210,26 +217,16 @@ export function NotificationIcon({ className }: NotificationIconProps) {
                       {formatDate(notification.CreatedAt)}
                     </p>
                   </div>
-                  <div className="flex flex-col gap-1">
-                    {!notification.isRead && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={(e) => handleMarkAsRead(notification._id, e)}
-                      >
-                        <CheckCircle className="h-4 w-4 text-green-600" />
-                      </Button>
-                    )}
+                  {!notification.isRead && (
                     <Button
                       variant="ghost"
                       size="icon"
                       className="h-6 w-6"
-                      onClick={(e) => handleDelete(notification._id, e)}
+                      onClick={(e) => handleMarkAsRead(notification._id, e)}
                     >
-                      <Trash2 className="h-4 w-4 text-red-500" />
+                      <CheckCircle className="h-4 w-4 text-green-600" />
                     </Button>
-                  </div>
+                  )}
                 </div>
               </div>
             ))}

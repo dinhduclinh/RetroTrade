@@ -1,15 +1,14 @@
 const OwnerRequest = require("../../models/OwnerRequest.model");
 const User = require("../../models/User.model");
-const Notification = require("../../models/Notification.model");
-const { createNotification } = require("../../utils/createNotification");
+const AuditLog = require("../../models/AuditLog.model");
+const { createNotification } = require("../../middleware/createNotification");
+const { sendEmail } = require("../../utils/sendEmail");
 
-/**
- * Create a new owner request
- */
+
 module.exports.createOwnerRequest = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { reason, additionalInfo, documents = [] } = req.body;
+    const { reason, additionalInfo } = req.body;
 
     if (!reason) {
       return res.json({
@@ -18,17 +17,24 @@ module.exports.createOwnerRequest = async (req, res) => {
       });
     }
 
-    // Check if user already has a pending request
+    // Check if user already has a pending or approved request
     const existingRequest = await OwnerRequest.findOne({
       user: userId,
-      status: "pending",
-    });
+      status: { $in: ["pending", "approved"] },
+    }).sort({ CreatedAt: -1 });
 
     if (existingRequest) {
-      return res.json({
-        code: 400,
-        message: "Bạn đã có yêu cầu đang chờ xử lý",
-      });
+      if (existingRequest.status === "pending") {
+        return res.json({
+          code: 400,
+          message: "Bạn đã có yêu cầu đang chờ xử lý. Vui lòng chờ người quản lý xét duyệt.",
+        });
+      } else if (existingRequest.status === "approved") {
+        return res.json({
+          code: 400,
+          message: "Bạn đã có yêu cầu đã được chấp nhận. Vui lòng kiểm tra lại tài khoản của bạn.",
+        });
+      }
     }
 
     // Get current user
@@ -65,6 +71,24 @@ module.exports.createOwnerRequest = async (req, res) => {
       additionalInfo,
     });
 
+    // Create audit log for the request
+    await AuditLog.create({
+      TableName: "OwnerRequest",
+      PrimaryKeyValue: ownerRequest._id.toString(),
+      Operation: "INSERT",
+      ChangedByUserId: userId,
+      ChangeSummary: `User ${currentUser.email} created a new owner request. Status: pending.`,
+    });
+
+    // Notify user
+    await createNotification(
+      userId,
+      "Owner Request",
+      "Yêu cầu cấp quyền cho thuê đã được gửi",
+      `Yêu cầu cấp quyền cho thuê của bạn đã được gửi thành công. Vui lòng chờ người quản lý xét duyệt.`,
+      { requestId: ownerRequest._id }
+    );
+
     // Notify moderators only
     const moderators = await User.find({ role: "moderator" });
     for (const moderator of moderators) {
@@ -75,6 +99,29 @@ module.exports.createOwnerRequest = async (req, res) => {
         `Người dùng ${currentUser.fullName || currentUser.email} đã yêu cầu cấp quyền Owner.`,
         { requestId: ownerRequest._id, userId: userId }
       );
+    }
+
+    // Send email to user
+    try {
+      const emailSubject = "Yêu cầu cấp quyền cho thuê đã được gửi thành công";
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #4CAF50;">Yêu cầu cấp quyền cho thuê đã được gửi</h2>
+          <p>Xin chào <strong>${currentUser.fullName || currentUser.email}</strong>,</p>
+          <p>Yêu cầu cấp quyền cho thuê của bạn đã được gửi thành công và đang chờ người quản lý xét duyệt.</p>
+          <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <p><strong>Lý do yêu cầu:</strong></p>
+            <p>${reason}</p>
+            ${additionalInfo ? `<p><strong>Thông tin thêm:</strong></p><p>${additionalInfo}</p>` : ''}
+          </div>
+          <p>Chúng tôi sẽ thông báo cho bạn ngay khi có kết quả xét duyệt.</p>
+          <p>Trân trọng,<br>Đội ngũ RetroTrade</p>
+        </div>
+      `;
+      await sendEmail(currentUser.email, emailSubject, emailHtml);
+    } catch (emailError) {
+      console.error("Error sending email:", emailError);
+      // Don't fail the request if email fails
     }
 
     return res.json({
@@ -97,15 +144,19 @@ module.exports.createOwnerRequest = async (req, res) => {
  */
 module.exports.getAllOwnerRequests = async (req, res) => {
   try {
-    const { skip = 0, limit = 20 } = req.pagination || {};
+    // Get pagination from middleware or query params directly
+    const skip = req.pagination?.skip || parseInt(req.query.skip || '0', 10);
+    const limit = req.pagination?.limit || parseInt(req.query.limit || '20', 10);
     const { status } = req.query;
+
+    console.log('getAllOwnerRequests - params:', { skip, limit, status });
 
     let query = {};
     if (status) query.status = status;
 
     const [requests, totalItems] = await Promise.all([
       OwnerRequest.find(query)
-        .populate("user", "email fullName avatarUrl role")
+        .populate("user", "email fullName avatarUrl role phone documents")
         .populate("reviewedBy", "email fullName")
         .sort({ CreatedAt: -1 })
         .skip(skip)
@@ -113,12 +164,14 @@ module.exports.getAllOwnerRequests = async (req, res) => {
       OwnerRequest.countDocuments(query),
     ]);
 
+    console.log('getAllOwnerRequests - found:', { count: requests.length, totalItems });
+
     return res.json({
       code: 200,
       message: "Lấy danh sách yêu cầu thành công",
       data: {
         items: requests,
-        ...(res.paginationMeta ? res.paginationMeta(totalItems) : { totalItems }),
+        totalItems,
       },
     });
   } catch (error) {
@@ -221,6 +274,15 @@ module.exports.approveOwnerRequest = async (req, res) => {
     if (notes) request.notes = notes;
     await request.save();
 
+    // Create audit log for approval
+    await AuditLog.create({
+      TableName: "OwnerRequest",
+      PrimaryKeyValue: request._id.toString(),
+      Operation: "UPDATE",
+      ChangedByUserId: reviewerId,
+      ChangeSummary: `Moderator approved owner request for user ${request.user.email || request.user._id}. Status changed to approved.`,
+    });
+
     // Update user role
     await User.findByIdAndUpdate(request.user._id, {
       role: "owner",
@@ -235,10 +297,37 @@ module.exports.approveOwnerRequest = async (req, res) => {
       { requestId: request._id }
     );
 
+    // Send email to user
+    try {
+      const emailSubject = "Yêu cầu cấp quyền cho thuê đã được duyệt";
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #4CAF50;">Yêu cầu của bạn đã được duyệt!</h2>
+          <p>Xin chào <strong>${request.user.fullName || request.user.email}</strong>,</p>
+          <p>Yêu cầu cấp quyền cho thuê của bạn đã được duyệt thành công.</p>
+          <div style="background-color: #e8f5e9; border-left: 4px solid #4CAF50; padding: 15px; margin: 20px 0;">
+            <p><strong>✓ Tài khoản của bạn đã được nâng cấp thành Owner</strong></p>
+            <p>Bạn giờ đã có thể đăng sản phẩm cho thuê trên hệ thống RetroTrade.</p>
+          </div>
+          ${notes ? `<p><strong>Ghi chú từ người quản lý:</strong></p><p>${notes}</p>` : ''}
+          <p><a href="http://localhost:3000" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 20px;">Truy cập website</a></p>
+          <p>Trân trọng,<br>Đội ngũ RetroTrade</p>
+        </div>
+      `;
+      await sendEmail(request.user.email, emailSubject, emailHtml);
+    } catch (emailError) {
+      console.error("Error sending email:", emailError);
+    }
+
+    // Reload request with populated fields
+    const updatedRequest = await OwnerRequest.findById(id)
+      .populate("user", "email fullName avatarUrl role")
+      .populate("reviewedBy", "email fullName");
+
     return res.json({
       code: 200,
       message: "Yêu cầu đã được duyệt thành công",
-      data: request,
+      data: updatedRequest,
     });
   } catch (error) {
     console.error("Error approving request:", error);
@@ -289,6 +378,15 @@ module.exports.rejectOwnerRequest = async (req, res) => {
     if (notes) request.notes = notes;
     await request.save();
 
+    // Create audit log for rejection
+    await AuditLog.create({
+      TableName: "OwnerRequest",
+      PrimaryKeyValue: request._id.toString(),
+      Operation: "UPDATE",
+      ChangedByUserId: reviewerId,
+      ChangeSummary: `Moderator rejected owner request for user ${request.user.email || request.user._id}. Reason: ${rejectionReason}`,
+    });
+
     // Notify user
     await createNotification(
       request.user._id,
@@ -298,10 +396,44 @@ module.exports.rejectOwnerRequest = async (req, res) => {
       { requestId: request._id }
     );
 
+    // Send email to user
+    try {
+      const emailSubject = "Yêu cầu cấp quyền cho thuê bị từ chối";
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #f44336;">Yêu cầu của bạn đã bị từ chối</h2>
+          <p>Xin chào <strong>${request.user.fullName || request.user.email}</strong>,</p>
+          <p>Rất tiếc, yêu cầu cấp quyền cho thuê của bạn đã bị từ chối.</p>
+          <div style="background-color: #ffebee; border-left: 4px solid #f44336; padding: 15px; margin: 20px 0;">
+            <p><strong>Lý do từ chối:</strong></p>
+            <p>${rejectionReason}</p>
+            ${notes ? `<p><strong>Ghi chú thêm:</strong></p><p>${notes}</p>` : ''}
+          </div>
+          <p>Bạn có thể:</p>
+          <ul style="line-height: 1.8;">
+            <li>Xem xét lại lý do từ chối</li>
+            <li>Đảm bảo đã hoàn tất tất cả thông tin xác minh danh tính</li>
+            <li>Gửi lại yêu cầu mới sau khi đã khắc phục các vấn đề</li>
+          </ul>
+          <p><a href="http://localhost:3000/auth/profile" style="background-color: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 20px;">Xem hồ sơ của tôi</a></p>
+          <p>Nếu bạn có câu hỏi, vui lòng liên hệ với chúng tôi.</p>
+          <p>Trân trọng,<br>Đội ngũ RetroTrade</p>
+        </div>
+      `;
+      await sendEmail(request.user.email, emailSubject, emailHtml);
+    } catch (emailError) {
+      console.error("Error sending email:", emailError);
+    }
+
+    // Reload request with populated fields
+    const updatedRequest = await OwnerRequest.findById(id)
+      .populate("user", "email fullName avatarUrl role")
+      .populate("reviewedBy", "email fullName");
+
     return res.json({
       code: 200,
       message: "Yêu cầu đã bị từ chối",
-      data: request,
+      data: updatedRequest,
     });
   } catch (error) {
     console.error("Error rejecting request:", error);
@@ -345,6 +477,24 @@ module.exports.cancelOwnerRequest = async (req, res) => {
 
     request.status = "cancelled";
     await request.save();
+
+    // Create audit log for cancellation
+    await AuditLog.create({
+      TableName: "OwnerRequest",
+      PrimaryKeyValue: request._id.toString(),
+      Operation: "UPDATE",
+      ChangedByUserId: userId,
+      ChangeSummary: `User ${userId} cancelled their owner request. Status changed to cancelled.`,
+    });
+
+    // Notify user
+    await createNotification(
+      userId,
+      "Owner Request Cancelled",
+      "Yêu cầu cấp quyền cho thuê đã được hủy",
+      `Yêu cầu cấp quyền cho thuê của bạn đã được hủy thành công.`,
+      { requestId: request._id }
+    );
 
     return res.json({
       code: 200,

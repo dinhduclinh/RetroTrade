@@ -10,6 +10,7 @@ import { ModeratorSidebar } from "@/components/ui/moderator/moderator-sidebar";
 import { ModeratorHeader } from "@/components/ui/moderator/moderator-header";
 import { ModeratorStats } from "@/components/ui/moderator/moderator-stats";
 import { VerificationQueue } from "@/components/ui/moderator/verification-queue";
+import { OwnerRequestManagement } from "@/components/ui/moderator/owner-request-management";
 import { BlogManagementTable } from "@/components/ui/moderator/blog/blog-management-table";
 import { CommentManagementTable } from "@/components/ui/moderator/blog/comment-management-table";
 import { TagManagementTable } from "@/components/ui/moderator/blog/tag-management";
@@ -221,8 +222,7 @@ export default function ModeratorDashboard() {
       case "dashboard":
         return <DashboardOverview />;
       case "requests":
-        // return <RequestManagementTable />; // Component removed
-        return <div className="p-4 text-white">Chức năng đang được phát triển...</div>;
+        return <OwnerRequestManagement />;
       case "verification":
         return <VerificationQueue />;
       default:
