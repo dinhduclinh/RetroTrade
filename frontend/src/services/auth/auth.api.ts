@@ -59,3 +59,16 @@ export const loginWithFacebook = async (
     return await instance.post("/auth/login-with-facebook", payload);
 };
 
+// Firebase Phone Auth OTP endpoints
+export const sendOtpFirebase = async (phone: string, recaptchaToken?: string): Promise<Response> => {
+    return await instance.post("/auth/phone/send-otp-firebase", { phone, recaptchaToken });
+};
+
+export const verifyOtpFirebase = async (sessionInfo: string, code: string): Promise<Response> => {
+    return await instance.post("/auth/phone/verify-otp-firebase", { sessionInfo, code });
+};
+
+export const confirmPhoneFirebase = async (idToken: string): Promise<Response> => {
+    return await instance.post("/auth/phone/confirm-firebase", { idToken });
+};
+

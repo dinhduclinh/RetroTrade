@@ -2,16 +2,18 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/router";
+import Image from "next/image";
 import {
   updateProduct,
   getConditions,
   getPriceUnits,
   uploadImages,
   getProductById,
+  getUserAddresses,
+  setDefaultAddress,
 } from "../../../../services/products/product.api";
 import { getCategories } from "../../../../services/products/category.api";
 import { useSelector } from "react-redux";
-// Avoid next/image to prevent remote host config requirements
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -22,8 +24,37 @@ import {
   Tag,
   Package,
   DollarSign,
+  ChevronDown,
+  CheckCircle,
 } from "lucide-react";
 import { vietnamProvinces } from "../../../../lib/vietnam-locations";
+
+interface UserAddress {
+  _id?: string;
+  Address: string;
+  City: string;
+  District: string;
+  IsDefault?: boolean;
+}
+
+interface PriceUnit {
+  UnitId?: string | number;
+  _id?: string;
+  UnitName: string;
+}
+
+interface Category {
+  _id: string;
+  name?: string;
+  Name?: string;
+  parentCategoryId?: string;
+}
+
+interface Condition {
+  ConditionId?: string | number;
+  _id?: string;
+  ConditionName: string;
+}
 
 const UpdateProductPage: React.FC = () => {
   const router = useRouter();
@@ -43,9 +74,9 @@ const UpdateProductPage: React.FC = () => {
   const [description, setDescription] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [conditionId, setConditionId] = useState("");
-  const [basePrice, setBasePrice] = useState("");
+  const [rawBasePrice, setRawBasePrice] = useState("");
+  const [rawDepositAmount, setRawDepositAmount] = useState("");
   const [priceUnitId, setPriceUnitId] = useState("");
-  const [depositAmount, setDepositAmount] = useState("");
   const [minRentalDuration, setMinRentalDuration] = useState("");
   const [maxRentalDuration, setMaxRentalDuration] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -54,21 +85,16 @@ const UpdateProductPage: React.FC = () => {
   const [city, setCity] = useState("");
   const [tagsInput, setTagsInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
+  const [currentUnitName, setCurrentUnitName] = useState("ngày");
 
-  const [categories, setCategories] = useState<
-    Array<{
-      _id: string;
-      name?: string;
-      Name?: string;
-      parentCategoryId?: string;
-    }>
-  >([]);
-  const [conditions, setConditions] = useState<
-    Array<{ ConditionId?: string; _id?: string; ConditionName: string }>
-  >([]);
-  const [priceUnits, setPriceUnits] = useState<
-    Array<{ UnitId?: string; _id?: string; UnitName: string }>
-  >([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [conditions, setConditions] = useState<Condition[]>([]);
+  const [priceUnits, setPriceUnits] = useState<PriceUnit[]>([]);
+
+  const [userAddresses, setUserAddresses] = useState<UserAddress[]>([]);
+  const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
+  const [addressesLoading, setAddressesLoading] = useState(false);
+  const [settingDefault, setSettingDefault] = useState(false);
 
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedPath, setSelectedPath] = useState<string[]>([]);
@@ -79,30 +105,55 @@ const UpdateProductPage: React.FC = () => {
   const secondaryInputRef = useRef<HTMLInputElement>(null);
   const tagsInputRef = useRef<HTMLInputElement>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
+  const addressInputRef = useRef<HTMLInputElement>(null);
 
   const isAuthenticated = useSelector(
     (state: { auth: { accessToken: string } }) => !!state.auth.accessToken
   );
 
-  // Format Vietnamese currency
   const formatVietnameseCurrency = (value: string) => {
+    if (!value) return "";
     const numValue = value.replace(/\D/g, "");
     return numValue.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   };
 
-  // Handle price input with Vietnamese formatting
   const handlePriceChange = (
-    value: string,
-    setter: (value: string) => void
+    e: React.ChangeEvent<HTMLInputElement>,
+    setter: React.Dispatch<React.SetStateAction<string>>
   ) => {
-    const formatted = formatVietnameseCurrency(value);
-    setter(formatted);
+    const inputValue = e.target.value;
+    const rawValue = inputValue.replace(/\D/g, "");
+    setter(rawValue);
   };
 
-  // Convert formatted price back to number for API
-  const parsePrice = (formattedPrice: string) => {
-    return formattedPrice.replace(/\./g, "");
-  };
+  const fetchUserAddresses = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      setAddressesLoading(true);
+      const res = await getUserAddresses();
+      const data = await res.json();
+      const addresses = Array.isArray(data.data) ? data.data : [];
+      setUserAddresses(addresses);
+    } catch (error) {
+      console.error("Error fetching user addresses:", error);
+      toast.error("Không thể tải địa chỉ gợi ý");
+    } finally {
+      setAddressesLoading(false);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (userAddresses.length > 0 && !address && !city && !district) {
+      const defaultAddress = userAddresses.find(
+        (addr: UserAddress) => addr.IsDefault
+      );
+      if (defaultAddress) {
+        setAddress(defaultAddress.Address || "");
+        setCity(defaultAddress.City || "");
+        setDistrict(defaultAddress.District || "");
+      }
+    }
+  }, [userAddresses]);
 
   const fetchProductDetails = useCallback(
     async (productId: string) => {
@@ -118,9 +169,9 @@ const UpdateProductPage: React.FC = () => {
             setDescription(product.Description || "");
             setCategoryId(product.CategoryId?._id || product.CategoryId || "");
             setConditionId(product.ConditionId?.toString() || "");
-            setBasePrice(product.BasePrice?.toString() || "");
+            setRawBasePrice(product.BasePrice?.toString() || "");
             setPriceUnitId(product.PriceUnitId?.toString() || "");
-            setDepositAmount(product.DepositAmount?.toString() || "");
+            setRawDepositAmount(product.DepositAmount?.toString() || "");
             setMinRentalDuration(product.MinRentalDuration?.toString() || "");
             setMaxRentalDuration(product.MaxRentalDuration?.toString() || "");
             setQuantity(product.Quantity?.toString() || "");
@@ -191,20 +242,11 @@ const UpdateProductPage: React.FC = () => {
           ? priceUnitsJson
           : []
       );
-
-      if (categoryId) {
-        const selectedCat = categories.find((c) => c._id === categoryId);
-        if (selectedCat) {
-          setSelectedCategoryNameState(
-            selectedCat.name || selectedCat.Name || "Chọn danh mục"
-          );
-        }
-      }
     } catch (error) {
       console.error("Error fetching initial data:", error);
       toast.error("Không thể tải dữ liệu ban đầu");
     }
-  }, [categories, categoryId]);
+  }, []);
 
   useEffect(() => {
     if (id) {
@@ -215,6 +257,34 @@ const UpdateProductPage: React.FC = () => {
   useEffect(() => {
     fetchInitialData();
   }, [fetchInitialData]);
+
+  useEffect(() => {
+    fetchUserAddresses();
+  }, [fetchUserAddresses]);
+
+  useEffect(() => {
+    if (categories.length > 0 && categoryId) {
+      const selectedCat = categories.find((c) => c._id === categoryId);
+      if (selectedCat) {
+        setSelectedCategoryNameState(
+          selectedCat.name || selectedCat.Name || "Chọn danh mục"
+        );
+      }
+    }
+  }, [categories, categoryId]);
+
+  useEffect(() => {
+    if (priceUnitId && priceUnits.length > 0) {
+      const selectedUnit = priceUnits.find(
+        (unit) => (unit.UnitId?.toString() || unit._id) === priceUnitId
+      );
+      if (selectedUnit) {
+        setCurrentUnitName(selectedUnit.UnitName.toLowerCase());
+      }
+    } else {
+      setCurrentUnitName("ngày");
+    }
+  }, [priceUnitId, priceUnits]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -236,6 +306,64 @@ const UpdateProductPage: React.FC = () => {
     router.push("/auth/login");
     return null;
   }
+
+  if (fetchLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="text-lg text-gray-600">
+            Đang tải thông tin sản phẩm...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const selectAddress = (addr: UserAddress) => {
+    setAddress(addr.Address || "");
+    setCity(addr.City || "");
+    setDistrict(addr.District || "");
+    setShowAddressSuggestions(false);
+  };
+
+  const isCurrentAddressDefault = () => {
+    return userAddresses.some(
+      (addr) =>
+        addr.IsDefault &&
+        addr.Address === address &&
+        addr.City === city &&
+        addr.District === district
+    );
+  };
+
+  const handleSetDefaultAddress = async () => {
+    if (!address || !city || !district) {
+      toast.error("Vui lòng nhập đầy đủ địa chỉ trước khi đặt mặc định");
+      return;
+    }
+
+    try {
+      setSettingDefault(true);
+      const res = await setDefaultAddress({
+        Address: address,
+        City: city,
+        District: district,
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Đã đặt địa chỉ mặc định thành công!");
+        await fetchUserAddresses();
+      } else {
+        toast.error(data.message || "Lỗi khi đặt địa chỉ mặc định");
+      }
+    } catch (error) {
+      console.error("Error setting default address:", error);
+      toast.error("Lỗi khi đặt địa chỉ mặc định");
+    } finally {
+      setSettingDefault(false);
+    }
+  };
 
   const handlePrimaryImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -372,9 +500,9 @@ const UpdateProductPage: React.FC = () => {
 
   const validateForm = () => {
     if (!title.trim()) return "Tên sản phẩm là bắt buộc";
-    if (!basePrice || parseFloat(parsePrice(basePrice)) <= 0)
+    if (!rawBasePrice || parseFloat(rawBasePrice) <= 0)
       return "Giá thuê phải là số dương";
-    if (!depositAmount || parseFloat(parsePrice(depositAmount)) <= 0)
+    if (!rawDepositAmount || parseFloat(rawDepositAmount) <= 0)
       return "Tiền đặt cọc phải là số dương";
     if (!quantity || parseInt(quantity) < 1) return "Số lượng phải ít nhất 1";
     if (!categoryId) return "Danh mục là bắt buộc";
@@ -435,9 +563,9 @@ const UpdateProductPage: React.FC = () => {
         Description: description.trim(),
         CategoryId: categoryId,
         ConditionId: conditionId,
-        BasePrice: parsePrice(basePrice),
+        BasePrice: rawBasePrice,
         PriceUnitId: priceUnitId,
-        DepositAmount: parsePrice(depositAmount),
+        DepositAmount: rawDepositAmount,
         MinRentalDuration: minRentalDuration || undefined,
         MaxRentalDuration: maxRentalDuration || undefined,
         Currency: "VND",
@@ -465,19 +593,6 @@ const UpdateProductPage: React.FC = () => {
       setLoading(false);
     }
   };
-
-  if (fetchLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <div className="text-lg text-gray-600">
-            Đang tải thông tin sản phẩm...
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
@@ -515,9 +630,11 @@ const UpdateProductPage: React.FC = () => {
                 <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 hover:border-blue-400 transition-colors">
                   {primaryPreview ? (
                     <div className="relative">
-                      <img
+                      <Image
                         src={primaryPreview}
                         alt="Hình ảnh chính"
+                        width={400}
+                        height={192}
                         className="object-cover rounded-lg w-full h-48"
                       />
                       <button
@@ -589,9 +706,11 @@ const UpdateProductPage: React.FC = () => {
                         )?._id;
                         return (
                           <div key={idx} className="relative group">
-                            <img
+                            <Image
                               src={preview}
                               alt={`Hình ảnh phụ ${idx + 1}`}
+                              width={100}
+                              height={96}
                               className="object-cover rounded-lg w-full h-24"
                             />
                             <button
@@ -733,8 +852,8 @@ const UpdateProductPage: React.FC = () => {
                     <option value="">Chọn tình trạng</option>
                     {conditions.map((cond) => (
                       <option
-                        key={cond.ConditionId || cond._id}
-                        value={cond.ConditionId || cond._id}
+                        key={cond.ConditionId?.toString() || cond._id}
+                        value={cond.ConditionId?.toString() || cond._id}
                       >
                         {cond.ConditionName}
                       </option>
@@ -776,10 +895,8 @@ const UpdateProductPage: React.FC = () => {
                   <div className="flex items-center space-x-3">
                     <input
                       type="text"
-                      value={basePrice}
-                      onChange={(e) =>
-                        handlePriceChange(e.target.value, setBasePrice)
-                      }
+                      value={formatVietnameseCurrency(rawBasePrice)}
+                      onChange={(e) => handlePriceChange(e, setRawBasePrice)}
                       required
                       placeholder="Nhập giá thuê"
                       className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
@@ -794,8 +911,8 @@ const UpdateProductPage: React.FC = () => {
                       <option value="">Chọn đơn vị</option>
                       {priceUnits.map((unit) => (
                         <option
-                          key={unit.UnitId || unit._id}
-                          value={unit.UnitId || unit._id}
+                          key={unit.UnitId?.toString() || unit._id}
+                          value={unit.UnitId?.toString() || unit._id}
                         >
                           {unit.UnitName}
                         </option>
@@ -810,10 +927,8 @@ const UpdateProductPage: React.FC = () => {
                   </label>
                   <input
                     type="text"
-                    value={depositAmount}
-                    onChange={(e) =>
-                      handlePriceChange(e.target.value, setDepositAmount)
-                    }
+                    value={formatVietnameseCurrency(rawDepositAmount)}
+                    onChange={(e) => handlePriceChange(e, setRawDepositAmount)}
                     required
                     placeholder="Nhập tiền đặt cọc"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
@@ -824,7 +939,7 @@ const UpdateProductPage: React.FC = () => {
               <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Thời gian thuê tối thiểu (ngày)
+                    Thời gian thuê tối thiểu ({currentUnitName})
                   </label>
                   <input
                     type="number"
@@ -832,12 +947,12 @@ const UpdateProductPage: React.FC = () => {
                     value={minRentalDuration}
                     onChange={(e) => setMinRentalDuration(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                    placeholder="Nhập số ngày tối thiểu"
+                    placeholder={`Nhập số ${currentUnitName} tối thiểu`}
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Thời gian thuê tối đa (ngày)
+                    Thời gian thuê tối đa ({currentUnitName})
                   </label>
                   <input
                     type="number"
@@ -845,7 +960,7 @@ const UpdateProductPage: React.FC = () => {
                     value={maxRentalDuration}
                     onChange={(e) => setMaxRentalDuration(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                    placeholder="Nhập số ngày tối đa"
+                    placeholder={`Nhập số ${currentUnitName} tối đa`}
                   />
                 </div>
               </div>
@@ -894,6 +1009,7 @@ const UpdateProductPage: React.FC = () => {
                   Địa chỉ cụ thể
                 </label>
                 <input
+                  ref={addressInputRef}
                   type="text"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
@@ -902,6 +1018,86 @@ const UpdateProductPage: React.FC = () => {
                 />
               </div>
             </div>
+
+            {/* Nút set default - chỉ hiển thị nếu không phải default */}
+            {!isCurrentAddressDefault() && (address || city || district) && (
+              <div className="mt-4 flex justify-start">
+                <button
+                  type="button"
+                  onClick={handleSetDefaultAddress}
+                  disabled={settingDefault}
+                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors text-sm font-medium"
+                >
+                  {settingDefault ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Đang lưu...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle size={16} />
+                      Đặt làm địa chỉ mặc định
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* Gợi ý địa chỉ */}
+            {userAddresses.length > 0 && (
+              <div className="mt-6">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowAddressSuggestions(!showAddressSuggestions)
+                  }
+                  className="flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm font-medium mb-3 transition-colors"
+                >
+                  Gợi ý địa chỉ trước đó ({userAddresses.length})
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform ${
+                      showAddressSuggestions ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+                {showAddressSuggestions && (
+                  <div className="bg-gray-50 rounded-lg p-4 max-h-40 overflow-y-auto border border-gray-200">
+                    {addressesLoading ? (
+                      <p className="text-gray-500 text-sm">Đang tải...</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {userAddresses.map((addr, index) => (
+                          <button
+                            key={addr._id || index}
+                            type="button"
+                            onClick={() => selectAddress(addr)}
+                            className={`w-full text-left p-3 bg-white rounded-md hover:bg-blue-50 border border-gray-200 transition-colors text-sm ${
+                              addr.IsDefault
+                                ? "border-green-500 bg-green-50"
+                                : ""
+                            }`}
+                          >
+                            <div className="font-medium text-gray-900 flex items-center gap-2">
+                              {addr.District}, {addr.City}
+                              {addr.IsDefault && (
+                                <CheckCircle
+                                  size={16}
+                                  className="text-green-600"
+                                />
+                              )}
+                            </div>
+                            <div className="text-gray-600 truncate">
+                              {addr.Address}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Tags Section */}

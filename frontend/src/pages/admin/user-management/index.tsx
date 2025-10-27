@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { ModeratorSidebar } from "@/components/ui/moderator/moderator-sidebar";
-import { ModeratorHeader } from "@/components/ui/moderator/moderator-header";
-import { ModeratorStats } from "@/components/ui/moderator/moderator-stats";
-import { UserManagementTable } from "@/components/ui/moderator/user-management-table";
-import { BlogManagementTable } from "@/components/ui/moderator/blog/blog-management-table";
-import { CategoryManagementTable } from "@/components/ui/moderator/blog/category-management-table";
-import { CommentManagementTable } from "@/components/ui/moderator/blog/comment-management-table";
+import { AdminSidebar } from "@/components/ui/admin/admin-sidebar";
+import { AdminHeader } from "@/components/ui/admin/admin-header";
+import { AdminStats } from "@/components/ui/admin/admin-stats";
+import { UserManagementTable } from "@/components/ui/admin/user-management-table";
+import { BlogManagementTable } from "@/components/ui/admin/blog/blog-management-table";
+import { CategoryManagementTable } from "@/components/ui/admin/blog/category-management-table";
+import { CommentManagementTable } from "@/components/ui/admin/blog/comment-management-table";
 
 export default function UserManagementDashboard() {
   const [activeTab, setActiveTab] = useState<
@@ -81,7 +81,7 @@ export default function UserManagementDashboard() {
       <div className="absolute -bottom-8 left-20 w-96 h-96 bg-pink-400 rounded-full mix-blend-multiply filter blur-3xl opacity-15 animate-blob animation-delay-4000" />
 
       <div className="relative z-10 flex">
-        <ModeratorSidebar
+        <AdminSidebar
           activeTab={activeTab}
           activeBlogTab={activeBlogTab}
           onTabChange={setActiveTab}
@@ -89,7 +89,7 @@ export default function UserManagementDashboard() {
         />
 
         <div className="flex-1 lg:ml-72">
-          <ModeratorHeader />
+          <AdminHeader />
 
           <main className="p-4 lg:p-8">
             <div className="mb-6">

@@ -9,7 +9,6 @@ const getAllCategories = async (req, res) => {
   }
 };
 
-
 const createCategory = async (req, res) => {
   try {
     const { name, description } = req.body;
@@ -27,16 +26,14 @@ const createCategory = async (req, res) => {
     const category = await PostCategory.create({ name, description });
     res.status(201).json(category);
   } catch (error) {
-    res.status(400).json({ message: "Failed to create category", error });
+    res.status(400).json({ message: "Lỗi tạo danh mục.", error });
   }
 };
-
 
 const updateCategory = async (req, res) => {
   try {
     const { name, description } = req.body;
     const { id } = req.params;
-
 
     const duplicate = await PostCategory.findOne({
       _id: { $ne: id },
@@ -56,16 +53,13 @@ const updateCategory = async (req, res) => {
     );
 
     if (!category)
-      return res.status(404).json({ message: "Category not found" });
+      return res.status(404).json({ message: "Không tìm thấy danh mục" });
 
     res.json(category);
   } catch (error) {
-    res.status(400).json({ message: "Failed to update category", error });
+    res.status(400).json({ message: "Không cập nhật được danh mục", error });
   }
 };
-
-
-
 
 const deleteCategory = async (req, res) => {
   try {
@@ -80,10 +74,9 @@ const deleteCategory = async (req, res) => {
   }
 };
 
-module.exports = { getAllCategories, createCategory, updateCategory, deleteCategory };
-
-// COMPLETED FUNCTIONS:
-// 1. getAllCategories - Get all active categories
-// 2. createCategory - Create new category with duplicate check
-// 3. updateCategory - Update category with duplicate check
-// 4. deleteCategory - Soft delete category
+module.exports = {
+  getAllCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+};

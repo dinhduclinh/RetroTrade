@@ -13,10 +13,9 @@ const getAllPosts = async (req, res) => {
       .sort({ createdAt: -1 });
     res.json(posts);
   } catch (error) {
-    res.status(500).json({ message: "Failed to load posts", error });
+    res.status(500).json({ message: "Tải bài viết thất bại", error });
   }
 };
-
 
 const getBlogDetail = async (req, res) => {
   try {
@@ -32,7 +31,6 @@ const getBlogDetail = async (req, res) => {
       return res.status(404).json({ message: "Bài viết không tồn tại" });
     }
 
-
     // const comments = await Comment.find({
     //   postId: post._id,
     //   isDeleted: false,
@@ -41,7 +39,6 @@ const getBlogDetail = async (req, res) => {
     //   .populate("parentCommentId", "content userId")
     //   .sort({ createdAt: -1 })
     //   .lean();
-
 
     const blogDetail = {
       ...post,
@@ -57,12 +54,8 @@ const getBlogDetail = async (req, res) => {
   }
 };
 
-
 const createPost = async (req, res) => {
   try {
-    console.log("👉 BODY:", req.body);
-    console.log("👉 FILES:", req.files);
-    console.log("👉 USER:", req.user);
     const authorId = req.user._id;
 
     if (typeof req.body.tags === "string") {
@@ -82,10 +75,10 @@ const createPost = async (req, res) => {
 
     res.status(201).json(post);
   } catch (error) {
-    console.error("Error creating post:", error);
+    console.error("Lỗi khi tạo bài đăng:", error);
     res
       .status(400)
-      .json({ message: "Failed to create post", error: error.message });
+      .json({ message: "Không tạo được bài đăng", error: error.message });
   }
 };
 
@@ -98,8 +91,11 @@ const updatePost = async (req, res) => {
     if (!post)
       return res.status(404).json({ message: "Bài viết không tồn tại" });
 
-    // Cho phép admin và moderator edit tất cả posts, hoặc author edit post của mình
-    if (post.authorId.toString() !== userId && userRole !== "admin" && userRole !== "moderator") {
+    if (
+      post.authorId.toString() !== userId &&
+      userRole !== "admin" &&
+      userRole !== "moderator"
+    ) {
       return res.status(403).json({ message: "Không có quyền truy cập" });
     }
     if (typeof req.body.tags === "string") {
@@ -220,7 +216,6 @@ const getPostsByTag = async (req, res) => {
   }
 };
 
-
 module.exports = {
   getAllPosts,
   getBlogDetail,
@@ -230,12 +225,3 @@ module.exports = {
   getPostsByCategory,
   getPostsByTag,
 };
-
-// COMPLETED FUNCTIONS:
-// 1. getAllPosts - Get all active posts with pagination
-// 2. getBlogDetail - Get single post detail with author/category/tags
-// 3. createPost - Create new blog post with image upload
-// 4. updatePost - Update existing post (author/admin/moderator only)
-// 5. deletePost - Delete blog post
-// 6. getPostsByCategory - Get posts filtered by category
-// 7. getPostsByTag - Get posts filtered by tag

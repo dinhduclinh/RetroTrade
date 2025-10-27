@@ -6,6 +6,11 @@ const connectDB = require("./src/config/db");
 const router = require("./src/routes/index");
 
 
+const cron = require("node-cron");
+const {
+  updateTrendingItems,
+} = require("./src/controller/products/updateTrending.controller");
+
 require("dotenv").config();
 
 const corsOptions = {
@@ -31,6 +36,9 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+
+// cập nhật lúc 0h mỗi ngày
+cron.schedule('0 0 * * *', updateTrendingItems);
 
 // Test CORS route
 app.get('/api/v1/test-cors', (req, res) => {

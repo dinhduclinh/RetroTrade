@@ -4,6 +4,8 @@ const mongoose = require("mongoose");
 const Item = require("../../models/Product/Item.model");
 const ItemImages = require("../../models/Product/ItemImage.model");
 const ItemTag = require("../../models/Product/ItemTag.model");
+const ItemReject = require("../../models/Product/ItemReject.model");
+const ItemAddress = require("../../models/Product/ItemAddress.model");
 const AuditLog = require("../../models/AuditLog.model");
 const Categories = require("../../models/Product/Categories.model");
 const ItemConditions = require("../../models/Product/ItemConditions.model");
@@ -21,6 +23,33 @@ const extractPublicId = (url) => {
   const afterUpload = parts[1].split("/").slice(1).join("/");
   const publicId = afterUpload ? afterUpload.split(".")[0] : null;
   return publicId ? `retrotrade/${publicId}` : null;
+};
+
+const saveUserAddress = async (
+  userId,
+  address,
+  city,
+  district,
+  session = null
+) => {
+  const query = {
+    UserId: userId,
+    Address: address.trim(),
+    City: city.trim(),
+    District: district.trim(),
+  };
+
+  // Kiểm tra tồn tại
+  const existingAddress = await ItemAddress.findOne(query, null, { session });
+  if (existingAddress) {
+    return existingAddress;
+  }
+
+  const newAddress = new ItemAddress({
+    ...query,
+    IsDefault: false,
+  });
+  return await newAddress.save({ session });
 };
 
 const addProduct = async (req, res) => {
@@ -76,18 +105,57 @@ const addProduct = async (req, res) => {
     }
     console.log("Processed tagsArray:", tagsArray);
 
-    if (
-      !Title ||
-      !BasePrice ||
-      !DepositAmount ||
-      !Quantity ||
-      !CategoryId ||
-      !ConditionId ||
-      !PriceUnitId
-    ) {
+    if (!Array.isArray(ImageUrls) || ImageUrls.length < 2) {
       throw new Error(
-        "Thiếu các trường bắt buộc: Title, BasePrice, DepositAmount, Quantity, CategoryId, ConditionId, PriceUnitId"
+        "Sản phẩm phải có ít nhất 2 hình ảnh: 1 ảnh chính và 1 ảnh phụ"
       );
+    }
+
+    if (!Title) {
+      throw new Error("Tiêu đề là bắt buộc");
+    }
+    if (
+      !BasePrice ||
+      isNaN(parseFloat(BasePrice)) ||
+      parseFloat(BasePrice) < 0
+    ) {
+      throw new Error("Giá cơ bản là bắt buộc và không được âm");
+    }
+    if (
+      !DepositAmount ||
+      isNaN(parseFloat(DepositAmount)) ||
+      parseFloat(DepositAmount) < 0
+    ) {
+      throw new Error("Số tiền đặt cọc là bắt buộc và không được âm");
+    }
+    if (!Quantity || isNaN(parseInt(Quantity)) || parseInt(Quantity) < 1) {
+      throw new Error("Số lượng là bắt buộc và phải lớn hơn hoặc bằng 1");
+    }
+    if (!CategoryId || !mongoose.Types.ObjectId.isValid(CategoryId)) {
+      throw new Error("Danh mục là bắt buộc và phải hợp lệ");
+    }
+    if (!ConditionId || isNaN(parseInt(ConditionId))) {
+      throw new Error("Tình trạng là bắt buộc");
+    }
+    if (!PriceUnitId || isNaN(parseInt(PriceUnitId))) {
+      throw new Error("Đơn vị giá là bắt buộc  ");
+    }
+    if (!Description || Description.trim().length === 0) {
+      throw new Error("Mô tả là bắt buộc");
+    }
+    if (
+      !MinRentalDuration ||
+      isNaN(parseInt(MinRentalDuration)) ||
+      parseInt(MinRentalDuration) <= 0
+    ) {
+      throw new Error("Thời gian thuê tối thiểu là bắt buộc và phải lớn hơn 0");
+    }
+    if (
+      !MaxRentalDuration ||
+      isNaN(parseInt(MaxRentalDuration)) ||
+      parseInt(MaxRentalDuration) <= 0
+    ) {
+      throw new Error("Thời gian thuê tối đa là bắt buộc và phải lớn hơn 0");
     }
 
     const parsedQuantity = parseInt(Quantity);
@@ -96,27 +164,13 @@ const addProduct = async (req, res) => {
     const parsedCategoryId = new mongoose.Types.ObjectId(CategoryId);
     const parsedConditionId = parseInt(ConditionId);
     const parsedPriceUnitId = parseInt(PriceUnitId);
-    const parsedMinDuration = MinRentalDuration
-      ? parseInt(MinRentalDuration)
-      : null;
-    const parsedMaxDuration = MaxRentalDuration
-      ? parseInt(MaxRentalDuration)
-      : null;
+    const parsedMinDuration = parseInt(MinRentalDuration);
+    const parsedMaxDuration = parseInt(MaxRentalDuration);
 
-    if (
-      parsedQuantity < 1 ||
-      parsedBasePrice <= 0 ||
-      parsedDepositAmount <= 0
-    ) {
-      throw new Error("Giá trị không hợp lệ");
-    }
-
-    if (
-      parsedMinDuration &&
-      parsedMaxDuration &&
-      parsedMinDuration > parsedMaxDuration
-    ) {
-      throw new Error("MinRentalDuration không thể vượt quá MaxRentalDuration");
+    if (parsedMinDuration > parsedMaxDuration) {
+      throw new Error(
+        "Thời gian thuê tối thiểu không thể vượt quá thời gian thuê tối đa"
+      );
     }
 
     const category = await Categories.findById(parsedCategoryId).session(
@@ -176,8 +230,16 @@ const addProduct = async (req, res) => {
     const item = newItem[0];
     success = true;
 
+    if (Address && City && District) {
+      try {
+        await saveUserAddress(ownerId, Address, City, District, session);
+      } catch (addrError) {
+        console.warn("Lưu địa chỉ thất bại, tiếp tục:", addrError.message);
+      }
+    }
+
     let images = [];
-    if (Array.isArray(ImageUrls) && ImageUrls.length > 0) {
+    if (Array.isArray(ImageUrls) && ImageUrls.length >= 2) {
       try {
         for (let i = 0; i < ImageUrls.length; i++) {
           const url = ImageUrls[i];
@@ -197,9 +259,15 @@ const addProduct = async (req, res) => {
           );
           images.push(image[0]);
         }
+        const hasPrimary = images.some((img) => img.IsPrimary);
+        if (!hasPrimary || images.length < 2) {
+          throw new Error(
+            "Không thể set ảnh chính và phụ - vui lòng cung cấp ít nhất 2 hình ảnh hợp lệ"
+          );
+        }
       } catch (imgError) {
         console.warn(
-          "Images creation partial fail, continuing:",
+          "Tạo hình ảnh thất bại :",
           imgError.message
         );
       }
@@ -207,7 +275,7 @@ const addProduct = async (req, res) => {
 
     // Process tags
     if (tagsArray.length > 0) {
-      await ItemTag.deleteMany({ ItemId: item._id }, { session }); // Hard delete all existing ItemTags
+      await ItemTag.deleteMany({ ItemId: item._id }, { session });
 
       for (let tagName of tagsArray) {
         const trimmedName = tagName.trim();
@@ -320,17 +388,9 @@ const addProduct = async (req, res) => {
       }
     }
     console.error("Lỗi khi tạo sản phẩm:", error);
-    if (!success) {
-      return res.status(500).json({
-        success: false,
-        message: error.message || "Lỗi server khi tạo sản phẩm",
-      });
-    }
-    res.status(201).json({
-      success: true,
-      message:
-        "Sản phẩm được tạo, một số phụ kiện (tags/images) có vấn đề nhỏ.",
-      data: { itemId: req.body.ItemId || "partial" },
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Lỗi server khi tạo sản phẩm",
     });
   } finally {
     session.endSession();
@@ -359,6 +419,11 @@ const updateProduct = async (req, res) => {
       throw new Error(
         "Sản phẩm không tồn tại hoặc bạn không có quyền chỉnh sửa"
       );
+    }
+
+    // Xóa ItemReject nếu trước đó rejected
+    if (existingItem.StatusId === 3) {
+      await ItemReject.deleteOne({ ItemId: id });
     }
 
     let {
@@ -404,18 +469,73 @@ const updateProduct = async (req, res) => {
     }
     console.log("Processed tagsArray for update:", tagsArray);
 
-    if (
-      !Title ||
-      !BasePrice ||
-      !DepositAmount ||
-      !Quantity ||
-      !CategoryId ||
-      !ConditionId ||
-      !PriceUnitId
-    ) {
-      throw new Error(
-        "Thiếu các trường bắt buộc: Title, BasePrice, DepositAmount, Quantity, CategoryId, ConditionId, PriceUnitId"
+    let currentImageCount = await ItemImages.countDocuments({
+      ItemId: id,
+      IsDeleted: false,
+    }).session(session);
+    if (Array.isArray(ImageUrls) && ImageUrls.length > 0) {
+      if (ImageUrls.length < 2) {
+        throw new Error(
+          "Nếu cập nhật hình ảnh, phải cung cấp ít nhất 2 hình ảnh: 1 ảnh chính và 1 ảnh phụ"
+        );
+      }
+      const validImages = ImageUrls.filter(
+        (url) => typeof url === "string" && url.trim()
       );
+      if (validImages.length < 2) {
+        throw new Error(
+          "Sản phẩm phải có ít nhất 2 hình ảnh: 1 ảnh chính và 1 ảnh phụ"
+        );
+      }
+    } else if (currentImageCount < 2) {
+      throw new Error(
+        "Sản phẩm phải có ít nhất 2 hình ảnh: 1 ảnh chính và 1 ảnh phụ"
+      );
+    }
+
+    if (!Title) {
+      throw new Error("Tiêu đề là bắt buộc");
+    }
+    if (
+      !BasePrice ||
+      isNaN(parseFloat(BasePrice)) ||
+      parseFloat(BasePrice) < 0
+    ) {
+      throw new Error("Giá cơ bản là bắt buộc và không được âm");
+    }
+    if (
+      !DepositAmount ||
+      isNaN(parseFloat(DepositAmount)) ||
+      parseFloat(DepositAmount) < 0
+    ) {
+      throw new Error("Số tiền đặt cọc là bắt buộc và không được âm");
+    }
+    if (!Quantity || isNaN(parseInt(Quantity)) || parseInt(Quantity) < 1) {
+      throw new Error("Số lượng là bắt buộc và phải lớn hơn hoặc bằng 1");
+    }
+    if (!CategoryId || !mongoose.Types.ObjectId.isValid(CategoryId)) {
+      throw new Error("Danh mục là bắt buộc và phải hợp lệ");
+    }
+    if (!ConditionId || isNaN(parseInt(ConditionId))) {
+      throw new Error("Tình trạng là bắt buộc");
+    }
+    if (!PriceUnitId || isNaN(parseInt(PriceUnitId))) {
+      throw new Error("Đơn vị giá là bắt buộc");
+    }
+    if (!Description || Description.trim().length === 0) {
+      throw new Error("Mô tả là bắt buộc");
+    }
+    const finalMinDuration = MinRentalDuration
+      ? parseInt(MinRentalDuration)
+      : existingItem.MinRentalDuration;
+    if (!finalMinDuration || finalMinDuration <= 0) {
+      throw new Error("Thời gian thuê tối thiểu là bắt buộc và phải lớn hơn 0");
+    }
+    const finalMaxDuration = MaxRentalDuration
+      ? parseInt(MaxRentalDuration)
+      : existingItem.MaxRentalDuration;
+    if (!finalMaxDuration || finalMaxDuration <= 0) {
+      throw new Error("Thời gian thuê tối đa là bắt buộc và phải lớn hơn 0");
     }
 
     const parsedQuantity = parseInt(Quantity);
@@ -424,27 +544,13 @@ const updateProduct = async (req, res) => {
     const parsedCategoryId = new mongoose.Types.ObjectId(CategoryId);
     const parsedConditionId = parseInt(ConditionId);
     const parsedPriceUnitId = parseInt(PriceUnitId);
-    const parsedMinDuration = MinRentalDuration
-      ? parseInt(MinRentalDuration)
-      : existingItem.MinRentalDuration;
-    const parsedMaxDuration = MaxRentalDuration
-      ? parseInt(MaxRentalDuration)
-      : existingItem.MaxRentalDuration;
+    const parsedMinDuration = finalMinDuration;
+    const parsedMaxDuration = finalMaxDuration;
 
-    if (
-      parsedQuantity < 1 ||
-      parsedBasePrice <= 0 ||
-      parsedDepositAmount <= 0
-    ) {
-      throw new Error("Giá trị không hợp lệ");
-    }
-
-    if (
-      parsedMinDuration &&
-      parsedMaxDuration &&
-      parsedMinDuration > parsedMaxDuration
-    ) {
-      throw new Error("MinRentalDuration không thể vượt quá MaxRentalDuration");
+    if (parsedMinDuration > parsedMaxDuration) {
+      throw new Error(
+        "Thời gian thuê tối thiểu không thể vượt quá thời gian thuê tối đa"
+      );
     }
 
     const category = await Categories.findById(parsedCategoryId).session(
@@ -484,6 +590,7 @@ const updateProduct = async (req, res) => {
       Currency,
       Quantity: parsedQuantity,
       AvailableQuantity: parsedQuantity,
+      StatusId: 1,
       Address,
       City,
       District,
@@ -496,6 +603,22 @@ const updateProduct = async (req, res) => {
       session,
     });
     success = true;
+
+    // Lưu địa chỉ mới nếu thay đổi
+    if (
+      Address &&
+      City &&
+      District &&
+      (Address !== existingItem.Address ||
+        City !== existingItem.City ||
+        District !== existingItem.District)
+    ) {
+      try {
+        await saveUserAddress(userId, Address, City, District, session);
+      } catch (addrError) {
+        console.warn("Lưu địa chỉ thất bại, tiếp tục:", addrError.message);
+      }
+    }
 
     let images = [];
     if (Array.isArray(ImageUrls) && ImageUrls.length > 0) {
@@ -541,10 +664,29 @@ const updateProduct = async (req, res) => {
           );
           images.push(image[0]);
         }
+
+        const hasPrimary = images.some((img) => img.IsPrimary);
+        if (!hasPrimary || images.length < 2) {
+          throw new Error(
+            "Không thể cập nhật ảnh chính và phụ - vui lòng cung cấp ít nhất 2 hình ảnh hợp lệ"
+          );
+        }
       } catch (imgError) {
         console.warn(
           "Images update partial fail, continuing:",
           imgError.message
+        );
+      }
+    } else {
+      images = await ItemImages.find({
+        ItemId: updatedItem._id,
+        IsDeleted: false,
+      })
+        .sort({ Ordinal: 1 })
+        .session(session);
+      if (images.length < 2) {
+        throw new Error(
+          "Sản phẩm hiện tại không đủ 2 hình ảnh - vui lòng cập nhật thêm"
         );
       }
     }
@@ -657,13 +799,13 @@ const updateProduct = async (req, res) => {
       Category: categoryDetail,
       Condition: conditionDetail,
       Owner: ownerDetail,
-      Images: imagesDetail || images, // Fallback to new images if query fails
+      Images: imagesDetail || images,
       Tags: itemTagsDetail,
     };
 
     res.status(200).json({
       success: true,
-      message: "Cập nhật sản phẩm thành công",
+      message: "Sản phẩm đã được cập nhật thành công và đang chờ phê duyệt.",
       data: itemWithDetails,
     });
   } catch (error) {
@@ -675,20 +817,112 @@ const updateProduct = async (req, res) => {
       }
     }
     console.error("Lỗi cập nhật sản phẩm:", error);
-    if (!success) {
-      return res.status(500).json({
-        success: false,
-        message: error.message || "Lỗi server khi cập nhật sản phẩm",
-      });
-    }
-    res.status(200).json({
-      success: true,
-      message:
-        "Cập nhật sản phẩm một phần thành công, một số phụ kiện có vấn đề nhỏ.",
-      data: { itemId: id },
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Lỗi server khi cập nhật sản phẩm",
     });
   } finally {
     session.endSession();
+  }
+};
+
+const setDefaultAddress = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  let success = false;
+  let committed = false;
+  try {
+    const userId = req.user._id;
+    const { Address, City, District } = req.body;
+
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      throw new Error("UserId không hợp lệ");
+    }
+
+    if (!Address || !Address.trim()) {
+      throw new Error("Địa chỉ là bắt buộc");
+    }
+    if (!City || !City.trim()) {
+      throw new Error("Thành phố là bắt buộc");
+    }
+    if (!District || !District.trim()) {
+      throw new Error("Xã/Phường là bắt buộc");
+    }
+
+    const query = {
+      UserId: userId,
+      Address: Address.trim(),
+      City: City.trim(),
+      District: District.trim(),
+    };
+
+    let addressDoc = await ItemAddress.findOne(query).session(session);
+    if (!addressDoc) {
+      addressDoc = new ItemAddress({
+        ...query,
+        IsDefault: true,
+      });
+      addressDoc = await addressDoc.save({ session });
+    } else {
+      addressDoc.IsDefault = true;
+      addressDoc.UpdatedAt = new Date();
+      addressDoc = await addressDoc.save({ session });
+    }
+
+    await ItemAddress.updateMany(
+      { UserId: userId, _id: { $ne: addressDoc._id } },
+      { IsDefault: false },
+      { session }
+    );
+
+    await session.commitTransaction();
+    committed = true;
+
+    success = true;
+
+    res.status(200).json({
+      success: true,
+      message: "Đặt địa chỉ mặc định thành công",
+      data: { addressId: addressDoc._id },
+    });
+  } catch (error) {
+    if (!committed) {
+      try {
+        await session.abortTransaction();
+      } catch (abortError) {
+        console.error("Abort transaction error:", abortError);
+      }
+    }
+    console.error("Lỗi đặt địa chỉ mặc định:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Lỗi server khi đặt địa chỉ mặc định",
+    });
+  } finally {
+    session.endSession();
+  }
+};
+
+const getUserAddresses = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "UserId không hợp lệ" });
+    }
+
+    const addresses = await ItemAddress.find({ UserId: userId })
+      .sort({ IsDefault: -1, CreatedAt: -1 })
+      .select("Address City District IsDefault")
+      .lean();
+
+    res.json({
+      success: true,
+      data: addresses || [],
+    });
+  } catch (error) {
+    console.error("Error in getUserAddresses:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 
@@ -752,7 +986,7 @@ const deleteProduct = async (req, res) => {
             PrimaryKeyValue: id.toString(),
             Operation: "DELETE",
             ChangedByUserId: userId,
-            ChangeSummary: `Deleted product: ${existingItem.Title}`,
+            ChangeSummary: `Đã xóa sản phẩm: ${existingItem.Title}`,
           },
         ],
         { session }
@@ -778,17 +1012,9 @@ const deleteProduct = async (req, res) => {
       }
     }
     console.error("Lỗi xóa sản phẩm:", error);
-    if (!success) {
-      return res.status(500).json({
-        success: false,
-        message: error.message || "Lỗi server khi xóa sản phẩm",
-      });
-    }
-    res.status(200).json({
-      success: true,
-      message:
-        "Xóa sản phẩm một phần thành công, một số phụ kiện có vấn đề nhỏ.",
-      data: { deletedItemId: id },
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Lỗi server khi xóa sản phẩm",
     });
   } finally {
     session.endSession();
@@ -909,17 +1135,9 @@ const getUserProducts = async (req, res) => {
     });
   } catch (error) {
     console.error("Lỗi lấy sản phẩm của người dùng:", error);
-    if (!success) {
-      return res.status(500).json({
-        success: false,
-        message: error.message || "Lỗi server khi lấy sản phẩm của người dùng",
-      });
-    }
-    res.status(200).json({
-      success: true,
-      message:
-        "Lấy sản phẩm một phần thành công, một số phụ kiện có vấn đề nhỏ.",
-      data: { items: [] },
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Lỗi server khi lấy sản phẩm của người dùng",
     });
   }
 };
@@ -1005,16 +1223,9 @@ const getProductById = async (req, res) => {
     });
   } catch (error) {
     console.error("Lỗi lấy chi tiết sản phẩm:", error);
-    if (!success) {
-      return res.status(500).json({
-        success: false,
-        message: error.message || "Lỗi server khi lấy chi tiết sản phẩm",
-      });
-    }
-    res.status(200).json({
-      success: true,
-      message: "Lấy chi tiết sản phẩm một phần thành công.",
-      data: null,
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Lỗi server khi lấy chi tiết sản phẩm",
     });
   }
 };
@@ -1025,4 +1236,6 @@ module.exports = {
   deleteProduct,
   getUserProducts,
   getProductById,
+  getUserAddresses,
+  setDefaultAddress,
 };

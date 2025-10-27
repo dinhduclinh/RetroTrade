@@ -90,7 +90,7 @@ const AddBlogForm: React.FC<AddBlogFormProps> = ({
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  // 🖼️ Upload ảnh
+  
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     setForm((prev) => ({
@@ -109,7 +109,7 @@ const AddBlogForm: React.FC<AddBlogFormProps> = ({
     }));
   };
 
-  // 🚀 Gửi form
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title.trim() || !form.content.trim()) {
