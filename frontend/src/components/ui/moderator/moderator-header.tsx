@@ -5,6 +5,7 @@ import { Bell, Search, User, LogOut, Settings, Activity, Home } from "lucide-rea
 import { Button } from "@/components/ui/common/button"
 import { Input } from "@/components/ui/common/input"
 import { Badge } from "@/components/ui/common/badge"
+import { NotificationIcon } from "@/components/ui/common/notification-icon"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,7 +35,6 @@ export function ModeratorHeader() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userInfo, setUserInfo] = useState<DecodedToken | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [notifications] = useState(3); // Mock notification count
   const router = useRouter();
   const dispatch = useDispatch();
 
@@ -132,21 +132,9 @@ export function ModeratorHeader() {
           </div>
 
           {/* Notifications */}
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="relative text-white hover:bg-white/10 transition-all duration-200 hover:scale-105"
-          >
-            <Bell className="w-5 h-5" />
-            {notifications > 0 && (
-              <Badge 
-                variant="destructive" 
-                className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
-              >
-                {notifications}
-              </Badge>
-            )}
-          </Button>
+          <div className="text-white">
+            <NotificationIcon className="text-white hover:text-white/80" />
+          </div>
 
           {/* User menu */}
           {isLoggedIn && userInfo ? (

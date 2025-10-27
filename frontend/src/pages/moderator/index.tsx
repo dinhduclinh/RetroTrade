@@ -10,7 +10,7 @@ import { ModeratorSidebar } from "@/components/ui/moderator/moderator-sidebar";
 import { ModeratorHeader } from "@/components/ui/moderator/moderator-header";
 import { ModeratorStats } from "@/components/ui/moderator/moderator-stats";
 
-import { RequestManagementTable } from "@/components/ui/moderator/request-management-table";
+import { RequestManagementTable } from "@/components/ui/moderator/request-managemment-table";
 import { VerificationQueue } from "@/components/ui/moderator/verification-queue";
 import { BlogManagementTable } from "@/components/ui/moderator/blog/blog-management-table";
 import { CommentManagementTable } from "@/components/ui/moderator/blog/comment-management-table";
@@ -199,9 +199,7 @@ export default function ModeratorDashboard() {
         case "posts":
           return <BlogManagementTable />;
         case "categories":
-          return (
-           <CategoryManagementTable/>
-          );
+          return <CategoryManagementTable />;
         case "comments":
           return <CommentManagementTable />;
         case "tags":
@@ -226,7 +224,7 @@ export default function ModeratorDashboard() {
       case "dashboard":
         return <DashboardOverview />;
       case "users":
-      
+
       case "requests":
         return <RequestManagementTable />;
       case "verification":

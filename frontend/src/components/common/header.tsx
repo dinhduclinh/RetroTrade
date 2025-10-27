@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { Button } from "@/components/ui/common/button";
 import { LogOut, User, Package, Settings, Shield, Crown, Moon, Sun } from "lucide-react";
+  import { NotificationIcon } from "@/components/ui/common/notification-icon";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -220,25 +221,28 @@ export function Header() {
           <div className="flex items-center gap-4">
             {/* Giỏ hàng - chỉ hiển thị khi đã đăng nhập */}
             {isLoggedIn && (
-              <Button
-                onClick={() => router.push("/auth/cartitem")}
-                variant="ghost"
-                size="icon"
-                className="relative"
-              >
-                <Image
-                  src="/market.png"
-                  alt="Retro Trade Logo"
-                  width={25}
-                  height={25}
-                  className="rounded-lg"
-                />
-                {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                    {cartCount}
-                  </span>
-                )}
-              </Button>
+              <>
+                <Button
+                  onClick={() => router.push("/auth/cartitem")}
+                  variant="ghost"
+                  size="icon"
+                  className="relative"
+                >
+                  <Image
+                    src="/market.png"
+                    alt="Retro Trade Logo"
+                    width={25}
+                    height={25}
+                    className="rounded-lg"
+                  />
+                  {cartCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                      {cartCount}
+                    </span>
+                  )}
+                </Button>
+                <NotificationIcon />
+              </>
             )}
 
             {isLoggedIn && userInfo ? (

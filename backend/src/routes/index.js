@@ -10,6 +10,8 @@ const uploadproductRouter = require("./products/upload/upload.routes");
 const userRouter = require("./user/user.router")
 const blogRoutes = require("../routes/blog/post.routes");
 const cartItemRouter = require("./order/cartItem.routes");
+const notificationRouter = require("./community/notification.routes");
+const ownerRequestRouter = require("./moderator/ownerRequest.routes");
 const orderRouter = require("./order/order.routes");
 
 module.exports = (app) => {
@@ -25,5 +27,7 @@ module.exports = (app) => {
     
     app.use(api + "/post", blogRoutes);
     app.use(api + "/cart", cartItemRouter);
+    app.use(api + "/notifications", notificationRouter);
+    app.use(api + "/owner-requests", ownerRequestRouter);
     app.use(api + "/order", orderRouter);
 }

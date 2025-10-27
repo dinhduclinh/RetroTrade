@@ -206,7 +206,6 @@ export function ModeratorSidebar({
 
   return (
     <>
-    
       <Button
         variant="ghost"
         size="icon"
@@ -220,7 +219,6 @@ export function ModeratorSidebar({
         )}
       </Button>
 
-    
       <div
         className={`fixed left-0 top-0 h-full w-72 bg-white/10 backdrop-blur-md border-r border-white/20 z-20
           transform transition-transform duration-300 ease-in-out
@@ -238,7 +236,6 @@ export function ModeratorSidebar({
             </div>
           </div>
 
-       
           <nav className="space-y-3 flex-1">
             {menuItems.map((item) => {
               const Icon = item.icon;
@@ -299,7 +296,6 @@ export function ModeratorSidebar({
                     </div>
                   </Button>
 
-             
                   {isProduct &&
                     renderSubmenu(
                       item,
@@ -310,7 +306,6 @@ export function ModeratorSidebar({
                       handleProductTabChange
                     )}
 
-                
                   {isBlog &&
                     renderSubmenu(
                       item,
@@ -329,7 +324,6 @@ export function ModeratorSidebar({
         </div>
       </div>
 
-    
       {isMobileMenuOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-10 lg:hidden"
