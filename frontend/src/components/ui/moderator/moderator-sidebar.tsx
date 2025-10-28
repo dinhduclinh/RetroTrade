@@ -13,11 +13,23 @@ import {
 import { Button } from "@/components/ui/common/button";
 
 interface ModeratorSidebarProps {
-  activeTab: "dashboard" | "requests" | "verification" | "blog" | "productManagement";
-  activeProductTab: "products" | "categories";
+  activeTab:
+    | "dashboard"
+    | "requests"
+    | "verification"
+    | "blog"
+    | "productManagement";
+  activeProductTab?: "products" | "categories" | "highlights";
   activeBlogTab: "posts" | "categories" | "comments" | "tags";
-  onTabChange: (tab: "dashboard" | "requests" | "verification" | "blog" | "productManagement") => void;
-  onProductTabChange: (tab: "products" | "categories") => void;
+  onTabChange: (
+    tab:
+      | "dashboard"
+      | "requests"
+      | "verification"
+      | "blog"
+      | "productManagement"
+  ) => void;
+  onProductTabChange: (tab: "products" | "categories" | "highlights") => void;
   onBlogTabChange: (tab: "posts" | "categories" | "comments" | "tags") => void;
 }
 
@@ -72,6 +84,7 @@ export function ModeratorSidebar({
   const productSubItems = [
     { id: "products", label: "Sản phẩm chờ duyệt", path: "products" },
     { id: "categories", label: "Danh mục", path: "categories" },
+    { id: "highlights", label: "Top sản phẩm nổi bật", path: "highlights" },
   ];
 
   return (
@@ -93,7 +106,8 @@ export function ModeratorSidebar({
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
-            const hasSubItems = item.id === "blog" || item.id === "productManagement";
+            const hasSubItems =
+              item.id === "blog" || item.id === "productManagement";
 
             return (
               <div key={item.id}>
@@ -162,4 +176,3 @@ export function ModeratorSidebar({
     </aside>
   );
 }
-

@@ -11,11 +11,6 @@ import {
   X,
   ArrowUpDown,
   Loader2,
-  MapPin,
-  Clock,
-  Users,
-  Hash,
-  DollarSign,
 } from "lucide-react";
 import {
   getPendingProducts,
@@ -23,6 +18,7 @@ import {
   approveProduct,
   rejectProduct,
 } from "@/services/products/product.api";
+import ProductDetail from "./product-detail";
 
 interface PendingProduct {
   id: string;
@@ -35,6 +31,7 @@ interface PendingProduct {
   currency: string;
   priceUnitName?: string;
   createdAt: string;
+  createdAtTimestamp: number;
   status: "pending";
 }
 
@@ -95,7 +92,7 @@ export default function PendingProductsManager() {
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [pagination, setPagination] = useState<PaginationState>({
     currentPage: 1,
-    itemsPerPage: 10,
+    itemsPerPage: 5,
   });
   const [sort, setSort] = useState<SortState>({
     field: "createdAt",
@@ -116,24 +113,26 @@ export default function PendingProductsManager() {
       const data = apiData.data || [];
       if (!Array.isArray(data)) throw new Error("Dữ liệu không hợp lệ");
       const processedData = data
-        .map((item) => ({
-          id: item._id || item.id || "",
-          title: item.Title || item.title || "",
-          ownerId: item.ownerId || item.OwnerId || "",
-          ownerName: item.ownerName || "",
-          thumbnailUrl:
-            item.thumbnailUrl ||
-            item.images?.[0]?.url ||
-            "/placeholder-image.jpg",
-          categoryName: item.categoryName || "N/A",
-          basePrice: item.basePrice || item.BasePrice || 0,
-          currency: item.currency || "VND",
-          priceUnitName: item.priceUnitName || "N/A",
-          createdAt:
-            item.createdAt ||
-            new Date(item.CreatedAt).toLocaleDateString("vi-VN"),
-          status: "pending" as const,
-        }))
+        .map((item) => {
+          const createdDate = new Date(item.createdAt || item.CreatedAt);
+          return {
+            id: item._id || item.id || "",
+            title: item.Title || item.title || "",
+            ownerId: item.ownerId || item.OwnerId || "",
+            ownerName: item.ownerName || "",
+            thumbnailUrl:
+              item.thumbnailUrl ||
+              item.images?.[0]?.url ||
+              "/placeholder-image.jpg",
+            categoryName: item.categoryName || "N/A",
+            basePrice: item.basePrice || item.BasePrice || 0,
+            currency: item.currency || "VND",
+            priceUnitName: item.priceUnitName || "N/A",
+            createdAt: createdDate.toLocaleDateString("vi-VN"),
+            createdAtTimestamp: createdDate.getTime(),
+            status: "pending" as const,
+          };
+        })
         .filter((p) => p.id);
       setProducts(processedData);
     } catch (err) {
@@ -158,9 +157,7 @@ export default function PendingProductsManager() {
     filtered.sort((a, b) => {
       let cmp: number;
       if (sort.field === "createdAt") {
-        const aDate = new Date(a.createdAt);
-        const bDate = new Date(b.createdAt);
-        cmp = aDate.getTime() - bDate.getTime();
+        cmp = a.createdAtTimestamp - b.createdAtTimestamp;
       } else if (sort.field === "basePrice") {
         cmp = a.basePrice - b.basePrice;
       } else {
@@ -556,16 +553,16 @@ export default function PendingProductsManager() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-white">
+                    <td className="px-4 py-4 whitespace-nowrap max-w-48">
+                      <div className="text-sm font-medium text-white truncate">
                         {product.title}
                       </div>
-                      <div className="text-xs text-white/70">
+                      <div className="text-xs text-white/70 truncate">
                         {product.categoryName}
                       </div>
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <div className="text-sm text-white">
+                    <td className="px-4 py-4 whitespace-nowrap max-w-32">
+                      <div className="text-sm text-white truncate">
                         {product.ownerName || product.ownerId}
                       </div>
                     </td>
@@ -573,8 +570,10 @@ export default function PendingProductsManager() {
                       {product.basePrice.toLocaleString()} {product.currency}/
                       {product.priceUnitName}
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-white/70">
-                      {product.createdAt}
+                    <td className="px-4 py-4 whitespace-nowrap max-w-32">
+                      <div className="text-sm text-white/70 truncate">
+                        {product.createdAt}
+                      </div>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
                       <span className="text-xs font-semibold px-3 py-1 rounded-full bg-yellow-900/20 text-yellow-400 border border-yellow-400/30">
@@ -619,184 +618,17 @@ export default function PendingProductsManager() {
               <p>Không tìm thấy sản phẩm chờ duyệt nào</p>
             </div>
           )}
-          {total > pagination.itemsPerPage && <Pagination />}
         </div>
+        <Pagination />
       </div>
 
-      {/* Details Modal */}
-      {showDetailsModal && productDetails && (
-        <div className="fixed inset-0 bg-black/70 z-50 p-4 flex items-center justify-center">
-          <div className="bg-white/10 backdrop-blur-md border-white/20 rounded-lg w-full max-w-6xl max-h-[95vh] flex flex-col">
-            {/* Header */}
-            <div className="sticky top-0 bg-white/10 border-b border-white/20 px-6 py-4 flex justify-between items-center z-10">
-              <h2 className="text-xl font-bold text-white">
-                Chi tiết sản phẩm
-              </h2>
-              <button
-                onClick={() => setShowDetailsModal(false)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              >
-                <X size={20} className="text-white/70" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-                <div className="relative">
-                  <div className="relative">
-                    <Image
-                      src={
-                        productDetails.images.find((img) => img.isPrimary)
-                          ?.url ||
-                        productDetails.images[0]?.url ||
-                        "/placeholder.jpg"
-                      }
-                      alt={productDetails.title || "Product image"}
-                      width={800}
-                      height={400}
-                      className="w-full h-64 object-cover rounded-lg border border-white/20"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = "/placeholder.jpg";
-                      }}
-                    />
-                  </div>
-                  {productDetails.images.length > 1 && (
-                    <div className="flex gap-2 mt-4 overflow-x-auto pb-2">
-                      {productDetails.images.map((img, idx) => (
-                        <div key={idx} className="relative flex-shrink-0">
-                          <Image
-                            src={img.url || "/placeholder-image.jpg"}
-                            alt={`Thumbnail ${idx + 1}`}
-                            width={80}
-                            height={80}
-                            className="w-20 h-20 object-cover rounded border border-white/20 hover:border-blue-400 transition-colors cursor-pointer"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.src = "/placeholder-image.jpg"; 
-                            }}
-                          />
-
-                          {img.isPrimary && (
-                            <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs px-1 py-0.5 rounded">
-                              Chính
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Title & Basic Info */}
-                <div className="space-y-4">
-                  <h1 className="text-2xl font-bold text-white">
-                    {productDetails.title}
-                  </h1>
-                  <div className="flex items-center gap-2 text-yellow-400">
-                    <Hash size={16} />
-                    <span className="text-sm">
-                      {productDetails.categoryName}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-emerald-400">
-                    <Users size={16} />
-                    <span className="text-sm">
-                      Chủ sở hữu: {productDetails.ownerName}
-                    </span>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <DollarSign size={16} />
-                      <span className="text-lg font-semibold text-white">
-                        {productDetails.basePrice.toLocaleString()}{" "}
-                        {productDetails.currency}/{productDetails.priceUnitName}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-white/70">
-                      <Clock size={16} />
-                      <span>
-                        Thời hạn: {productDetails.minRentalDuration} -{" "}
-                        {productDetails.maxRentalDuration}{" "}
-                        {productDetails.priceUnitName}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-white/70">
-                      <Users size={16} />
-                      <span>
-                        Số lượng: {productDetails.availableQuantity}/
-                        {productDetails.quantity}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Description */}
-              {productDetails.shortDescription && (
-                <div>
-                  <h3 className="text-lg font-semibold text-white mb-2">
-                    Mô tả ngắn
-                  </h3>
-                  <p className="text-white/70">
-                    {productDetails.shortDescription}
-                  </p>
-                </div>
-              )}
-              {productDetails.description && (
-                <div>
-                  <h3 className="text-lg font-semibold text-white mb-2">
-                    Mô tả chi tiết
-                  </h3>
-                  <div className="prose prose-invert max-w-none bg-white/5 p-4 rounded-lg text-white">
-                    <div
-                      className="text-white"
-                      dangerouslySetInnerHTML={{
-                        __html: productDetails.description,
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-                <div className="bg-white/5 p-4 rounded-lg">
-                  <h4 className="text-sm font-semibold text-white/70 mb-2 flex items-center gap-2">
-                    <DollarSign size={16} /> Tiền đặt cọc
-                  </h4>
-                  <p className="text-white text-lg">
-                    {productDetails.depositAmount.toLocaleString()}{" "}
-                    {productDetails.currency}
-                  </p>
-                </div>
-                <div className="bg-white/5 p-4 rounded-lg">
-                  <h4 className="text-sm font-semibold text-white/70 mb-2 flex items-center gap-2">
-                    Tình trạng
-                  </h4>
-                  <p className="text-white">{productDetails.conditionName}</p>
-                </div>
-                <div className="bg-white/5 p-4 rounded-lg">
-                  <h4 className="text-sm font-semibold text-white/70 mb-2 flex items-center gap-2">
-                    <MapPin size={16} /> Vị trí
-                  </h4>
-                  <p className="text-white">
-                    {productDetails.district || "N/A"},{" "}
-                    {productDetails.city || "N/A"}
-                  </p>
-                </div>
-                <div className="bg-white/5 p-4 rounded-lg">
-                  <h4 className="text-sm font-semibold text-white/70 mb-2 flex items-center gap-2">
-                    <MapPin size={16} /> Địa chỉ chi tiết
-                  </h4>
-                  <p className="text-white">
-                    {productDetails.address || "Chưa cung cấp"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Product Detail Modal */}
+      <ProductDetail
+        isOpen={showDetailsModal}
+        onClose={() => setShowDetailsModal(false)}
+        productDetails={productDetails}
+        loading={detailsLoading}
+      />
 
       {/* Reject Modal*/}
       {showRejectModal && selectedProduct && (

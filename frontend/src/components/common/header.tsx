@@ -4,8 +4,9 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { Button } from "@/components/ui/common/button";
-import { LogOut, User, Package, Settings, Shield, Crown, Moon, Sun } from "lucide-react";
-  import { NotificationIcon } from "@/components/ui/common/notification-icon";
+import { LogOut, User, Package, Settings, Shield, Crown, Moon, Sun, Wallet } from "lucide-react";
+import { NotificationIcon } from "@/components/ui/common/notification-icon";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -302,6 +303,14 @@ export function Header() {
                     <Package className="mr-2 h-4 w-4" />
                     <span>Đơn hàng của tôi</span>
                   </DropdownMenuItem>
+
+                  {(userInfo?.role === 'renter' || userInfo?.role === 'owner') && (
+                    <DropdownMenuItem className="cursor-pointer" onClick={() => router.push('/wallet')}>
+                      <Wallet className="mr-2 h-4 w-4" />
+                      <span>Ví của tôi</span>
+                    </DropdownMenuItem>
+                  )}
+
 
 
                   {/* Render role-specific menu items */}

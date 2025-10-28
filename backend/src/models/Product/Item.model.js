@@ -66,5 +66,6 @@ itemSchema.index({ OwnerId: 1 });
 itemSchema.index({ CategoryId: 1 });
 itemSchema.index({ StatusId: 1 });
 itemSchema.index({ IsDeleted: 1 });
+itemSchema.index({ createdAt: -1, updatedAt: -1 });
 
 module.exports = mongoose.model("Item", itemSchema);
