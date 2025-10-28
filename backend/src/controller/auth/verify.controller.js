@@ -997,4 +997,3 @@ module.exports.verifyFaceImages = async (req, res) => {
     }
 };
 
-

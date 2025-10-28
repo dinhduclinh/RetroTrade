@@ -174,13 +174,12 @@ export default function ImageUpload({ images, setImages, onNext, onBack, isLoadi
       setIsVerifying(true);
       setVerificationError("");
 
-      // Prepare files for verification (user image and ID card front)
-      const verificationFiles = [images[0], images[1]]; // Ảnh cá nhân và mặt trước CCCD
+      // Prepare files for verification (user image, ID card front, and ID card back)
+      const verificationFiles = [images[0], images[1], images[2]]; // Ảnh cá nhân, mặt trước CCCD, mặt sau CCCD
 
-      // Call face verification API with files and phone number
+      // Call face verification API with files only (phone is already verified in steps 1-2)
       const verificationResult = await faceVerificationAPI.verifyFaceImages(
-        verificationFiles,
-        phoneNumber
+        verificationFiles
       );
 
       // Pass the result to parent component
