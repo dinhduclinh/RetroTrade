@@ -187,12 +187,12 @@ export default function ImageUpload({ images, setImages, onNext, onBack, isLoadi
     } catch (error) {
       console.error('Face verification error:', error);
       
-      // Provide more user-friendly error messages
+      // Provide more user-friendly error messages with helpful suggestions
       let errorMessage = "Có lỗi xảy ra khi xác minh khuôn mặt. Vui lòng thử lại.";
       
       if (error instanceof Error) {
-        if (error.message.includes('Không tìm thấy khuôn mặt')) {
-          errorMessage = "Không tìm thấy khuôn mặt trong ảnh. Vui lòng chụp lại ảnh rõ nét hơn và đảm bảo khuôn mặt được nhìn thấy rõ ràng.";
+        if (error.message.includes('Không tìm thấy khuôn mặt') || error.message.includes('Hệ thống không phát hiện')) {
+          errorMessage = error.message; // Use the detailed message from API
         } else if (error.message.includes('Thiếu hình ảnh')) {
           errorMessage = "Vui lòng tải lên đầy đủ ảnh cá nhân và CCCD.";
         } else if (error.message.includes('Số điện thoại')) {
@@ -511,9 +511,16 @@ export default function ImageUpload({ images, setImages, onNext, onBack, isLoadi
 
       {/* Verification Error */}
       {verificationError && (
-        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <AlertCircle className="w-4 h-4 text-red-600" />
-          <p className="text-red-600 text-sm font-medium">{verificationError}</p>
+        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h4 className="text-yellow-800 font-semibold mb-2">⚠️ Không thể xác minh khuôn mặt</h4>
+              <div className="text-yellow-700 text-sm whitespace-pre-line">
+                {verificationError}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

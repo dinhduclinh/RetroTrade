@@ -1,68 +1,101 @@
-import React from "react";
-import { MdOutlineChat } from "react-icons/md";
+import React, { useState, useMemo } from "react";
 import { useRouter } from "next/router";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store/redux_store";
+import ChatBox from "./chat/ChatBox";
+import { jwtDecode } from "jwt-decode";
+
+interface DecodedToken {
+  email: string;
+  userGuid?: string;
+  avatarUrl?: string;
+  fullName?: string;
+  _id?: string;
+  exp: number;
+  iat: number;
+}
 
 type ChatButtonProps = {
   badgeCount?: number;
 };
 
-const ChatButton: React.FC<ChatButtonProps> = ({ badgeCount = 1 }) => {
+const ChatFloatingButton: React.FC<ChatButtonProps> = ({ badgeCount = 0 }) => {
   const router = useRouter();
+  const { accessToken } = useSelector((state: RootState) => state.auth);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
-  const handleClick = () => {
-    router.push("/messages"); // Điều hướng đến page messages
+  // Decode user from token
+  const decodedUser = useMemo(() => {
+    if (typeof accessToken === "string" && accessToken.trim()) {
+      try {
+        const decoded = jwtDecode<DecodedToken>(accessToken);
+        return decoded;
+      } catch (error) {
+        console.error("Invalid token:", error);
+        return null;
+      }
+    }
+    return null;
+  }, [accessToken]);
+
+  const handleToggleChat = () => {
+    setIsChatOpen(!isChatOpen);
   };
 
+  // Don't show button if user not logged in
+  if (!decodedUser) {
+    return null;
+  }
+
   return (
-    <div
-      style={{
-        position: "fixed",
-        bottom: "24px",
-        right: "24px",
-        zIndex: 9999,
-        display: "flex",
-        alignItems: "center",
-        background: "linear-gradient(90deg, #0060df, #00ccff)",
-        borderRadius: "12px",
-        boxShadow: "0 2px 10px #0003",
-        padding: "8px 18px 8px 14px",
-        cursor: "pointer",
-        color: "#fff",
-        fontWeight: 500,
-        fontSize: 18,
-        userSelect: "none",
-      }}
-      onClick={handleClick}
-    >
-      <div style={{ position: "relative" }}>
-        <MdOutlineChat size={28} />
+    <>
+      {/* Floating Messages Button - Hide when chat is open */}
+      {!isChatOpen && (
+        <button
+          onClick={handleToggleChat}
+          className="fixed bottom-6 right-6 z-[9999] flex items-center gap-3 px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 group"
+        >
+        {/* Chat Icon */}
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+
+        {/* Text "Messages" */}
+        <span className="text-white font-medium text-sm group-hover:text-gray-100 transition-colors">
+          Messages
+        </span>
+
+        {/* Avatar */}
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center border-2 border-gray-700">
+          {decodedUser?.avatarUrl ? (
+            <img 
+              src={decodedUser.avatarUrl} 
+              alt={decodedUser.fullName || "User"} 
+              className="w-full h-full rounded-full object-cover"
+            />
+          ) : (
+            <span className="text-white text-sm font-semibold">
+              {decodedUser?.fullName?.charAt(0).toUpperCase() || decodedUser?.email?.charAt(0).toUpperCase() || "U"}
+            </span>
+          )}
+        </div>
+
+        {/* Badge */}
         {badgeCount > 0 && (
-          <span
-            style={{
-              position: "absolute",
-              top: -8,
-              right: -8,
-              background: "#ff4b5c",
-              borderRadius: "50%",
-              color: "#fff",
-              fontWeight: "bold",
-              fontSize: "0.92em",
-              width: 22,
-              height: 22,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              border: "2px solid white",
-              boxSizing: "border-box",
-            }}
-          >
-            {badgeCount}
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-gray-800">
+            {badgeCount > 9 ? "9+" : badgeCount}
           </span>
         )}
-      </div>
-      <span style={{ marginLeft: 10 }}>Chat</span>
-    </div>
+        </button>
+      )}
+
+      {/* Chat Popup */}
+      <ChatBox isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+    </>
   );
 };
 
-export default ChatButton;
+export default ChatFloatingButton;
+
+// Export as ChatButton for backward compatibility
+export { ChatFloatingButton as ChatButton };

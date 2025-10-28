@@ -58,10 +58,10 @@ export const faceVerificationAPI = {
           errorMessage = errorData.message || errorData.error || errorMessage;
           console.error('Face verification error details:', errorData);
           
-          // Provide more specific error messages
+          // Provide more specific and helpful error messages
           if (response.status === 400) {
             if (errorMessage.includes('Không tìm thấy khuôn mặt')) {
-              errorMessage = 'Không tìm thấy khuôn mặt trong ảnh. Vui lòng chụp lại ảnh rõ nét hơn.';
+              errorMessage = '⚠️ Hệ thống không phát hiện được khuôn mặt.\n\nGợi ý:\n• Đảm bảo ảnh rõ nét, đủ ánh sáng\n• Khuôn mặt nhìn thẳng vào camera\n• Ảnh CCCD phải chụp cận và rõ\n• Không che khuôn mặt (kính râm, khẩu trang)\n• Thử chụp lại với ảnh chất lượng cao hơn';
             } else if (errorMessage.includes('Thiếu hình ảnh')) {
               errorMessage = 'Vui lòng tải lên đầy đủ ảnh cá nhân và CCCD.';
             } else if (errorMessage.includes('Số điện thoại')) {

@@ -6,8 +6,12 @@ const {
   createConversation,
   getConversation
 } = require("../../controller/messages/messages.Controller");
+const { getStaff } = require("../../controller/messages/getStaff.controller");
 const { authenticateToken } = require("../../middleware/auth");
 const router = express.Router();
+
+// Staff routes
+router.get("/staff", authenticateToken, getStaff);
 
 // Conversation routes
 router.get("/conversations", authenticateToken, getConversations);

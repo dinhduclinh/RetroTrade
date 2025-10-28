@@ -1,10 +1,10 @@
 import Head from "next/head";
-import Image from "next/image";
 import { Button } from "@/components/ui/common/button";
 import { Badge } from "@/components/ui/common/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/common/card";
 import { Container } from "@/components/layout/Container";
 import { SectionHeading } from "@/components/ui/common/section-heading";
+import ChatButton from "@/components/common/chatbutton";
 import { 
   ArrowRight, 
   Shield, 
@@ -263,6 +263,9 @@ export default function Home() {
           </div>
         </Container>
       </section>
+
+      {/* Floating Chat Button */}
+      <ChatButton badgeCount={3} />
     </>
   );
 }
