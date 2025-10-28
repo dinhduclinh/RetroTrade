@@ -3,7 +3,7 @@ const { Types } = mongoose;
 const Order = require("../../models/Order/Order.model"); 
 const Item = require("../../models/Product/Item.model");
 const User = require("../../models/User.model");
-
+const ItemImages = require("../../models/Product/ItemImage.model");
 
 function daysBetween(startAt, endAt) {
   const msPerDay = 1000 * 60 * 60 * 24;
@@ -15,9 +15,10 @@ function daysBetween(startAt, endAt) {
 function calculateTotals(item, unitCount = 1, startAt, endAt) {
   const days = daysBetween(startAt, endAt);
   const pricePerDay = item.BasePrice || 0;
+  const subtotal = pricePerDay * unitCount * days;
   const depositAmount = (item.DepositAmount || 0) * unitCount;
-  const totalAmount = (pricePerDay * unitCount * days) + depositAmount;
-  const serviceFee = Math.round(totalAmount * 0.05); 
+  const serviceFee = Math.round(subtotal * 0.1); 
+   const totalAmount = (pricePerDay * unitCount * days) + depositAmount + serviceFee;
   return { totalAmount, depositAmount, serviceFee, days };
 }
 
@@ -35,85 +36,81 @@ module.exports = {
       const renterId = req.user._id || req.user.id;
       const {
         itemId,
-        unitCount = 1,
+        quantity = 1,
         startAt,
         endAt,
+        rentalStartDate,
+        rentalEndDate,
         paymentMethod = "Wallet",
+        shippingAddress,
         note = "",
       } = req.body;
 
-      if (!itemId || !startAt || !endAt) {
+      const finalStartAt = startAt || rentalStartDate;
+      const finalEndAt = endAt || rentalEndDate;
+
+      if (!itemId || !finalStartAt || !finalEndAt) {
         await session.abortTransaction();
-        return res.status(400).json({ message: "Missing required fields" });
+        return res.status(400).json({
+          message: "Missing required fields (itemId, startAt, endAt)",
+        });
       }
-      if (!Types.ObjectId.isValid(itemId)) {
+
+      if (!shippingAddress) {
         await session.abortTransaction();
-        return res.status(400).json({ message: "Invalid itemId" });
-      }
-      if (Number(unitCount) !== 1) {
-        await session.abortTransaction();
-        return res
-          .status(400)
-          .json({ message: "unitCount must be 1 for this flow" });
-      }
-      if (new Date(startAt) >= new Date(endAt)) {
-        await session.abortTransaction();
-        return res.status(400).json({ message: "Invalid rental period" });
+        return res.status(400).json({ message: "Shipping address required" });
       }
 
       const item = await Item.findById(itemId).session(session);
-      if (!item || item.IsDeleted) {
+      if (!item || item.IsDeleted || item.StatusId !== 2) {
         await session.abortTransaction();
-        return res.status(404).json({ message: "Item not found" });
+        return res.status(404).json({ message: "Item unavailable" });
       }
 
-      if (String(item.OwnerId) === String(renterId)) {
-        await session.abortTransaction();
-        return res.status(400).json({ message: "Cannot rent your own item" });
-      }
-      if (item.StatusId !== 2) {
-        await session.abortTransaction();
-        return res
-          .status(400)
-          .json({ message: "Item is not active/approved for rent" });
-      }
-      if ((item.AvailableQuantity || 0) < 1) {
-        await session.abortTransaction();
-        return res.status(409).json({ message: "Item is out of stock" });
-      }
+      const images = await ItemImages.find({
+        ItemId: item._id,
+        IsPrimary: true,
+        IsDeleted: false,
+      })
+        .sort({ Ordinal: 1 })
+        .select("Url -_id")
+        .lean()
+        .session(session);
 
-      const snapshot = {
-        title: item.Title,
-        images: item.Images || [],
-        basePrice: item.BasePrice,
-        priceUnit: item.PriceUnitId,
-      };
-
-      const { totalAmount, depositAmount, serviceFee, days } = calculateTotals(
+      const { totalAmount, depositAmount, serviceFee } = calculateTotals(
         item,
-        unitCount,
-        startAt,
-        endAt
+        quantity,
+        finalStartAt,
+        finalEndAt
       );
 
-      const newOrder = await Order.create(
+      const orderDoc = await Order.create(
         [
           {
             renterId,
             ownerId: item.OwnerId,
-            itemId,
-            unitCount,
-            startAt,
-            endAt,
+            itemId: item._id,
+            itemSnapshot: {
+              title: item.Title,
+              images: images.map((img) => img.Url),
+              basePrice: item.BasePrice,
+              priceUnit: item.PriceUnitId,
+            },
+            unitCount: quantity,
+            startAt: new Date(finalStartAt),
+            endAt: new Date(finalEndAt),
             totalAmount,
             depositAmount,
             serviceFee,
-            currency: item.Currency || "VND",
+            currency: "VND",
             paymentMethod,
             orderStatus: "pending",
             paymentStatus: "not_paid",
-            itemSnapshot: snapshot,
             note,
+            shippingAddress: {
+              ...shippingAddress,
+              snapshotAt: new Date(),
+            },
             lifecycle: { createdAt: new Date() },
           },
         ],
@@ -123,18 +120,22 @@ module.exports = {
       await session.commitTransaction();
       session.endSession();
 
+      const newOrder = orderDoc[0];
       return res.status(201).json({
-        message:
-          "Order created (pending). Owner must confirm to reserve stock.",
-        data: { orderGuid: newOrder[0].orderGuid, orderId: newOrder[0]._id },
+        message: "Order created",
+        data: {
+          orderId: newOrder._id,
+          orderGuid: newOrder.orderGuid,
+        },
       });
     } catch (err) {
       await session.abortTransaction();
       session.endSession();
       console.error("createOrder err:", err);
-      return res
-        .status(500)
-        .json({ message: "Failed to create order", error: err.message });
+      return res.status(500).json({
+        message: "Failed to create order",
+        error: err.message,
+      });
     }
   },
 
@@ -363,12 +364,6 @@ module.exports = {
     }
   },
 
-  // -----------------------
-  // Cancel order
-  // - pending: renter or owner can cancel
-  // - confirmed: only owner can cancel and inventory is restored
-  // - other statuses: deny (need dispute/admin)
-  // -----------------------
   cancelOrder: async (req, res) => {
     const session = await mongoose.startSession();
     try {
@@ -445,12 +440,10 @@ module.exports = {
       // cannot cancel in progress/completed/disputed via this endpoint
       await session.abortTransaction();
       session.endSession();
-      return res
-        .status(400)
-        .json({
-          message:
-            "Cannot cancel order at this stage; open dispute or contact admin",
-        });
+      return res.status(400).json({
+        message:
+          "Cannot cancel order at this stage; open dispute or contact admin",
+      });
     } catch (err) {
       await session.abortTransaction();
       session.endSession();
@@ -514,7 +507,7 @@ module.exports = {
       const order = await Order.findById(orderId)
         .populate("renterId", "FullName Email")
         .populate("ownerId", "FullName Email")
-        .populate("itemId", "Title Images");
+        .lean();
 
       if (!order || order.isDeleted)
         return res.status(404).json({ message: "Order not found" });
@@ -526,7 +519,7 @@ module.exports = {
       )
         return res.status(403).json({ message: "Forbidden" });
 
-      return res.json(order);
+      return res.json({ message: "OK", data: order });
     } catch (err) {
       console.error("getOrder err:", err);
       return res
@@ -538,29 +531,53 @@ module.exports = {
   listOrders: async (req, res) => {
     try {
       const userId = req.user._id;
-      const role = req.user.role;
-      let filter = {};
+      const role = req.user.role?.toLowerCase();
+      const { status, paymentStatus, search, page = 1, limit = 20 } = req.query;
 
-      if (role === "renter") {
-        filter.renterId = userId;
-      } else if (role === "owner") {
-        filter.ownerId = userId;
-      } else {
-        return res
-          .status(403)
-          .json({ message: "Invalid role for listing orders" });
-      }
+      const filter = { isDeleted: false };
 
-      const orders = await Order.find(filter)
-        .sort({ createdAt: -1 })
-        .limit(Number(req.query.limit) || 20);
+      if (role === "renter") filter.renterId = userId;
+      else if (role === "owner") filter.ownerId = userId;
+      else
+        return res.status(403).json({
+          message: "You are not permitted to access orders",
+        });
 
-      return res.json(orders);
+      if (status) filter.orderStatus = status;
+      if (paymentStatus) filter.paymentStatus = paymentStatus;
+      if (search)
+        filter["itemSnapshot.title"] = { $regex: search, $options: "i" };
+
+      const skip = (Number(page) - 1) * Number(limit);
+
+      const [orders, total] = await Promise.all([
+        Order.find(filter)
+          .populate("renterId", "FullName Email")
+          .populate("ownerId", "FullName Email")
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(Number(limit))
+          .lean(), 
+
+        Order.countDocuments(filter),
+      ]);
+
+      return res.json({
+        message: "OK",
+        data: orders,
+        pagination: {
+          total,
+          page: Number(page),
+          limit: Number(limit),
+          totalPages: Math.ceil(total / Number(limit)),
+        },
+      });
     } catch (err) {
       console.error("listOrders err:", err);
-      return res
-        .status(500)
-        .json({ message: "Failed to list orders", error: err.message });
+      return res.status(500).json({
+        message: "Failed to list orders",
+        error: err.message,
+      });
     }
   },
 };

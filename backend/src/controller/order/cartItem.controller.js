@@ -282,10 +282,10 @@ const updateCartItem = async (req, res) => {
   }
 };
 
-// Remove item from cart
+
 const removeFromCart = async (req, res) => {
   try {
-    const userId = req.user._id; // Changed from req.user.userId to req.user._id
+    const userId = req.user._id; 
     const { cartItemId } = req.params;
 
     const cartItem = await CartItem.findOneAndDelete({ 

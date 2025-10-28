@@ -9,8 +9,6 @@ import { toast } from "sonner";
 import { ModeratorSidebar } from "@/components/ui/moderator/moderator-sidebar";
 import { ModeratorHeader } from "@/components/ui/moderator/moderator-header";
 import { ModeratorStats } from "@/components/ui/moderator/moderator-stats";
-
-import { RequestManagementTable } from "@/components/ui/moderator/request-managemment-table";
 import { VerificationQueue } from "@/components/ui/moderator/verification-queue";
 import { BlogManagementTable } from "@/components/ui/moderator/blog/blog-management-table";
 import { CommentManagementTable } from "@/components/ui/moderator/blog/comment-management-table";
@@ -32,7 +30,7 @@ import {
 } from "lucide-react";
 import ProductCategoryManager from "@/components/ui/moderator/categories/category-management";
 import ProductManagement from "@/components/ui/moderator/product/product-management";
-import { CategoryManagementTable } from "@/components/ui/moderator/blog/category-management-table";
+import TopHighlightTable from "@/components/ui/moderator/product/top-highlight-table";
 
 // JWT token payload interface
 interface JwtPayload {
@@ -56,18 +54,13 @@ export default function ModeratorDashboard() {
   const searchParams = useSearchParams();
   const { accessToken } = useSelector((state: RootState) => state.auth);
   const [activeTab, setActiveTab] = useState<
-    | "dashboard"
-    | "users"
-    | "requests"
-    | "verification"
-    | "blog"
-    | "productManagement"
+    "dashboard" | "requests" | "verification" | "blog" | "productManagement"
   >("dashboard");
   const [activeBlogTab, setActiveBlogTab] = useState<
     "posts" | "categories" | "comments" | "tags"
   >("posts");
   const [activeProductTab, setActiveProductTab] = useState<
-    "products" | "categories"
+    "products" | "categories" | "highlights"
   >("products");
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -75,7 +68,6 @@ export default function ModeratorDashboard() {
   const handleTabChange = (
     tab:
       | "dashboard"
-      | "users"
       | "requests"
       | "verification"
       | "blog"
@@ -86,7 +78,9 @@ export default function ModeratorDashboard() {
     console.log("State updated: activeTab=", tab);
   };
 
-  const handleProductTabChange = (tab: "products" | "categories") => {
+  const handleProductTabChange = (
+    tab: "products" | "categories" | "highlights"
+  ) => {
     console.log("Moderator handleProductTabChange called with:", tab);
     setActiveProductTab(tab);
     setActiveTab("productManagement");
@@ -121,7 +115,6 @@ export default function ModeratorDashboard() {
       tab &&
       [
         "dashboard",
-        "users",
         "requests",
         "verification",
         "blog",
@@ -132,7 +125,6 @@ export default function ModeratorDashboard() {
       setActiveTab(
         tab as
           | "dashboard"
-          | "users"
           | "requests"
           | "verification"
           | "blog"
@@ -199,7 +191,11 @@ export default function ModeratorDashboard() {
         case "posts":
           return <BlogManagementTable />;
         case "categories":
-          return <CategoryManagementTable />;
+          return (
+            <div className="text-white p-8 text-center">
+              Quản lý danh mục blog (Chưa triển khai)
+            </div>
+          );
         case "comments":
           return <CommentManagementTable />;
         case "tags":
@@ -215,6 +211,8 @@ export default function ModeratorDashboard() {
           return <ProductCategoryManager />;
         case "products":
           return <ProductManagement />;
+        case "highlights":
+          return <TopHighlightTable />;
         default:
           return <ProductCategoryManager />;
       }
@@ -223,10 +221,13 @@ export default function ModeratorDashboard() {
     switch (activeTab) {
       case "dashboard":
         return <DashboardOverview />;
-      case "users":
-
       case "requests":
-        return <RequestManagementTable />;
+        // return <RequestManagementTable />; // Component removed
+        return (
+          <div className="p-4 text-white">
+            Chức năng đang được phát triển...
+          </div>
+        );
       case "verification":
         return <VerificationQueue />;
       default:
@@ -254,6 +255,8 @@ export default function ModeratorDashboard() {
           return "Quản lý danh mục sản phẩm";
         case "products":
           return "Quản lý sản phẩm";
+        case "highlights":
+          return "Quản lý sản phẩm nổi bật";
         default:
           return "Quản lý danh mục sản phẩm";
       }
@@ -262,8 +265,6 @@ export default function ModeratorDashboard() {
     switch (activeTab) {
       case "dashboard":
         return "Dashboard Tổng quan";
-      case "users":
-        return "Quản lý người dùng";
       case "requests":
         return "Yêu cầu kiểm duyệt";
       case "verification":
@@ -293,6 +294,8 @@ export default function ModeratorDashboard() {
           return "Tạo, chỉnh sửa và quản lý danh mục sản phẩm";
         case "products":
           return "Duyệt và quản lý sản phẩm từ người dùng";
+        case "highlights":
+          return "Quản lý các sản phẩm nổi bật trong hệ thống";
         default:
           return "Tạo, chỉnh sửa và quản lý danh mục sản phẩm";
       }
@@ -301,8 +304,6 @@ export default function ModeratorDashboard() {
     switch (activeTab) {
       case "dashboard":
         return "Tổng quan về hoạt động và thống kê hệ thống";
-      case "users":
-        return "Theo dõi và quản lý tài khoản người dùng trong hệ thống";
       case "requests":
         return "Duyệt và phê duyệt các yêu cầu từ người dùng";
       case "verification":

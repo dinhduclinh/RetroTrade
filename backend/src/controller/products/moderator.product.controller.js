@@ -26,6 +26,7 @@ const logAudit = async (
     ChangeSummary: changeSummary,
   });
 };
+
 const getPendingProducts = async (req, res) => {
   try {
     const query = {
@@ -379,9 +380,145 @@ const rejectProduct = async (req, res) => {
   }
 };
 
+const getTopProductsForHighlight = async (req, res) => {
+  try {
+    const topItems = await Item.aggregate([
+      { $match: { StatusId: 2, IsDeleted: false } },
+      // Tính score: ViewCount * 0.1 + FavoriteCount * 0.3 + RentCount * 0.6
+      {
+        $addFields: {
+          score: {
+            $add: [
+              { $multiply: ['$ViewCount', 0.1] },
+              { $multiply: ['$FavoriteCount', 0.3] },
+              { $multiply: ['$RentCount', 0.6] }
+            ]
+          }
+        }
+      },
+      { $sort: { score: -1 } },
+      { $limit: 20 }, //số lượng sản phẩm lấy ra
+      {
+        $lookup: {
+          from: "users",
+          localField: "OwnerId",
+          foreignField: "_id",
+          as: "owner",
+          pipeline: [{ $project: { fullName: 1 } }]
+        }
+      },
+      { $unwind: { path: "$owner", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "categories",
+          localField: "CategoryId",
+          foreignField: "_id",
+          as: "category",
+          pipeline: [{ $project: { name: 1 } }]
+        }
+      },
+      { $unwind: { path: "$category", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "itemimages",
+          localField: "_id",
+          foreignField: "ItemId",
+          as: "images",
+          pipeline: [
+            { $match: { IsDeleted: false } },
+            { $sort: { Ordinal: 1 } },
+            { $limit: 1 }
+          ]
+        }
+      },
+      { $unwind: { path: "$images", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: { $toString: "$_id" },
+          Title: 1,
+          BasePrice: 1,
+          Currency: 1,
+          IsHighlighted: 1,
+          ViewCount: 1,
+          FavoriteCount: 1,
+          RentCount: 1,
+          score: { $round: ["$score", 0] },
+          ownerName: "$owner.fullName",
+          categoryName: "$category.name",
+          thumbnailUrl: { $ifNull: ["$images.Url", "/placeholder-image.jpg"] },
+          CreatedAt: 1
+        }
+      }
+    ]);
+
+    res.json({
+      success: true,
+      data: topItems,
+      message: 'Top sản phẩm nổi bật nhất'
+    });
+  } catch (error) {
+    console.error("Error in getTopProductsForHighlight:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+const toggleHighlight = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isHighlighted } = req.body;
+
+    const item = await Item.findById(id);
+    if (!item) {
+      return res.status(404).json({ success: false, message: 'Sản phẩm không tồn tại' });
+    }
+    if (item.IsDeleted || item.StatusId !== 2) { 
+      return res.status(400).json({ success: false, message: 'Không thể highlight sản phẩm này' });
+    }
+
+    const newValue = isHighlighted !== undefined ? isHighlighted : !item.IsHighlighted;
+    item.IsHighlighted = newValue;
+    await item.save();
+
+    // Log audit
+    await logAudit(
+      "items",
+      item._id,
+      "UPDATE",
+      req.user._id,
+      `Product ${newValue ? 'highlighted' : 'unhighlighted'} by moderator`
+    );
+
+    if (newValue) {
+      try {
+        await Notification.create({
+          user: item.OwnerId,
+          notificationType: "Product Highlighted",
+          title: "Sản phẩm nổi bật",
+          body: `Sản phẩm "${item.Title}" đã được là sản phẩm nổi bật.`,
+          metaData: JSON.stringify({ itemId: item._id }),
+          isRead: false,
+        });
+      } catch (notificationError) {
+        console.error("Lỗi thông báo nổi bật:", notificationError);
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Đã ${newValue ? 'highlight' : 'bỏ highlight'} sản phẩm thành công`,
+      data: { IsHighlighted: newValue }
+    });
+  } catch (error) {
+    console.error("Error in toggleHighlight:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
 module.exports = {
   getPendingProducts,
   getPendingProductDetails,
   approveProduct,
   rejectProduct,
+  getTopProductsForHighlight,
+  toggleHighlight,
 };

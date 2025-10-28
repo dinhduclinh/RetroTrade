@@ -7,7 +7,6 @@ const addressSchema = new mongoose.Schema(
     fullName: { type: String, trim: true },
     street: { type: String, required: true },
     ward: { type: String, required: true },
-    district: { type: String, required: true },
     province: { type: String, required: true },
     phone: { type: String, required: true },
   },
@@ -53,7 +52,7 @@ const orderSchema = new mongoose.Schema(
     shippingAddress: addressSchema,
     paymentMethod: {
       type: String,
-      enum: ["Wallet", "VNPay", "CashOnDelivery"],
+      enum: ["Wallet", "PayOS"],
       default: "Wallet",
     },
     paymentStatus: {

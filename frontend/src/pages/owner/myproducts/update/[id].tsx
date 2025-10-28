@@ -134,22 +134,26 @@ const UpdateProductPage: React.FC = () => {
       const data = await res.json();
       const addresses = Array.isArray(data.data) ? data.data : [];
       setUserAddresses(addresses);
-
-      const defaultAddress = addresses.find(
-        (addr: UserAddress) => addr.IsDefault
-      );
-      if (defaultAddress && (!address || !city || !district)) {
-        setAddress(defaultAddress.Address || "");
-        setCity(defaultAddress.City || "");
-        setDistrict(defaultAddress.District || "");
-      }
     } catch (error) {
       console.error("Error fetching user addresses:", error);
       toast.error("Không thể tải địa chỉ gợi ý");
     } finally {
       setAddressesLoading(false);
     }
-  }, [isAuthenticated, address, city, district]);
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (userAddresses.length > 0 && !address && !city && !district) {
+      const defaultAddress = userAddresses.find(
+        (addr: UserAddress) => addr.IsDefault
+      );
+      if (defaultAddress) {
+        setAddress(defaultAddress.Address || "");
+        setCity(defaultAddress.City || "");
+        setDistrict(defaultAddress.District || "");
+      }
+    }
+  }, [userAddresses]);
 
   const fetchProductDetails = useCallback(
     async (productId: string) => {
@@ -189,15 +193,6 @@ const UpdateProductPage: React.FC = () => {
             if (existingImageUrls.length > 0) {
               setPrimaryPreview(existingImageUrls[0]);
             }
-
-            if (categories.length > 0 && categoryId) {
-              const selectedCat = categories.find((c) => c._id === categoryId);
-              if (selectedCat) {
-                setSelectedCategoryNameState(
-                  selectedCat.name || selectedCat.Name || "Chọn danh mục"
-                );
-              }
-            }
           }
         } else {
           toast.error("Không thể tải thông tin sản phẩm");
@@ -211,7 +206,7 @@ const UpdateProductPage: React.FC = () => {
         setFetchLoading(false);
       }
     },
-    [router, categories, categoryId]
+    [router]
   );
 
   const fetchInitialData = useCallback(async () => {
@@ -263,9 +258,20 @@ const UpdateProductPage: React.FC = () => {
     fetchInitialData();
   }, [fetchInitialData]);
 
-useEffect(() => {
-  fetchUserAddresses();
-}, [fetchUserAddresses]);
+  useEffect(() => {
+    fetchUserAddresses();
+  }, [fetchUserAddresses]);
+
+  useEffect(() => {
+    if (categories.length > 0 && categoryId) {
+      const selectedCat = categories.find((c) => c._id === categoryId);
+      if (selectedCat) {
+        setSelectedCategoryNameState(
+          selectedCat.name || selectedCat.Name || "Chọn danh mục"
+        );
+      }
+    }
+  }, [categories, categoryId]);
 
   useEffect(() => {
     if (priceUnitId && priceUnits.length > 0) {
@@ -347,7 +353,6 @@ useEffect(() => {
       const data = await res.json();
       if (data.success) {
         toast.success("Đã đặt địa chỉ mặc định thành công!");
-        // Refresh addresses to update IsDefault
         await fetchUserAddresses();
       } else {
         toast.error(data.message || "Lỗi khi đặt địa chỉ mặc định");
