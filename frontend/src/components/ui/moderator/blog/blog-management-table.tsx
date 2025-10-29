@@ -15,6 +15,13 @@ import { FileText, Edit, Trash2, Eye, Search } from "lucide-react";
 import BlogDetail from "@/components/ui/moderator/blog/blog-details";
 import AddPostDialog from "@/components/ui/moderator/blog/add-blog-form";
 import EditBlogForm from "@/components/ui/moderator/blog/edit-blog-form";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/common/dialog";
 
 export  function BlogManagementTable() {
   const [posts, setPosts] = useState<any[]>([]);
@@ -25,6 +32,9 @@ export  function BlogManagementTable() {
   const [openAdd, setOpenAdd] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
   const [editBlogId, setEditBlogId] = useState<string | null>(null); 
+  const [openDelete, setOpenDelete] = useState(false);
+  const [deleteBlog, setDeleteBlog] = useState<any>(null);
+
 
   const fetchPosts = async () => {
     try {
@@ -42,16 +52,7 @@ export  function BlogManagementTable() {
     fetchPosts();
   }, []);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Bạn có chắc muốn xóa bài viết này?")) return;
-    try {
-      await deletePost(id);
-      toast.success("Xóa bài viết thành công!");
-      fetchPosts();
-    } catch (error) {
-      toast.error("Không thể xóa bài viết. Vui lòng thử lại.");
-    }
-  };
+
 
   const filtered = posts.filter((p) =>
     p.title.toLowerCase().includes(query.toLowerCase())
@@ -66,6 +67,17 @@ export  function BlogManagementTable() {
     setOpenEdit(false);
     setEditBlogId(null);
   };
+  const handleDelete = async (id: string) => {
+    if (!confirm("Bạn có chắc muốn xóa bài viết này?")) return;
+    try {
+      await deletePost(id);
+      toast.success("Xóa bài viết thành công!");
+      fetchPosts();
+    } catch (error) {
+      toast.error("Không thể xóa bài viết. Vui lòng thử lại.");
+    }
+  };
+
 
   return (
     <>
@@ -100,7 +112,7 @@ export  function BlogManagementTable() {
               <thead className="bg-white/5 text-white/70">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium">Tiêu đề</th>
-                
+
                   <th className="px-4 py-3 text-left font-medium">Danh mục</th>
                   <th className="px-4 py-3 text-left font-medium">Thẻ</th>
                   <th className="px-4 py-3 text-center font-medium">Nổi bật</th>
@@ -132,7 +144,7 @@ export  function BlogManagementTable() {
                       <td className="px-4 py-3 text-white font-medium max-w-xs truncate">
                         {post.title}
                       </td>
-                      
+
                       <td className="px-4 py-3 text-white/70">
                         {post.categoryId?.name || "—"}
                       </td>
@@ -174,7 +186,10 @@ export  function BlogManagementTable() {
 
                           <Button
                             variant="ghost"
-                            onClick={() => handleDelete(post._id)}
+                            onClick={() => {
+                              setDeleteBlog(post);
+                              setOpenDelete(true);
+                            }}
                             className="text-red-400 hover:bg-red-500/10"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -220,12 +235,46 @@ export  function BlogManagementTable() {
           onClose={handleCloseEdit}
           onSuccess={(updatedPost) => {
             toast.success("Cập nhật bài viết thành công!");
-           
+
             setPosts((prev) =>
               prev.map((p) => (p._id === updatedPost._id ? updatedPost : p))
             );
           }}
         />
+      )}
+      {openDelete && deleteBlog && (
+        <Dialog open={openDelete} onOpenChange={setOpenDelete}>
+          <DialogContent className="bg-white/10 border-white/20 text-white">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold">
+                Xóa bài viết
+              </DialogTitle>
+            </DialogHeader>
+
+            <p>
+              Bạn có chắc muốn xoá bài viết:{" "}
+              <span className="font-semibold text-red-400">
+                {deleteBlog.title}
+              </span>
+              ?
+            </p>
+
+            <DialogFooter className="mt-4">
+              <Button variant="ghost" onClick={() => setOpenDelete(false)}>
+                Hủy
+              </Button>
+              <Button
+                className="bg-red-600 hover:bg-red-500"
+                onClick={async () => {
+                  await handleDelete(deleteBlog._id);
+                  setOpenDelete(false);
+                }}
+              >
+                Xóa
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </>
   );

@@ -55,11 +55,7 @@ export default function ModeratorDashboard() {
   const searchParams = useSearchParams();
   const { accessToken } = useSelector((state: RootState) => state.auth);
   const [activeTab, setActiveTab] = useState<
-    | "dashboard"
-    | "requests"
-    | "verification"
-    | "blog"
-    | "productManagement"
+    "dashboard" | "requests" | "verification" | "blog" | "productManagement"
   >("dashboard");
   const [activeBlogTab, setActiveBlogTab] = useState<
     "posts" | "categories" | "comments" | "tags"
@@ -83,7 +79,9 @@ export default function ModeratorDashboard() {
     console.log("State updated: activeTab=", tab);
   };
 
-  const handleProductTabChange = (tab: "products" | "categories" | "highlights") => {
+  const handleProductTabChange = (
+    tab: "products" | "categories" | "highlights"
+  ) => {
     console.log("Moderator handleProductTabChange called with:", tab);
     setActiveProductTab(tab);
     setActiveTab("productManagement");

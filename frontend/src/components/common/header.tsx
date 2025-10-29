@@ -113,7 +113,7 @@ export function Header() {
   };
 
   const handleGoToOrders = () => {
-    router.push('/orders');
+    router.push('/order');
   };
 
   const handleGoToAdminPanel = () => {
