@@ -24,7 +24,7 @@ interface ModeratorSidebarProps {
     | "verification"
     | "productManagement"
     | "blog";
-  activeProductTab?: "products" | "categories";
+  activeProductTab?: "products" | "categories" | "highlights";
   activeBlogTab?: "posts" | "categories" | "comments" | "tags";
   onTabChange?: (
     tab:
@@ -35,7 +35,7 @@ interface ModeratorSidebarProps {
       | "productManagement"
       | "blog"
   ) => void;
-  onProductTabChange?: (tab: "products" | "categories") => void;
+  onProductTabChange?: (tab: "products" | "categories" | "highlights") => void;
   onBlogTabChange?: (tab: "posts" | "categories" | "comments" | "tags") => void;
 }
 
@@ -90,7 +90,7 @@ export function ModeratorSidebar({
   ];
 
   const productSubmenuItems: {
-    id: "products" | "categories";
+    id: "products" | "categories" | "highlights";
     label: string;
     description: string;
   }[] = [
@@ -103,6 +103,12 @@ export function ModeratorSidebar({
       id: "categories",
       label: "Quản lý danh mục",
       description: "Quản lý danh mục sản phẩm",
+    },
+
+    {
+      id: "highlights",
+      label: "Top sản phẩm nổi bật",
+      description: "Đánh dấu sản phẩm nổi bật",
     },
   ];
 

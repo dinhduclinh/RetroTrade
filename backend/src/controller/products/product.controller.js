@@ -1214,6 +1214,14 @@ const getProductById = async (req, res) => {
       Tags: fullTags,
     };
 
+    // Thêm logic lấy lý do từ chối nếu StatusId === 3
+    if (item.StatusId === 3) {
+      const reject = await ItemReject.findOne({ ItemId: id }).lean();
+      if (reject) {
+        productWithDetails.rejectReason = reject.RejectReason;
+      }
+    }
+
     success = true;
 
     res.status(200).json({
