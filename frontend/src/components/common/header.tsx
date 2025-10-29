@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { Button } from "@/components/ui/common/button";
-import { LogOut, User, Package, Settings, Shield, Crown, Moon, Sun, Wallet } from "lucide-react";
+import { LogOut, User, Package, Settings, Shield, Crown, Moon, Sun, Wallet ,BoxIcon} from "lucide-react";
 import { NotificationIcon } from "@/components/ui/common/notification-icon";
 
 import {
@@ -136,7 +136,7 @@ export function Header() {
     const items = [];
 
     switch (role) {
-      case 'admin':
+      case "admin":
         items.push(
           <DropdownMenuItem
             key="admin-panel"
@@ -148,7 +148,7 @@ export function Header() {
           </DropdownMenuItem>
         );
         break;
-      case 'moderator':
+      case "moderator":
         items.push(
           <DropdownMenuItem
             key="moderator-panel"
@@ -160,7 +160,7 @@ export function Header() {
           </DropdownMenuItem>
         );
         break;
-      case 'owner':
+      case "owner":
         items.push(
           <DropdownMenuItem
             key="owner-panel"
@@ -169,6 +169,17 @@ export function Header() {
           >
             <Settings className="mr-2 h-4 w-4" />
             <span>Sản phẩm của tôi</span>
+          </DropdownMenuItem>
+        );
+
+        items.push(
+          <DropdownMenuItem
+            key="renter-requests"
+            className="cursor-pointer"
+            onClick={() => router.push("/owner/renter-requests")}
+          >
+            <BoxIcon className="mr-2 h-4 w-4" />
+            <span>Yêu cầu thuê hàng</span>
           </DropdownMenuItem>
         );
         break;

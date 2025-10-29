@@ -34,6 +34,7 @@ interface TimelineStep {
   date?: string;
   active: boolean;
   current: boolean;
+  cancelled?: boolean;
 }
 
 const getUnitName = (priceUnit: string | undefined): string => {
@@ -47,7 +48,7 @@ const getUnitName = (priceUnit: string | undefined): string => {
   return map[priceUnit] || "đơn vị";
 };
 
-// HÀM TỰ TÍNH TIỀN THUÊ (AN TOÀN VỚI undefined)
+
 const calculateRentalAmount = (order: Order): number => {
   const basePrice = order.itemSnapshot.basePrice ?? 0;
   const duration = order.rentalDuration ?? 0;
@@ -146,6 +147,12 @@ export default function OrderDetail() {
       active: order.orderStatus === "completed",
       current: order.orderStatus === "completed",
     },
+    {
+      status: "cancelled",
+      label: "Đã hủy",
+      active: order.orderStatus === "cancelled",
+      current: order.orderStatus === "cancelled",
+    },
   ];
 
   const canConfirm = order.orderStatus === "pending";
@@ -230,9 +237,9 @@ export default function OrderDetail() {
                   <p className="text-sm text-gray-600">
                     Cọc:{" "}
                     <strong>
-                      {(order.depositAmount ?? 0/ order.unitCount).toLocaleString(
-                        "vi-VN"
-                      )}
+                      {(
+                        order.depositAmount ?? 0 / order.unitCount
+                      ).toLocaleString("vi-VN")}
                       ₫/cái
                     </strong>
                   </p>
@@ -270,46 +277,83 @@ export default function OrderDetail() {
 
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <h2 className="font-bold text-lg mb-4">Hành trình đơn hàng</h2>
+
               <div className="space-y-4">
-                {timelineSteps.map((step, idx) => (
-                  <div key={idx} className="flex items-center gap-4">
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0
-                      ${
-                        step.current
-                          ? "bg-emerald-600 text-white"
-                          : step.active
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-gray-200 text-gray-400"
-                      }`}
-                    >
-                      {step.active ? (
-                        <CheckCircle2 className="w-5 h-5" />
-                      ) : (
-                        <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                      )}
+                {order.orderStatus === "cancelled" ? (
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-red-100 text-red-700">
+                      <XCircle className="w-5 h-5" />
                     </div>
+
                     <div className="flex-1">
-                      <p
-                        className={`font-medium ${
-                          step.current
-                            ? "text-emerald-700"
-                            : step.active
-                            ? "text-gray-700"
-                            : "text-gray-400"
-                        }`}
-                      >
-                        {step.label}
-                      </p>
-                      {step.current && (
-                        <p className="text-xs text-gray-500">Đang xử lý...</p>
+                      <p className="font-medium text-red-700">Đã hủy</p>
+
+                      {order.updatedAt && (
+                        <p className="text-xs text-gray-500">
+                          {format(
+                            new Date(order.updatedAt),
+                            "dd/MM/yyyy HH:mm"
+                          )}
+                        </p>
+                      )}
+
+                      {order.cancelReason && (
+                        <div
+                          className="mt-2 flex items-start gap-2 animate-fadeIn"
+                          title={String(order.cancelReason)}
+                        >
+                          <AlertCircle className="w-4 h-4 text-amber-500 mt-0.5" />
+                          <p className="text-xs text-amber-600 italic max-w-[250px] truncate">
+                            Lý do: {order.cancelReason}
+                          </p>
+                        </div>
                       )}
                     </div>
-                    {idx < timelineSteps.length - 1 && (
-                      <ChevronRight className="w-5 h-5 text-gray-300" />
-                    )}
                   </div>
-                ))}
+                ) : (
+                  timelineSteps
+                    .filter((s) => s.status !== "cancelled")
+                    .map((step, idx) => (
+                      <div key={idx} className="flex items-center gap-4">
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            step.current
+                              ? "bg-emerald-600 text-white"
+                              : step.active
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-gray-200 text-gray-400"
+                          }`}
+                        >
+                          {step.active || step.current ? (
+                            <CheckCircle2 className="w-5 h-5" />
+                          ) : (
+                            <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <p
+                            className={`font-medium ${
+                              step.current
+                                ? "text-emerald-700"
+                                : step.active
+                                ? "text-gray-700"
+                                : "text-gray-400"
+                            }`}
+                          >
+                            {step.label}
+                          </p>
+                          {step.current && (
+                            <p className="text-xs text-gray-500">
+                              Đang xử lý...
+                            </p>
+                          )}
+                        </div>
+                        {idx < timelineSteps.length - 2 && (
+                          <ChevronRight className="w-5 h-5 text-gray-300" />
+                        )}
+                      </div>
+                    ))
+                )}
               </div>
             </div>
 
@@ -334,14 +378,12 @@ export default function OrderDetail() {
 
           {/* Cột phải */}
           <div className="space-y-6">
-            {/* === CHI TIẾT THANH TOÁN – CHỈ HIỂN THỊ SỐ TIỀN THUÊ === */}
             <div className="bg-gradient-to-b from-emerald-600 to-emerald-700 text-white rounded-2xl shadow-xl p-6">
               <h2 className="font-bold text-xl mb-4 flex items-center gap-2">
                 <CreditCard className="w-7 h-7" />
                 Chi tiết thanh toán
               </h2>
               <div className="space-y-3 text-sm">
-                {/* TIỀN THUÊ – TỰ TÍNH, CHỈ HIỂN THỊ SỐ */}
                 <div className="flex justify-between">
                   <span>Tiền thuê</span>
                   <span className="font-medium">
@@ -349,7 +391,6 @@ export default function OrderDetail() {
                   </span>
                 </div>
 
-                {/* PHÍ DỊCH VỤ */}
                 <div className="flex justify-between text-cyan-200">
                   <span>Phí dịch vụ (10%)</span>
                   <span>
@@ -357,7 +398,6 @@ export default function OrderDetail() {
                   </span>
                 </div>
 
-                {/* TIỀN CỌC */}
                 <div className="flex justify-between text-amber-200">
                   <span>Tiền cọc (hoàn lại)</span>
                   <span>
@@ -365,7 +405,6 @@ export default function OrderDetail() {
                   </span>
                 </div>
 
-                {/* TỔNG CỘNG */}
                 <div className="border-t border-emerald-400 pt-3">
                   <div className="flex justify-between text-lg font-bold">
                     <span>Tổng thanh toán</span>
@@ -377,7 +416,6 @@ export default function OrderDetail() {
               </div>
             </div>
 
-            {/* Trạng thái thanh toán */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
               <h2 className="font-bold text-lg mb-4 flex items-center gap-2">
                 <CreditCard className="w-6 h-6 text-emerald-600" />
