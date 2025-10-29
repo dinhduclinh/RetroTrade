@@ -26,13 +26,14 @@ export interface Order {
   orderGuid: string;
   renterId: {
     _id: string;
-    FullName: string;
-    Email: string;
+    fullName: string;
+    email: string;
   };
   ownerId: {
     _id: string;
-    FullName: string;
-    Email: string;
+    fullName: string;
+    email: string;
+    avatarUrl?: string;
   };
   itemId: {
     _id: string;
@@ -52,6 +53,8 @@ export interface Order {
   depositAmount?: number;
   serviceFee?: number;
   currency: string;
+  rentalDuration?: number;
+  rentalUnit?: string;
   shippingAddress: {
     fullName: string;
     street: string;
@@ -92,7 +95,7 @@ export const createOrder = async (
   return await parseResponse(response);
 };
 
-// Get order details
+
 export const getOrderDetails = async (
   orderId: string
 ): Promise<ApiResponse<Order>> => {

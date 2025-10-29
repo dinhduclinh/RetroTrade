@@ -30,7 +30,7 @@ const orderSchema = new mongoose.Schema(
       basePrice: Number,
       priceUnit: String,
     },
-    unitCount: { type: Number, default: 1, min: 1 },
+    unitCount: { type: Number, min: 1 },
     startAt: {
       type: Date,
       required: true,
@@ -49,6 +49,11 @@ const orderSchema = new mongoose.Schema(
     depositAmount: { type: Number, default: 0, min: 0 },
     serviceFee: { type: Number, default: 0, min: 0 },
     currency: { type: String, default: "VND", enum: ["VND", "USD"] },
+    rentalDuration: { type: Number, min: 1 },
+    rentalUnit: {
+      type: String,
+      enum: ["giờ", "ngày", "tuần", "tháng"],
+    },
     shippingAddress: addressSchema,
     paymentMethod: {
       type: String,

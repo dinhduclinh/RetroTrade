@@ -4,23 +4,8 @@ const Order = require("../../models/Order/Order.model");
 const Item = require("../../models/Product/Item.model");
 const User = require("../../models/User.model");
 const ItemImages = require("../../models/Product/ItemImage.model");
+const { calculateTotals } = require("./calculateRental");
 
-function daysBetween(startAt, endAt) {
-  const msPerDay = 1000 * 60 * 60 * 24;
-  const diff = Math.ceil((new Date(endAt) - new Date(startAt)) / msPerDay);
-  return Math.max(1, diff);
-}
-
-
-function calculateTotals(item, unitCount = 1, startAt, endAt) {
-  const days = daysBetween(startAt, endAt);
-  const pricePerDay = item.BasePrice || 0;
-  const subtotal = pricePerDay * unitCount * days;
-  const depositAmount = (item.DepositAmount || 0) * unitCount;
-  const serviceFee = Math.round(subtotal * 0.1); 
-   const totalAmount = (pricePerDay * unitCount * days) + depositAmount + serviceFee;
-  return { totalAmount, depositAmount, serviceFee, days };
-}
 
 
 function isTimeRangeOverlap(aStart, aEnd, bStart, bEnd) {
@@ -49,22 +34,23 @@ module.exports = {
       const finalStartAt = startAt || rentalStartDate;
       const finalEndAt = endAt || rentalEndDate;
 
-      if (!itemId || !finalStartAt || !finalEndAt) {
+      // === VALIDATE ===
+      if (!itemId || !finalStartAt || !finalEndAt || !shippingAddress) {
         await session.abortTransaction();
         return res.status(400).json({
-          message: "Missing required fields (itemId, startAt, endAt)",
+          message: "Missing required fields",
         });
-      }
-
-      if (!shippingAddress) {
-        await session.abortTransaction();
-        return res.status(400).json({ message: "Shipping address required" });
       }
 
       const item = await Item.findById(itemId).session(session);
       if (!item || item.IsDeleted || item.StatusId !== 2) {
         await session.abortTransaction();
         return res.status(404).json({ message: "Item unavailable" });
+      }
+
+      if (item.AvailableQuantity < quantity) {
+        await session.abortTransaction();
+        return res.status(400).json({ message: "Not enough quantity" });
       }
 
       const images = await ItemImages.find({
@@ -77,13 +63,33 @@ module.exports = {
         .lean()
         .session(session);
 
-      const { totalAmount, depositAmount, serviceFee } = calculateTotals(
+      // === TÍNH TOÁN ===
+      const result = await calculateTotals(
         item,
         quantity,
         finalStartAt,
         finalEndAt
       );
+      if (!result) {
+        await session.abortTransaction();
+        return res.status(400).json({
+          message: "Không thể tính tiền thuê",
+          debug: {
+            itemId,
+            PriceUnitId: item.PriceUnitId,
+            BasePrice: item.BasePrice,
+            DepositAmount: item.DepositAmount,
+            quantity,
+            startAt: finalStartAt,
+            endAt: finalEndAt,
+          },
+        });
+      }
 
+      const { totalAmount, depositAmount, serviceFee, duration, unitName } =
+        result;
+
+      // === TẠO ORDER ===
       const orderDoc = await Order.create(
         [
           {
@@ -94,7 +100,7 @@ module.exports = {
               title: item.Title,
               images: images.map((img) => img.Url),
               basePrice: item.BasePrice,
-              priceUnit: item.PriceUnitId,
+              priceUnit: String(item.PriceUnitId), // ← CHUYỂN SANG STRING
             },
             unitCount: quantity,
             startAt: new Date(finalStartAt),
@@ -107,10 +113,9 @@ module.exports = {
             orderStatus: "pending",
             paymentStatus: "not_paid",
             note,
-            shippingAddress: {
-              ...shippingAddress,
-              snapshotAt: new Date(),
-            },
+            shippingAddress: { ...shippingAddress, snapshotAt: new Date() },
+            rentalDuration: duration,
+            rentalUnit: unitName,
             lifecycle: { createdAt: new Date() },
           },
         ],
@@ -121,19 +126,25 @@ module.exports = {
       session.endSession();
 
       const newOrder = orderDoc[0];
+
       return res.status(201).json({
-        message: "Order created",
+        message: "Order created successfully",
         data: {
           orderId: newOrder._id,
           orderGuid: newOrder.orderGuid,
+          totalAmount,
+          depositAmount,
+          serviceFee,
+          rentalDuration: duration,
+          rentalUnit: unitName,
         },
       });
     } catch (err) {
       await session.abortTransaction();
       session.endSession();
-      console.error("createOrder err:", err);
+      console.error("createOrder ERROR:", err);
       return res.status(500).json({
-        message: "Failed to create order",
+        message: "Server error",
         error: err.message,
       });
     }
@@ -328,16 +339,13 @@ module.exports = {
       const item = await Item.findById(order.itemId).session(session);
       if (item) {
         if (order.returnInfo.conditionStatus === "Lost") {
-          // lost: decrease Quantity (total) by 1; AvailableQuantity already decremented at confirm,
-          // so do not increment AvailableQuantity here.
           item.Quantity = Math.max(0, (item.Quantity || 0) - 1);
-          // Ensure AvailableQuantity is not greater than Quantity
+
           if (item.AvailableQuantity > item.Quantity)
             item.AvailableQuantity = item.Quantity;
         } else {
-          // Good / SlightlyDamaged / HeavilyDamaged -> restore available
           item.AvailableQuantity = (item.AvailableQuantity || 0) + 1;
-          // cap to Quantity
+
           if (item.Quantity && item.AvailableQuantity > item.Quantity) {
             item.AvailableQuantity = item.Quantity;
           }
@@ -505,8 +513,8 @@ module.exports = {
         return res.status(400).json({ message: "Invalid order id" });
 
       const order = await Order.findById(orderId)
-        .populate("renterId", "FullName Email")
-        .populate("ownerId", "FullName Email")
+        .populate("renterId", "fullName email avatarUrl")
+        .populate("ownerId", "fullName email avatarUrl")
         .lean();
 
       if (!order || order.isDeleted)
@@ -552,12 +560,12 @@ module.exports = {
 
       const [orders, total] = await Promise.all([
         Order.find(filter)
-          .populate("renterId", "FullName Email")
-          .populate("ownerId", "FullName Email")
+          .populate("renterId", "fullName email")
+          .populate("ownerId", "fullName email")
           .sort({ createdAt: -1 })
           .skip(skip)
           .limit(Number(limit))
-          .lean(), 
+          .lean(),
 
         Order.countDocuments(filter),
       ]);
