@@ -124,6 +124,9 @@ export default function TopHighlightTable() {
   );
   const [detailsLoading, setDetailsLoading] = useState(false);
 
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmProduct, setConfirmProduct] = useState<TopProduct | null>(null);
+
   const [sort, setSort] = useState<SortState>({
     field: "score",
     order: "desc",
@@ -175,15 +178,15 @@ export default function TopHighlightTable() {
     let cmp: number;
     switch (sort.field) {
       case "score":
-        cmp = a.score - b.score; 
+        cmp = a.score - b.score;
         break;
       case "createdAt":
         const aDate = new Date(a.createdAt);
         const bDate = new Date(b.createdAt);
-        cmp = aDate.getTime() - bDate.getTime(); 
+        cmp = aDate.getTime() - bDate.getTime();
         break;
       case "title":
-        cmp = a.title.localeCompare(b.title); 
+        cmp = a.title.localeCompare(b.title);
         break;
       default:
         return 0;
@@ -214,12 +217,18 @@ export default function TopHighlightTable() {
     setCurrentPage(1);
   };
 
-  const handleToggleHighlight = async (product: TopProduct) => {
-    setToggleLoading(product.id);
+  const openConfirmModal = (product: TopProduct) => {
+    setConfirmProduct(product);
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmToggle = async () => {
+    if (!confirmProduct) return;
+    setToggleLoading(confirmProduct.id);
     try {
       const res = await toggleProductHighlight(
-        product.id,
-        !product.isHighlighted
+        confirmProduct.id,
+        !confirmProduct.isHighlighted
       );
       if (!res.ok) {
         const errData: { message?: string } = await res.json();
@@ -228,14 +237,24 @@ export default function TopHighlightTable() {
       const result: { message?: string } = await res.json();
       toast.success(
         result.message ||
-          `Đã ${!product.isHighlighted ? "nổi bật" : "bỏ nổi bật"} sản phẩm`
+          `Đã ${
+            !confirmProduct.isHighlighted ? "nổi bật" : "bỏ nổi bật"
+          } sản phẩm`
       );
-      // Refetch để update top
-      fetchTopProducts();
+      // Cập nhật local state thay vì refetch để tránh gián đoạn
+      setProducts((prevProducts) =>
+        prevProducts.map((p) =>
+          p.id === confirmProduct.id
+            ? { ...p, isHighlighted: !p.isHighlighted }
+            : p
+        )
+      );
     } catch (err) {
       toast.error((err as Error).message || "Không thể cập nhật");
     } finally {
       setToggleLoading(null);
+      setShowConfirmModal(false);
+      setConfirmProduct(null);
     }
   };
 
@@ -280,7 +299,7 @@ export default function TopHighlightTable() {
       });
       setShowDetailModal(true);
     } catch (err) {
-      console.error("Error loading product details:", err); 
+      console.error("Error loading product details:", err);
       toast.error((err as Error).message || "Không thể tải chi tiết sản phẩm");
     } finally {
       setDetailsLoading(false);
@@ -524,7 +543,7 @@ export default function TopHighlightTable() {
                   <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end items-center gap-2">
                       <button
-                        onClick={() => handleToggleHighlight(product)}
+                        onClick={() => openConfirmModal(product)}
                         disabled={toggleLoading === product.id}
                         className="p-2 rounded transition-colors disabled:opacity-50 hover:bg-white/10"
                         title={
@@ -566,6 +585,42 @@ export default function TopHighlightTable() {
         {sortedProducts.length > 0 && <Pagination />}
       </div>
 
+      {showConfirmModal && confirmProduct && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white/10 backdrop-blur-md border-white/20 rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-bold text-white mb-4">
+              Xác nhận {confirmProduct.isHighlighted ? "bỏ" : "thêm"} nổi bật
+            </h3>
+            <p className="text-white/70 mb-6">
+            Bạn có chắc chắn muốn{" "}
+            {confirmProduct.isHighlighted ? "bỏ" : "thêm"} nổi bật sản phẩm&nbsp;
+            &quot;{confirmProduct.title}&quot;?
+            </p>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowConfirmModal(false);
+                  setConfirmProduct(null);
+                }}
+                className="px-4 py-2 bg-white/10 border-white/20 rounded text-white/70 hover:bg-white/5"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleConfirmToggle}
+                disabled={toggleLoading === confirmProduct.id}
+                className="px-4 py-2 bg-blue-400 text-white rounded hover:bg-blue-500 disabled:opacity-50 flex items-center gap-2"
+              >
+                {toggleLoading === confirmProduct.id ? (
+                  <Loader2 className="animate-spin h-4 w-4" />
+                ) : null}
+                Xác nhận
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ProductDetail
         isOpen={showDetailModal}
