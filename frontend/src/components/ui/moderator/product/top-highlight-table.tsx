@@ -114,6 +114,11 @@ interface SortState {
   order: "asc" | "desc";
 }
 
+const parseDate = (dateStr: string): Date => {
+  const [day, month, year] = dateStr.split("/").map(Number);
+  return new Date(year, month - 1, day);
+};
+
 export default function TopHighlightTable() {
   const [products, setProducts] = useState<TopProduct[]>([]);
   const [loading, setLoading] = useState(false);
@@ -181,8 +186,8 @@ export default function TopHighlightTable() {
         cmp = a.score - b.score;
         break;
       case "createdAt":
-        const aDate = new Date(a.createdAt);
-        const bDate = new Date(b.createdAt);
+        const aDate = parseDate(a.createdAt);
+        const bDate = parseDate(b.createdAt);
         cmp = aDate.getTime() - bDate.getTime();
         break;
       case "title":
@@ -592,9 +597,9 @@ export default function TopHighlightTable() {
               Xác nhận {confirmProduct.isHighlighted ? "bỏ" : "thêm"} nổi bật
             </h3>
             <p className="text-white/70 mb-6">
-            Bạn có chắc chắn muốn{" "}
-            {confirmProduct.isHighlighted ? "bỏ" : "thêm"} nổi bật sản phẩm&nbsp;
-            &quot;{confirmProduct.title}&quot;?
+              Bạn có chắc chắn muốn{" "}
+              {confirmProduct.isHighlighted ? "bỏ" : "thêm"} nổi bật sản
+              phẩm&nbsp; &quot;{confirmProduct.title}&quot;?
             </p>
 
             <div className="flex justify-end gap-3">
