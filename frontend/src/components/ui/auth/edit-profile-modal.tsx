@@ -47,15 +47,13 @@ export function EditProfileModal({ userProfile, open, onOpenChange, onProfileUpd
         bio: formData.bio || undefined,
       };
       
-      const response = await updateUserProfile(payload);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await updateUserProfile(payload);
       
-      const result = await response.json();
       if (result.code === 200) {
-        // Update local state
-        const updatedProfile = { ...userProfile, ...payload };
+        // Update local state with the updated user from backend
+        const updatedProfile = result.data || { ...userProfile, ...payload };
         onProfileUpdate?.(updatedProfile);
-        toast.success("Cập nhật hồ sơ thành công!");
+        toast.success(result.message || "Cập nhật hồ sơ thành công!");
         onOpenChange(false);
       } else {
         toast.error(result.message || "Cập nhật hồ sơ thất bại");

@@ -7,6 +7,7 @@ const { uploadUserAvatar: uploadAvatarController } = require("../../controller/a
 
 router.get('/', authenticateToken, userController.getProfile);
 router.put('/', authenticateToken, userController.updateProfile);
+router.put('/change-password', authenticateToken, userController.changePassword);
 
 // Avatar upload - chỉ cần 1 API duy nhất
 router.post('/avatar', 

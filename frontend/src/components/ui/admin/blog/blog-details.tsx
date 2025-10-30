@@ -1,157 +1,158 @@
-"use client";
-
-import { useState, useEffect } from "react";
-import { toast } from "sonner";
-import { getPostById } from "@/services/auth/blog.api";
+import React, { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/common/dialog";
-import { Button } from "@/components/ui/common/button";
 import { Badge } from "@/components/ui/common/badge";
-import { Card, CardContent } from "@/components/ui/common/card";
-import { X, Calendar, User, Eye, MessageSquare } from "lucide-react";
+import { toast } from "sonner";
+import { getBlogDetail } from "@/services/auth/blog.api";
 
-interface BlogDetailProps {
-  blogId: string;
-  isOpen: boolean;
-  onClose: () => void;
+interface Blog {
+  _id: string;
+  title: string;
+  shortDescription?: string;
+  content: string;
+  thumbnail?: string;
+  authorId?: { _id: string; fullName: string };
+  categoryId?: { _id: string; name: string };
+  tags?: { _id: string; name: string }[];
+  isFeatured: boolean;
+  isActive: boolean;
+  createdAt: string;
 }
 
-export default function BlogDetail({ blogId, isOpen, onClose }: BlogDetailProps) {
-  const [blog, setBlog] = useState<any>(null);
+interface BlogDetailProps {
+  open: boolean;
+  onClose: () => void;
+  blogId: string | null;
+}
+
+const BlogDetail: React.FC<BlogDetailProps> = ({ open, onClose, blogId }) => {
+  const [blog, setBlog] = useState<Blog | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // 🌀 Gọi API khi mở dialog hoặc đổi ID
   useEffect(() => {
-    if (isOpen && blogId) {
-      fetchBlog();
+    if (open && blogId) {
+      fetchBlogDetail(blogId);
     }
-  }, [isOpen, blogId]);
+  }, [open, blogId]);
 
-  const fetchBlog = async () => {
+  const fetchBlogDetail = async (id: string) => {
     try {
       setLoading(true);
-      const res = await getPostById(blogId);
+      const res = await getBlogDetail(id);
+      console.log("🔥 Blog detail response:", res);
       setBlog(res);
-    } catch (error) {
-      toast.error("Không thể tải chi tiết bài viết!");
+    } catch (err) {
+      toast.error("Không thể tải chi tiết bài viết");
     } finally {
       setLoading(false);
     }
   };
 
-  if (!isOpen) return null;
+  if (!open) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl bg-slate-900 border-slate-700 max-h-[90vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-3xl bg-[#6E8CFB] text-white border border-white/10 max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-white">Chi tiết bài viết</DialogTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="text-slate-400 hover:text-white hover:bg-slate-800"
-            >
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
+          <DialogTitle className="text-xl font-semibold">
+            Chi tiết bài viết
+          </DialogTitle>
+          <DialogDescription className="text-white/60">
+            Xem thông tin chi tiết về bài viết.
+          </DialogDescription>
         </DialogHeader>
 
         {loading ? (
-          <div className="text-center py-8">
-            <div className="text-white/70">Đang tải...</div>
-          </div>
+          <p className="text-center text-white/60 py-10">Đang tải...</p>
         ) : blog ? (
-          <div className="space-y-6">
-            {/* Header */}
-            <div className="space-y-4">
-              <h1 className="text-2xl font-bold text-white">{blog.title}</h1>
-              
-              <div className="flex items-center gap-4 text-sm text-white/70">
-                <div className="flex items-center gap-1">
-                  <User className="w-4 h-4" />
-                  <span>{blog.author?.fullName || "Unknown"}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Calendar className="w-4 h-4" />
-                  <span>{new Date(blog.createdAt).toLocaleDateString('vi-VN')}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Eye className="w-4 h-4" />
-                  <span>{blog.views || 0} lượt xem</span>
-                </div>
+          <div className="space-y-4 mt-2">
+            {blog.thumbnail && (
+              <div className="w-full h-60 rounded-lg overflow-hidden border border-white/10">
+                <img
+                  src={blog.thumbnail}
+                  alt={blog.title}
+                  className="object-cover w-full h-full"
+                />
               </div>
+            )}
 
-              {blog.tags && blog.tags.length > 0 && (
-                <div className="flex gap-2 flex-wrap">
-                  {blog.tags.map((tag: any, index: number) => (
-                    <Badge key={index} className="bg-blue-500/20 text-blue-400 border-blue-500/30">
+            {/* Tiêu đề và mô tả */}
+            <div>
+              <h2 className="text-2xl font-semibold">{blog.title}</h2>
+              <p className="text-white/60 mt-1">
+                {blog.shortDescription || "Không có mô tả ngắn"}
+              </p>
+            </div>
+
+            {/* Thông tin meta */}
+            <div className="grid grid-cols-2 gap-3 text-sm mt-3">
+              <div>
+                <p className="text-white/60">Tác giả:</p>
+                <p className="text-white">
+                  {blog.authorId?.fullName || "Không rõ"}
+                </p>
+              </div>
+              <div>
+                <p className="text-white/60">Danh mục:</p>
+                <p className="text-white">
+                  {blog.categoryId?.name || "Không có"}
+                </p>
+              </div>
+              <div>
+                <p className="text-white/60">Trạng thái:</p>
+                <p className="text-white">
+                  {blog.isActive ? "Đang hoạt động" : "Đã ẩn"}
+                </p>
+              </div>
+              <div>
+                <p className="text-white/60">Nổi bật:</p>
+                <p className="text-white">{blog.isFeatured ? "Có" : "Không"}</p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-white/60">Ngày tạo:</p>
+                <p className="text-white">
+                  {new Date(blog.createdAt).toLocaleString("vi-VN")}
+                </p>
+              </div>
+            </div>
+
+            {/* Tags */}
+            {blog.tags && blog.tags.length > 0 && (
+              <div>
+                <p className="text-white/60 mb-1">Thẻ:</p>
+                <div className="flex flex-wrap gap-2">
+                  {blog.tags.map((tag) => (
+                    <Badge key={tag._id} variant="secondary">
                       {tag.name}
                     </Badge>
                   ))}
                 </div>
-              )}
-            </div>
-
-            {/* Content */}
-            <Card className="bg-slate-800/50 border-slate-700">
-              <CardContent className="p-6">
-                <div 
-                  className="prose prose-invert max-w-none text-white/90"
-                  dangerouslySetInnerHTML={{ __html: blog.content }}
-                />
-              </CardContent>
-            </Card>
-
-            {/* Comments Section */}
-            {blog.comments && blog.comments.length > 0 && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5" />
-                  Bình luận ({blog.comments.length})
-                </h3>
-                <div className="space-y-3">
-                  {blog.comments.slice(0, 5).map((comment: any, index: number) => (
-                    <Card key={index} className="bg-slate-800/50 border-slate-700">
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                            {comment.author?.fullName?.charAt(0) || "U"}
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-white font-medium text-sm">
-                                {comment.author?.fullName || "Unknown"}
-                              </span>
-                              <span className="text-white/50 text-xs">
-                                {new Date(comment.createdAt).toLocaleDateString('vi-VN')}
-                              </span>
-                            </div>
-                            <p className="text-white/80 text-sm">{comment.content}</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                  {blog.comments.length > 5 && (
-                    <p className="text-white/50 text-sm text-center">
-                      Và {blog.comments.length - 5} bình luận khác...
-                    </p>
-                  )}
-                </div>
               </div>
             )}
+
+            {/* Nội dung */}
+            <div className="border-t border-white/10 pt-3">
+              <p className="text-white/60 mb-1">Nội dung:</p>
+              <div
+                className="prose prose-invert max-w-none"
+                dangerouslySetInnerHTML={{ __html: blog.content }}
+              />
+            </div>
           </div>
         ) : (
-          <div className="text-center py-8">
-            <div className="text-white/70">Không tìm thấy bài viết</div>
-          </div>
+          <p className="text-center text-white/60 py-10">
+            Không tìm thấy bài viết
+          </p>
         )}
       </DialogContent>
     </Dialog>
   );
-}
+};
+
+export default BlogDetail;

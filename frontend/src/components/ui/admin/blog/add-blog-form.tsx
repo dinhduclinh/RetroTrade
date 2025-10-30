@@ -1,126 +1,294 @@
 "use client";
 
-import { useState } from "react";
-import { toast } from "sonner";
-import { createPost } from "@/services/auth/blog.api";
+import React, { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
+  DialogDescription,
 } from "@/components/ui/common/dialog";
-import { Button } from "@/components/ui/common/button";
-import { Input } from "@/components/ui/common/input";
-import { Textarea } from "@/components/ui/common/textarea";
+import { toast } from "sonner";
+import {
+  createPost,
+  getAllCategories,
+  getAllTags,
+} from "@/services/auth/blog.api";
+import { Switch } from "@/components/ui/common/switch";
 import { Label } from "@/components/ui/common/label";
-import { X } from "lucide-react";
 
-interface AddPostDialogProps {
-  isOpen: boolean;
+interface AddBlogFormProps {
+  open: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess?: () => void;
 }
 
-export default function AddPostDialog({ isOpen, onClose, onSuccess }: AddPostDialogProps) {
-  const [formData, setFormData] = useState({
+interface BlogFormData {
+  title: string;
+  shortDescription?: string;
+  content: string;
+  categoryId?: string;
+  tags: string[];
+  images: File[];
+  isActive: boolean;
+  isFeatured: boolean;
+}
+
+const AddBlogForm: React.FC<AddBlogFormProps> = ({
+  open,
+  onClose,
+  onSuccess,
+}) => {
+  const [form, setForm] = useState<BlogFormData>({
     title: "",
+    shortDescription: "",
     content: "",
-    excerpt: "",
+    categoryId: "",
+    tags: [],
+    images: [],
+    isActive: true,
+    isFeatured: false,
   });
+
+  const [categories, setCategories] = useState<any[]>([]);
+  const [tags, setTags] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      fetchCategories();
+      fetchTags();
+    }
+  }, [open]);
+
+  const fetchCategories = async () => {
+    try {
+      const res = await getAllCategories();
+      setCategories(res?.data || res || []);
+    } catch {
+      toast.error("Không thể tải danh mục");
+    }
+  };
+
+  const fetchTags = async () => {
+    try {
+      const res = await getAllTags();
+      setTags(res?.data || res || []);
+    } catch {
+      toast.error("Không thể tải thẻ tag");
+    }
+  };
+
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    setForm((prev) => ({
+      ...prev,
+      images: files ? Array.from(files) : [],
+    }));
+  };
+
+  // 🏷️ Chọn tag
+  const handleTagToggle = (tagId: string) => {
+    setForm((prev) => ({
+      ...prev,
+      tags: prev.tags.includes(tagId)
+        ? prev.tags.filter((id) => id !== tagId)
+        : [...prev.tags, tagId],
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.title.trim() || !form.content.trim()) {
+      toast.error("Vui lòng nhập đầy đủ tiêu đề và nội dung!");
+      return;
+    }
+
     try {
       setLoading(true);
-      await createPost(formData);
-      toast.success("Tạo bài viết thành công!");
-      onSuccess();
-      setFormData({ title: "", content: "", excerpt: "" });
-    } catch (error) {
-      toast.error("Không thể tạo bài viết!");
+      const formData = new FormData();
+      formData.append("title", form.title);
+      formData.append("shortDescription", form.shortDescription || "");
+      formData.append("content", form.content);
+      if (form.categoryId) formData.append("categoryId", form.categoryId);
+      if (form.tags.length > 0)
+        formData.append("tags", JSON.stringify(form.tags));
+      formData.append("isActive", String(form.isActive));
+      formData.append("isFeatured", String(form.isFeatured));
+      form.images.forEach((file) => formData.append("images", file));
+
+      const res = await createPost(formData);
+
+      if (res && !res.error && res._id) {
+        toast.success("Thêm bài viết thành công!");
+        onSuccess?.();
+        onClose();
+        setForm({
+          title: "",
+          shortDescription: "",
+          content: "",
+          categoryId: "",
+          tags: [],
+          images: [],
+          isActive: true,
+          isFeatured: false,
+        });
+      } else {
+        toast.error(res?.message || "Không thể thêm bài viết");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Lỗi khi thêm bài viết");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleClose = () => {
-    setFormData({ title: "", content: "", excerpt: "" });
-    onClose();
-  };
+  if (!open) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl bg-slate-900 border-slate-700">
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-[#6E8CFB] text-white border border-white/10">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-white">Thêm bài viết mới</DialogTitle>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleClose}
-              className="text-slate-400 hover:text-white hover:bg-slate-800"
-            >
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
+          <DialogTitle>Thêm bài viết mới</DialogTitle>
+          <DialogDescription className="text-white/60">
+            Nhập thông tin bài viết đầy đủ để thêm vào hệ thống.
+          </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+          {/* Tiêu đề */}
           <div>
-            <Label className="text-white mb-2 block">Tiêu đề</Label>
-            <Input
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              className="bg-slate-800 border-slate-600 text-white"
-              placeholder="Nhập tiêu đề bài viết..."
+            <label className="block text-sm mb-1">Tiêu đề *</label>
+            <input
+              type="text"
+              name="title"
+              value={form.title}
+              onChange={handleChange}
               required
+              className="w-full p-2 rounded bg-white/10 border border-white/20 text-white"
             />
           </div>
 
+          {/* Mô tả ngắn */}
           <div>
-            <Label className="text-white mb-2 block">Tóm tắt</Label>
-            <Textarea
-              value={formData.excerpt}
-              onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })}
-              className="bg-slate-800 border-slate-600 text-white"
-              placeholder="Nhập tóm tắt bài viết..."
-              rows={3}
+            <label className="block text-sm mb-1">Mô tả ngắn</label>
+            <textarea
+              name="shortDescription"
+              value={form.shortDescription}
+              onChange={handleChange}
+              rows={2}
+              className="w-full p-2 rounded bg-white/10 border border-white/20 text-white"
             />
           </div>
 
+          {/* Nội dung */}
           <div>
-            <Label className="text-white mb-2 block">Nội dung</Label>
-            <Textarea
-              value={formData.content}
-              onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-              className="bg-slate-800 border-slate-600 text-white"
-              placeholder="Nhập nội dung bài viết..."
-              rows={10}
+            <label className="block text-sm mb-1">Nội dung *</label>
+            <textarea
+              name="content"
+              value={form.content}
+              onChange={handleChange}
+              rows={6}
               required
+              className="w-full p-2 rounded bg-white/10 border border-white/20 text-white"
             />
           </div>
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={handleClose}
-              className="text-slate-300 hover:bg-slate-800"
+          {/* Danh mục */}
+          <div>
+            <label className="block text-sm mb-1">Danh mục</label>
+            <select
+              name="categoryId"
+              value={form.categoryId}
+              onChange={handleChange}
+              className="w-full p-2 rounded bg-[#4B66CC] text-white border border-white/20 focus:outline-none"
             >
-              Hủy
-            </Button>
-            <Button
-              type="submit"
-              disabled={loading}
-              className="bg-blue-500 hover:bg-blue-600 text-white"
-            >
-              {loading ? "Đang tạo..." : "Tạo bài viết"}
-            </Button>
-          </DialogFooter>
+              <option value="">-- Chọn danh mục --</option>
+              {categories.map((cat) => (
+                <option key={cat._id} value={cat._id}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Tag */}
+          <div>
+            <label className="block text-sm mb-1">Thẻ (tags)</label>
+            <div className="flex flex-wrap gap-2">
+              {tags.map((tag) => (
+                <button
+                  type="button"
+                  key={tag._id}
+                  onClick={() => handleTagToggle(tag._id)}
+                  className={`px-3 py-1 rounded-full border ${
+                    form.tags.includes(tag._id)
+                      ? "bg-white text-[#6E8CFB]"
+                      : "bg-transparent border-white/30 text-white"
+                  }`}
+                >
+                  #{tag.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Ảnh bài viết */}
+          <div>
+            <label className="block text-sm mb-1">Ảnh bài viết</label>
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={handleFileChange}
+              className="w-full text-white"
+            />
+          </div>
+
+          {/* Switch */}
+          <div className="flex gap-4">
+            <Label className="flex items-center gap-2">
+              <Switch
+                checked={form.isFeatured}
+                onCheckedChange={(checked: any) =>
+                  setForm((prev) => ({ ...prev, isFeatured: checked }))
+                }
+              />
+              Nổi bật
+            </Label>
+            <Label className="flex items-center gap-2">
+              <Switch
+                checked={form.isActive}
+                onCheckedChange={(checked: any) =>
+                  setForm((prev) => ({ ...prev, isActive: checked }))
+                }
+              />
+              Hiển thị
+            </Label>
+          </div>
+
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-2 bg-white text-[#6E8CFB] font-semibold rounded hover:bg-white/90 transition"
+          >
+            {loading ? "Đang thêm..." : "Thêm bài viết"}
+          </button>
         </form>
       </DialogContent>
     </Dialog>
   );
-}
+};
+
+export default AddBlogForm;

@@ -5,8 +5,12 @@ import { Badge } from "@/components/ui/common/badge"
 import { User, Mail, Phone, Calendar, Shield } from "lucide-react"
 import { useState, forwardRef, useImperativeHandle, useRef } from "react"
 import { toast } from "sonner"
-import { updateUserProfile } from "@/services/auth/user.api"
-import type { UpdateProfileRequest, UserProfile } from "@iService"
+import type { UserProfile } from "@iService"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/common/dialog"
+import PhoneInput from "../verify/PhoneInput"
+import OTPInput from "../verify/OTPInput"
+import { sendOtpFirebase, verifyOtpFirebase } from "@/services/auth/auth.api"
+import Script from "next/script"
 
 interface DetailedInfoCardProps {
   userProfile: UserProfile;
@@ -18,33 +22,91 @@ export type DetailedInfoCardHandle = {
 
 export const DetailedInfoCard = forwardRef<DetailedInfoCardHandle, DetailedInfoCardProps>(function DetailedInfoCard({ userProfile }: DetailedInfoCardProps, ref) {
   const [localPhone, setLocalPhone] = useState<string | undefined>(userProfile.phone)
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const phoneSectionRef = useRef<HTMLDivElement | null>(null)
+  
+  // Dialog state
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [phoneNumber, setPhoneNumber] = useState("")
+  const [otp, setOtp] = useState("")
+  const [sessionInfo, setSessionInfo] = useState("")
+  const [step, setStep] = useState(1) // 1: phone, 2: OTP
+  const [isLoading, setIsLoading] = useState(false)
 
-  const handleEditPhone = async () => {
-    const newPhone = window.prompt("Nhập số điện thoại mới (để trống để xóa):", localPhone || "")
-    if (newPhone === null) return
-    if (newPhone === localPhone) return
-    const confirmMsg = newPhone
-      ? `Xác nhận cập nhật số điện thoại thành ${newPhone}? Hệ thống sẽ đặt lại trạng thái xác thực số điện thoại.`
-      : `Xác nhận xóa số điện thoại? Hệ thống sẽ đặt lại trạng thái xác thực số điện thoại.`
-    const ok = window.confirm(confirmMsg)
-    if (!ok) return
+  const firebaseConfig = {
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_WEB_API_KEY as string,
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN as string,
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID as string,
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID as string,
+  }
 
+  const formatPhoneNumber = (phone: string): string => {
+    const digits = phone.replace(/\D/g, '')
+    if (digits.startsWith('0')) return '+84' + digits.substring(1)
+    if (digits.startsWith('84')) return '+' + digits
+    if (phone.startsWith('+')) return phone
+    return '+84' + digits
+  }
+
+  const handleEditPhone = () => {
+    setIsDialogOpen(true)
+    setPhoneNumber("")
+    setOtp("")
+    setSessionInfo("")
+    setStep(1)
+  }
+
+  const handleSendOTP = async () => {
     try {
-      setIsSubmitting(true)
-      const payload: UpdateProfileRequest = { phone: newPhone ? newPhone : null }
-      const res = await updateUserProfile(payload)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      // FE-only change: set phone and mark phone confirmed false
-      setLocalPhone(newPhone || undefined)
-        ; (userProfile as unknown as { phone?: string; isPhoneConfirmed: boolean }).phone = newPhone || undefined
-        ; (userProfile as unknown as { phone?: string; isPhoneConfirmed: boolean }).isPhoneConfirmed = false
-      toast.success("Cập nhật số điện thoại thành công. Trạng thái xác thực đã đặt lại.")
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Lỗi khi cập nhật số điện thoại")
+      setIsLoading(true)
+      const formattedPhone = formatPhoneNumber(phoneNumber)
+      console.log('Formatted phone:', formattedPhone)
+      
+      const firebaseMaybe = (window as unknown as { firebase?: { apps?: unknown[]; initializeApp: (config: unknown) => void; auth: { RecaptchaVerifier: new (container: string, opts: { size: 'invisible' }) => { verify: () => Promise<string> } } } }).firebase
+      if (!firebaseMaybe) throw new Error('Firebase SDK not loaded')
+      
+      const firebase = firebaseMaybe
+      if (!firebase.apps?.length) firebase.initializeApp(firebaseConfig)
+      
+      const emulatorHost = process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST
+      let recaptchaToken: string | undefined
+      
+      if (!emulatorHost) {
+        const container = document.getElementById('recaptcha-container')
+        if (container) container.innerHTML = ''
+        const verifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', { size: 'invisible' })
+        recaptchaToken = await verifier.verify()
+      }
+      
+      const response = await sendOtpFirebase(formattedPhone, recaptchaToken)
+      const data = await response.json()
+      if (!response.ok) throw new Error(data?.message || 'Send OTP failed')
+      setSessionInfo(data?.data?.sessionInfo || '')
+      toast.success("Đã gửi mã OTP!")
+      setStep(2)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Lỗi khi gửi OTP")
     } finally {
-      setIsSubmitting(false)
+      setIsLoading(false)
+    }
+  }
+
+  const handleVerifyOTP = async () => {
+    try {
+      setIsLoading(true)
+      const response = await verifyOtpFirebase(sessionInfo, otp)
+      const data = await response.json()
+      if (!response.ok) throw new Error(data?.message || 'Verify OTP failed')
+      
+      toast.success("Xác minh số điện thoại thành công!")
+      setLocalPhone(phoneNumber)
+      const profile = userProfile as UserProfile & { phone?: string; isPhoneConfirmed?: boolean }
+      profile.phone = phoneNumber
+      profile.isPhoneConfirmed = true
+      setIsDialogOpen(false)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Lỗi khi xác minh OTP")
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -53,13 +115,11 @@ export const DetailedInfoCard = forwardRef<DetailedInfoCardHandle, DetailedInfoC
       if (phoneSectionRef.current) {
         phoneSectionRef.current.scrollIntoView({ behavior: "smooth", block: "center" })
       }
-      // Slight delay to ensure scroll finishes before prompt appears
-      setTimeout(() => {
-        void handleEditPhone()
-      }, 200)
+      setTimeout(() => handleEditPhone(), 200)
     }
   }))
   return (
+    <>
     <Card className="bg-white border border-gray-200 hover:border-gray-300 transition-all duration-300 hover:shadow-xl group overflow-hidden relative h-full">
       {/* Gradient overlay on hover */}
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/0 to-purple-500/0 group-hover:from-indigo-500/5 group-hover:to-purple-500/5 transition-all duration-300" />
@@ -100,8 +160,7 @@ export const DetailedInfoCard = forwardRef<DetailedInfoCardHandle, DetailedInfoC
                 <button
                   type="button"
                   onClick={handleEditPhone}
-                  disabled={isSubmitting}
-                  className="text-sm text-blue-600 hover:text-blue-700 underline disabled:opacity-50"
+                  className="text-sm text-blue-600 hover:text-blue-700 underline"
                 >
                   {localPhone ? "Chỉnh sửa" : "Thêm"}
                 </button>
@@ -157,5 +216,39 @@ export const DetailedInfoCard = forwardRef<DetailedInfoCardHandle, DetailedInfoC
         )}
       </CardContent>
     </Card>
+    
+    {/* Phone Verification Dialog */}
+    <Script src="https://www.gstatic.com/firebasejs/9.x/firebase-compat.js" strategy="lazyOnload" />
+    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Thay đổi số điện thoại</DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-4">
+          {step === 1 && (
+            <PhoneInput
+              phoneNumber={phoneNumber}
+              setPhoneNumber={setPhoneNumber}
+              onNext={handleSendOTP}
+              isLoading={isLoading}
+            />
+          )}
+          
+          {step === 2 && (
+            <OTPInput
+              otp={otp}
+              setOtp={setOtp}
+              onNext={handleVerifyOTP}
+              onBack={() => setStep(1)}
+              isLoading={isLoading}
+            />
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+    
+    <div id="recaptcha-container" />
+    </>
   )
 })

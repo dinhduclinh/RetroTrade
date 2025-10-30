@@ -42,7 +42,7 @@ const itemSchema = new mongoose.Schema(
     StatusId: {
       type: Number,
       required: true,
-      enum: [1, 2, 3], // 1: Pending, 2: Approved, 3: Rejected
+      enum: [1, 2, 3], 
       default: 1,
     },
     Address: { type: String, maxlength: 500 },
