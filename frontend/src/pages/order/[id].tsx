@@ -126,14 +126,14 @@ export default function OrderDetail() {
     {
       status: "confirmed",
       label: "Đã xác nhận",
-      active: ["confirmed", "started", "completed"].includes(order.orderStatus),
+      active: ["confirmed", "progress", "completed"].includes(order.orderStatus),
       current: order.orderStatus === "confirmed",
     },
     {
-      status: "started",
+      status: "progress",
       label: "Đang thuê",
-      active: ["started", "returned", "completed"].includes(order.orderStatus),
-      current: order.orderStatus === "started",
+      active: ["progress", "returned", "completed"].includes(order.orderStatus),
+      current: order.orderStatus === "progress",
     },
     {
       status: "returned",
@@ -157,7 +157,7 @@ export default function OrderDetail() {
 
   const canConfirm = order.orderStatus === "pending";
   const canStart = order.orderStatus === "confirmed";
-  const canReturn = order.orderStatus === "started";
+  const canReturn = order.orderStatus === "progress";
   const canComplete = order.orderStatus === "returned";
   const canCancel = ["pending", "confirmed"].includes(order.orderStatus);
 
@@ -185,14 +185,14 @@ export default function OrderDetail() {
                     ? "bg-green-100 text-green-700"
                     : order.orderStatus === "cancelled"
                     ? "bg-red-100 text-red-700"
-                    : order.orderStatus === "started"
+                    : order.orderStatus === "progress"
                     ? "bg-blue-100 text-blue-700"
                     : "bg-yellow-100 text-yellow-700"
                 }`}
               >
                 {order.orderStatus === "pending" && "Chờ xác nhận"}
                 {order.orderStatus === "confirmed" && "Đã xác nhận"}
-                {order.orderStatus === "started" && "Đang thuê"}
+                {order.orderStatus === "progress" && "Đang thuê"}
                 {order.orderStatus === "returned" && "Đã trả"}
                 {order.orderStatus === "completed" && "Hoàn tất"}
                 {order.orderStatus === "cancelled" && "Đã hủy"}

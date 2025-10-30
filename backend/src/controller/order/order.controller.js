@@ -271,7 +271,6 @@ module.exports = {
           message: "Order must be in progress to mark as returned",
         });
 
- 
       order.orderStatus = "returned";
       order.returnInfo.returnedAt = new Date();
       order.returnInfo.notes = notes || "";
@@ -325,14 +324,25 @@ module.exports = {
           .json({ message: "Renter hasn't reported return yet" });
       }
 
-      if (!["progress", "returned"].includes(order.orderStatus))
+      if (!["progress", "returned"].includes(order.orderStatus)) {
+        await session.abortTransaction();
         return res.status(400).json({
           message: "Order must be in progress or returned to complete",
         });
+      }
 
+      const normalizeCondition = (status) => {
+        const map = {
+          good: "Good",
+          slightlydamaged: "SlightlyDamaged",
+          heavilydamaged: "HeavilyDamaged",
+          lost: "Lost",
+        };
+        return map[status?.toLowerCase()] || "Good";
+      };
 
       order.returnInfo.confirmedBy = ownerId;
-      order.returnInfo.conditionStatus = conditionStatus;
+      order.returnInfo.conditionStatus = normalizeCondition(conditionStatus);
       order.returnInfo.notes =
         (order.returnInfo.notes || "") + "\nOwnerNote: " + ownerNotes;
       order.returnInfo.damageFee = Math.max(0, Number(damageFee) || 0);
@@ -341,6 +351,7 @@ module.exports = {
 
       order.orderStatus = "completed";
       order.lifecycle.completedAt = new Date();
+
       const item = await Item.findById(order.itemId).session(session);
       if (item) {
         if (order.returnInfo.conditionStatus === "Lost") {

@@ -126,12 +126,12 @@ export default function OwnerRenterRequests() {
  const handleConfirmReturn = async (orderId: string) => {
    try {
      const res = await ownerComplete(orderId, {
-       conditionStatus: "good",
+       conditionStatus: "Good",
        ownerNotes: "Hàng đã kiểm tra, không hư hại.",
      });
 
      if (res.code === 200) {
-       toast.success("✅ Đã xác nhận trả hàng");
+       toast.success(" Đã xác nhận trả hàng");
        setOrders((prev) => prev.filter((o) => o._id !== orderId));
      } else {
        toast.error(res.message || "Lỗi khi xác nhận trả hàng");
@@ -250,7 +250,7 @@ export default function OwnerRenterRequests() {
                 {order.orderStatus === "returned" && (
                   <Button
                     size="sm"
-                    className="bg-green-600 hover:bg-green-700 text-white font-medium shadow-sm"
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm"
                     onClick={() => handleConfirmReturn(order._id)}
                   >
                     Xác nhận trả hàng
