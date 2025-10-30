@@ -28,6 +28,13 @@ const {
   getPublicStoreByUserGuid,
   getProductsByCategoryId,
 } = require("../../controller/products/productPublic.controller");
+
+const {
+  addToFavorites,
+  removeFromFavorites,
+  getFavorites,
+} = require("../../controller/products/favorites.controller");
+
 const { upload } = require("../../middleware/upload.middleware");
 const { authenticateToken } = require("../../middleware/auth");
 
@@ -50,6 +57,10 @@ router.get("/product/:id", getProductByProductId);
 router.get('/owner/:ownerId/top-viewed', getProductsByOwnerIdWithHighViewCount);
 router.get('/store/:userGuid', getPublicStoreByUserGuid);
 router.get('/product/category/:categoryId', getProductsByCategoryId);
+
+router.post('/:productId/favorite', authenticateToken, addToFavorites);
+router.delete('/:productId/favorite', authenticateToken, removeFromFavorites);
+router.get('/favorites', authenticateToken, getFavorites);
 
 //owner
 router.get("/user", authenticateToken, getUserProducts);

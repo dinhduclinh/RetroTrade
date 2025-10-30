@@ -85,6 +85,21 @@ export const toggleProductHighlight = async (id: string, isHighlighted?: boolean
 };
 
 //product public
+
+export const addToFavorites = async (productId: string): Promise<Response> => {
+  return await instance.post(`/products/${productId}/favorite`);
+};
+
+export const removeFromFavorites = async (
+  productId: string
+): Promise<Response> => {
+  return await instance.delete(`/products/${productId}/favorite`);
+};
+
+export const getFavorites = async (): Promise<Response> => {
+  return await instance.get("/products/favorites");
+};
+
 export const getTopViewedItemsByOwner = async (ownerId: string, limit: number = 4) => {
   try {
     const res = await instance.get(`/products/owner/${ownerId}/top-viewed?limit=${limit}`);
