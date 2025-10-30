@@ -231,6 +231,12 @@ module.exports = {
           .status(400)
           .json({ message: "Only confirmed orders can be started" });
 
+      if (order.startAt && new Date(order.startAt) > new Date()) {
+        return res.status(400).json({
+          message: "Cannot start rental before scheduled start date",
+        });
+      }
+
       order.orderStatus = "progress";
       order.lifecycle.startedAt = new Date();
       await order.save();
@@ -248,7 +254,7 @@ module.exports = {
     try {
       const renterId = req.user._id;
       const orderId = req.params.id;
-      const { notes = "" } = req.body;
+      const { notes } = req.body;
 
       if (!Types.ObjectId.isValid(orderId))
         return res.status(400).json({ message: "Invalid order id" });
@@ -261,25 +267,25 @@ module.exports = {
         return res.status(403).json({ message: "Forbidden: not renter" });
 
       if (order.orderStatus !== "progress")
-        return res
-          .status(400)
-          .json({ message: "Only in-progress orders can be returned" });
+        return res.status(400).json({
+          message: "Order must be in progress to mark as returned",
+        });
 
-      order.returnInfo = order.returnInfo || {};
+ 
+      order.orderStatus = "returned";
       order.returnInfo.returnedAt = new Date();
-      order.returnInfo.notes = notes;
-
+      order.returnInfo.notes = notes || "";
       await order.save();
 
-      return res.json({
-        message: "Return reported - awaiting owner confirmation",
+      return res.status(200).json({
+        message: "Order marked as returned",
         orderGuid: order.orderGuid,
       });
     } catch (err) {
       console.error("renterReturn err:", err);
       return res
         .status(500)
-        .json({ message: "Failed to report return", error: err.message });
+        .json({ message: "Failed to mark as returned", error: err.message });
     }
   },
 
@@ -319,12 +325,11 @@ module.exports = {
           .json({ message: "Renter hasn't reported return yet" });
       }
 
-      if (order.orderStatus !== "progress") {
-        await session.abortTransaction();
-        return res
-          .status(400)
-          .json({ message: "Order cannot be completed in current status" });
-      }
+      if (!["progress", "returned"].includes(order.orderStatus))
+        return res.status(400).json({
+          message: "Order must be in progress or returned to complete",
+        });
+
 
       order.returnInfo.confirmedBy = ownerId;
       order.returnInfo.conditionStatus = conditionStatus;

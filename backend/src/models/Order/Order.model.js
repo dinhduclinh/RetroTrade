@@ -72,6 +72,7 @@ const orderSchema = new mongoose.Schema(
         "pending",
         "confirmed",
         "progress",
+        "returned",
         "completed",
         "cancelled",
         "disputed",

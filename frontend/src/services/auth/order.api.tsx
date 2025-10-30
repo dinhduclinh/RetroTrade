@@ -70,6 +70,7 @@ export interface Order {
   isDeleted: boolean;
   createdAt: string;
   updatedAt: string;
+  cancelReason: String;
 }
 
 
