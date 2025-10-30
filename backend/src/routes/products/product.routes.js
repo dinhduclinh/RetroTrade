@@ -27,6 +27,7 @@ const {
   getProductsByOwnerIdWithHighViewCount,
   getPublicStoreByUserGuid,
   getProductsByCategoryId,
+  getHighlightedProducts,
 } = require("../../controller/products/productPublic.controller");
 
 const {
@@ -50,6 +51,7 @@ router.put("/approve/:id/highlight", authenticateToken, toggleHighlight);
 
 //product public
 router.get("/product/public", listAllItems);
+router.get("/products/public/highlighted", getHighlightedProducts);
 router.get("/product/search", searchProduct);
 router.get("/product/featured", viewFeatureProduct);
 router.get("/product/tags", listSearchTags);

@@ -75,6 +75,33 @@ export const rejectProduct = async (id: string, reason?: string): Promise<Respon
   return await instance.put(`/products/pending/${id}/reject`, { reason });
 };
 
+// Types for top highlight products
+export interface TopHighlightProduct {
+  _id: string;
+  Title: string;
+  ownerName: string;
+  categoryName: string;
+  BasePrice: number;
+  Currency: string;
+  ViewCount: number;
+  FavoriteCount: number;
+  RentCount: number;
+  score: number;
+  IsHighlighted: boolean;
+  CreatedAt: string;
+  thumbnailUrl?: string;
+}
+
+export interface HighlightResponse {
+  success: boolean;
+  message?: string;
+  data: TopHighlightProduct[];
+}
+
+export const getHighlightedProducts = async (): Promise<Response> => {
+  return await instance.get("/products/products/public/highlighted");
+};
+
 export const getTopProductsForHighlight = async (): Promise<Response> => {
   return await instance.get("/products/top-for-highlight");
 };
