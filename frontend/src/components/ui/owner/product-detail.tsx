@@ -307,28 +307,22 @@ const OwnerProductDetailPage: React.FC = () => {
         <div className="bg-white border-b">
           <div className="container mx-auto px-4 py-4 max-w-7xl">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={() => router.back()}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <ArrowLeft size={20} />
-                </button>
-                <div>
-                  <div className="text-sm text-gray-600 mb-1">
-                    <span className="hover:text-blue-600 cursor-pointer">
-                      Sản phẩm của tôi
-                    </span>
-                    <span className="mx-2">/</span>
-                    <span className="text-gray-900 font-medium">
-                      Chi tiết sản phẩm
-                    </span>
-                  </div>
-                  <h1 className="text-xl font-semibold text-gray-900">
-                    Xem chi tiết sản phẩm
-                  </h1>
-                </div>
-              </div>
+              <div className="mb-8">
+                        <button
+                          onClick={() => router.back()}
+                          className="flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-4 transition-colors"
+                        >
+                          <ArrowLeft size={20} />
+                          <span>Quay lại</span>
+                        </button>
+                        <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
+                          <Package className="w-8 h-8 text-blue-600" />
+                          Chi tiết sản phẩm
+                        </h1>
+                        <p className="text-gray-600">
+                          Xem chi tiết sản phẩm của bạn
+                        </p>
+                      </div>
               <div className="flex gap-3">
                 <button
                   onClick={() => router.push(`/owner/myproducts/update/${id}`)}

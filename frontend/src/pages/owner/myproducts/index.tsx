@@ -102,7 +102,7 @@ export default function OwnerPanel() {
     }
 
     setFilteredProducts(filtered);
-    setCurrentPage(1); // Reset to first page on filter
+    setCurrentPage(1); 
   }, [statusFilter, searchTerm, products]);
 
   // Pagination logic
@@ -431,7 +431,7 @@ export default function OwnerPanel() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="w-16 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="w-28 px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Hình ảnh
                         </th>
                         <th className="w-56 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -446,7 +446,7 @@ export default function OwnerPanel() {
                         <th className="w-28 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Vị trí
                         </th>
-                        <th className="w-40 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="w-30 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Thống kê
                         </th>
                         <th className="w-24 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -470,8 +470,8 @@ export default function OwnerPanel() {
                                 <Image
                                   src={product.Images[0].Url}
                                   alt={product.Title}
-                                  width={48}
-                                  height={48}
+                                  width={60}
+                                  height={50}
                                   className="object-cover rounded"
                                 />
                               ) : (
