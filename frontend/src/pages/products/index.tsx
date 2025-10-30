@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   getAllItems,
@@ -9,6 +9,7 @@ import {
   addToFavorites,
   removeFromFavorites,
   getFavorites,
+  getHighlightedProducts,
 } from "@/services/products/product.api";
 import { vietnamProvinces } from "@/lib/vietnam-locations";
 import {
@@ -29,6 +30,13 @@ import AddToCartButton from "@/components/ui/common/AddToCartButton";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/store/redux_store";
 import { toast } from "sonner";
+
+// If your project exports a logout action from your auth slice, prefer importing it:
+// import { logout } from "@/store/slices/auth";
+// Fallback local action creator to avoid "Cannot find name 'logout'". This will dispatch
+// a plain action { type: "auth/logout" } which your reducer can handle; replace with
+// the real import when available.
+const logout = () => ({ type: "auth/logout" });
 
 interface Category {
   _id: string;
@@ -157,6 +165,9 @@ export default function ProductPage() {
     new Map()
   );
   const [initialFavoritesLoaded, setInitialFavoritesLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const itemsPerPage = 9;
 
   // Initialize currentPage from URL
@@ -194,6 +205,7 @@ export default function ProductPage() {
   const [activeBanner, setActiveBanner] = useState(0);
   const autoplayRef = useRef<NodeJS.Timeout | null>(null);
   const bannerContainerRef = useRef<HTMLDivElement | null>(null);
+  const sliderRef = useRef<HTMLDivElement>(null);
   const [imgRatios, setImgRatios] = useState<number[]>([]);
   const [computedBannerHeight, setComputedBannerHeight] = useState<number>(0);
   const targetBannerRatio = useMemo(() => {
@@ -204,6 +216,132 @@ export default function ProductPage() {
     const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
     return Math.max(0.4, Math.min(0.65, avg));
   }, [imgRatios]);
+
+  // Fetch featured products
+  const fetchFeaturedProducts = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const response = await getHighlightedProducts();
+      const result = await response.json();
+      
+      if (response.ok && result.success) {
+        const formattedProducts = (result.data || []).map((product: any) => {
+          // Get the thumbnail URL from the API response
+          let thumbnailUrl = product.thumbnail || '/placeholder-image.jpg';
+          
+          // If no thumbnail, check the images array as fallback
+          if (!thumbnailUrl || thumbnailUrl === '/placeholder-image.jpg') {
+            if (product.images && product.images.length > 0) {
+              const firstImage = product.images[0];
+              if (typeof firstImage === 'object') {
+                thumbnailUrl = firstImage.Url || firstImage.url || firstImage.thumbnail || thumbnailUrl;
+              } else if (typeof firstImage === 'string') {
+                thumbnailUrl = firstImage;
+              }
+            }
+          }
+          
+          // Ensure the URL is properly formatted
+          if (thumbnailUrl && thumbnailUrl !== '/placeholder-image.jpg') {
+            // If it's a relative path, make sure it's served from the public folder
+            if (!thumbnailUrl.startsWith('http') && !thumbnailUrl.startsWith('/')) {
+              thumbnailUrl = `/${thumbnailUrl}`;
+            }
+            // If it's a local path, make sure it's served from the public folder
+            if (thumbnailUrl.startsWith('/') && !thumbnailUrl.startsWith('http')) {
+              // Remove any leading slashes to prevent double slashes
+              const cleanPath = thumbnailUrl.replace(/^\/+/, '');
+              thumbnailUrl = `${process.env.NEXT_PUBLIC_API_URL || ''}/${cleanPath}`;
+            }
+          }
+          
+          console.log('Final thumbnail URL:', thumbnailUrl); // Debug log
+          
+          // Get the price unit name, handling both array and direct object cases
+          const priceUnit = (product.priceUnit && (product.priceUnit[0] || product.priceUnit)) || 
+                          (product.PriceUnit && { UnitName: product.PriceUnit }) || 
+                          { UnitName: 'ngày' };
+          
+          return {
+            _id: product._id || '',
+            title: product.Title || 'No title',
+            shortDescription: product.Description || '',
+            thumbnail: thumbnailUrl,
+            basePrice: product.BasePrice || 0,
+            currency: product.Currency || 'VND',
+            depositAmount: product.DepositAmount || 0,
+            createdAt: product.CreatedAt || new Date().toISOString(),
+            availableQuantity: 1, // Default to 1 as we don't have this in the API
+            quantity: 1,
+            viewCount: product.ViewCount || 0,
+            rentCount: product.RentCount || 0,
+            favoriteCount: product.FavoriteCount || 0,
+            address: [product.Address, product.District, product.City].filter(Boolean).join(', '),
+            city: product.City,
+            district: product.District,
+            condition: product.condition || { ConditionName: 'Used' },
+            priceUnit: priceUnit,
+            category: product.category ? { 
+              _id: product.category._id || (product.CategoryId || ''), 
+              name: product.category.Name || product.category.name || '' 
+            } : null,
+            tags: (product.tags || []).map((tag: any) => ({ 
+              _id: tag._id, 
+              name: tag.Name || tag.name 
+            })),
+            isHighlighted: true // Since we're fetching highlighted products
+          };
+        });
+        
+        setFeaturedProducts(formattedProducts);
+      } else {
+        throw new Error(result.message || 'Failed to fetch highlighted products');
+      }
+    } catch (err) {
+      console.error("Error fetching featured products:", err);
+      const errorMsg =
+        err instanceof Error
+          ? err.message
+          : String(err || "Có lỗi xảy ra khi tải sản phẩm nổi bật");
+      toast.error(errorMsg);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Fetch featured products on component mount
+  useEffect(() => {
+    fetchFeaturedProducts();
+  }, [fetchFeaturedProducts]);
+
+  // Auto slide featured products with sliding window of 4 products
+  useEffect(() => {
+    if (featuredProducts.length <= 4) return;
+    const interval = setInterval(() => {
+      setCurrentSlide(prev => (prev + 1) % (featuredProducts.length - 3));
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [featuredProducts.length]);
+
+  const nextSlide = () => {
+    setCurrentSlide(prev => (prev + 1) % (featuredProducts.length - 3));
+  };
+
+  const prevSlide = () => {
+    setCurrentSlide(prev => (prev - 1 + (featuredProducts.length - 3)) % (featuredProducts.length - 3));
+  };
+
+  const getVisibleProducts = () => {
+    if (featuredProducts.length <= 4) return featuredProducts;
+    const endIndex = currentSlide + 4;
+    if (endIndex > featuredProducts.length) {
+      return [
+        ...featuredProducts.slice(currentSlide),
+        ...featuredProducts.slice(0, endIndex % featuredProducts.length)
+      ];
+    }
+    return featuredProducts.slice(currentSlide, endIndex);
+  };
 
   // Fetch data
   useEffect(() => {
@@ -259,7 +397,8 @@ export default function ProductPage() {
     };
 
     fetchData();
-  }, []);
+    fetchFeaturedProducts();
+  }, [fetchFeaturedProducts]);
   useEffect(() => {
     const fetchInitialFavorites = async () => {
       if (!isAuthenticated || initialFavoritesLoaded || !accessToken || loading)
@@ -269,14 +408,14 @@ export default function ProductPage() {
         if (res.ok) {
           const data = await res.json();
           const favorites = data.data || [];
-          const favoriteIds = new Set(
-            favorites.map((fav: any) => toIdString(fav.productId?._id)) 
+          const favoriteIds = new Set<string>(
+            favorites.map((fav: any) => toIdString(fav.productId?._id))
           );
           setLocalFavorites(favoriteIds);
-          const countsMap = new Map();
+          const countsMap = new Map<string, number>();
           favorites.forEach((fav: any) => {
-            const prodId = toIdString(fav.productId?._id); 
-            const count = fav.productId?.FavoriteCount || 0;
+            const prodId = toIdString(fav.productId?._id);
+            const count = Number(fav.productId?.FavoriteCount || 0);
             countsMap.set(prodId, count);
           });
           setLocalCounts(countsMap);
@@ -717,44 +856,143 @@ export default function ProductPage() {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 max-w-7xl">
-        {/* Featured Products */}
-        {featuredItems.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-3 flex items-center gap-2">
-              <Star className="w-5 h-5 text-yellow-400" /> Sản phẩm nổi bật
-            </h2>
-            <div className="overflow-x-auto">
-              <div className="flex gap-4 min-w-full">
-                {featuredItems.map((item) => (
-                  <div
-                    key={item._id}
-                    className="min-w-[220px] max-w-[220px] bg-white rounded-xl shadow-sm overflow-hidden cursor-pointer hover:shadow-md transition"
-                    onClick={() => handleRentNow(item._id)}
+      {/* Featured Products Slider */}
+      <div className="bg-gray-50 py-8">
+        <div className="container mx-auto px-4">
+          <h2 className="text-2xl font-bold mb-6 text-center">Sản phẩm nổi bật</h2>
+          {isLoading ? (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+            </div>
+          ) : featuredProducts.length > 0 ? (
+            <div className="relative">
+              <div 
+                ref={sliderRef}
+                className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 overflow-hidden transition-transform duration-500 ease-in-out"
+              >
+                {getVisibleProducts().map((product, index) => (
+                  <div 
+                    key={`${product._id}-${currentSlide}-${index}`}
+                    className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
+                    onClick={() => router.push(`/products/details?id=${product._id}`)}
                   >
-                    <div className="h-32 bg-gray-200">
-                      <img src={item.thumbnail} alt={item.title} className="w-full h-full object-cover" />
+                    <div className="relative h-48 overflow-hidden">
+                      <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                        <img
+                          src={product.thumbnail}
+                          alt={product.title || 'Product image'}
+                          className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            if (target.src !== '/placeholder.jpg') {
+                              target.src = '/placeholder.jpg';
+                            }
+                          }}
+                        />
+                      </div>
+                      <div className="absolute top-2 right-2 bg-yellow-400 text-xs font-bold px-2 py-1 rounded-full flex items-center">
+                        <Star className="w-3 h-3 mr-1" />
+                        <span>Nổi bật</span>
+                      </div>
                     </div>
-                    <div className="p-3">
-                      <div className="text-sm font-semibold line-clamp-2 mb-1">
-                        {item.title}
-                      </div>
-                      <div className="text-xs text-gray-600 mb-2 truncate">
-                        {item.category?.name}
-                      </div>
-                      <div className="text-blue-600 text-sm font-bold">
-                        {formatPrice(item.basePrice, item.currency)}
-                        <span className="text-xs text-gray-500">
-                          /{item.priceUnit?.UnitName || "ngày"}
+                    <div className="p-4 flex-1 flex flex-col">
+                      <h3 className="font-semibold text-lg mb-2 line-clamp-2 h-14">{product.title}</h3>
+                      
+                      <div className="flex items-center gap-1 text-sm text-gray-600 mb-3">
+                        <MapPin size={14} className="text-gray-400" />
+                        <span className="truncate">
+                          {[product.district, product.city].filter(Boolean).join(', ')}
                         </span>
                       </div>
+                      
+                      <div className="bg-blue-50 rounded-lg p-3 mb-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs text-gray-600 mb-1">Giá thuê</p>
+                            <p className="text-lg font-bold text-blue-600">
+                              {formatPrice(product.basePrice, product.currency)}
+                              {product.priceUnit?.UnitName && (
+                                <span className="text-sm font-normal text-gray-600">
+                                  /{product.priceUnit.UnitName}
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-gray-600 mb-1">Đặt cọc</p>
+                            <p className="text-sm font-semibold text-gray-700">
+                              {formatPrice(product.depositAmount, product.currency)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between text-xs text-gray-600 mb-4 pb-4 border-b border-gray-100">
+                        <div className="flex items-center gap-1">
+                          <Eye size={14} />
+                          <span>{product.viewCount?.toLocaleString() || '0'} lượt xem</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Package size={14} />
+                          <span>{product.rentCount || '0'} lượt thuê</span>
+                        </div>
+                      </div>
+                      
                     </div>
                   </div>
                 ))}
               </div>
+              
+              {featuredProducts.length > 4 && (
+                <>
+                  <button
+                    onClick={prevSlide}
+                    className="absolute left-0 top-1/2 -translate-y-1/2 bg-white hover:bg-gray-100 rounded-full p-2 shadow-lg z-10 -ml-4 transition-all duration-200 hover:scale-110"
+                    aria-label="Previous slide"
+                  >
+                    <ChevronLeft className="w-6 h-6" />
+                  </button>
+                  <button
+                    onClick={nextSlide}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 bg-white hover:bg-gray-100 rounded-full p-2 shadow-lg z-10 -mr-4 transition-all duration-200 hover:scale-110"
+                    aria-label="Next slide"
+                  >
+                    <ChevronRight className="w-6 h-6" />
+                  </button>
+                </>
+              )}
+              
+              <div className="flex justify-center mt-6 space-x-2">
+                {Array.from({ length: Math.max(1, featuredProducts.length - 3) }).map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentSlide(index)}
+                    className={`w-3 h-3 rounded-full transition-all duration-200 ${
+                      currentSlide === index 
+                        ? 'bg-blue-600 w-8' 
+                        : 'bg-gray-300 hover:bg-gray-400'
+                    }`}
+                    aria-label={`Go to slide ${index + 1}`}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="text-center py-12 bg-white rounded-lg shadow">
+              <p className="text-gray-500">Hiện chưa có sản phẩm nổi bật nào</p>
+              <button 
+                onClick={fetchFeaturedProducts}
+                className="mt-4 text-blue-600 hover:text-blue-800 flex items-center justify-center mx-auto"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Tải lại
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="container mx-auto px-4 max-w-7xl py-8">
         <div className="flex gap-8">
           {/* Sidebar */}
           <aside className="w-72 hidden lg:block">
@@ -933,7 +1171,7 @@ export default function ProductPage() {
                   <Search size={20} className="text-gray-400" />
                   <input
                     type="text"
-                    placeholder="Tìm kiếm sản phẩm hoặc địa chỉ..."
+                    placeholder="Tìm kiếm sản phẩm ..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="flex-1 border rounded-lg p-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"

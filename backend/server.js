@@ -19,6 +19,7 @@ const io = new Server(server, {
 
 const connectDB = require("./src/config/db");
 const router = require("./src/routes/index");
+
 const socketHandler = require("./src/socket/socket.handler");
 
 const cron = require("node-cron");
