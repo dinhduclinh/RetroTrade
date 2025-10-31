@@ -1,4 +1,5 @@
 const userAuthRouter = require("../routes/auth/auth.router");
+const signatureRouter = require("./auth/signature.router");
 
 const categoryRouter = require("./products/category.routes");
 const productRouter = require("./products/product.routes")
@@ -21,6 +22,7 @@ module.exports = (app) => {
     const api = "/api/v1";
     app.use(api + "/auth", userAuthRouter);
     app.use(api + "/user", userRouter);
+    app.use(api + "/signature", signatureRouter);
     app.use(api + "/categories", categoryRouter);
     app.use(api + "/products", productRouter);
     app.use(api + "/products/upload", uploadproductRouter);

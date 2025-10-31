@@ -5,10 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/common
 import { Button } from "@/components/ui/common/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/common/dialog"
 import { Textarea } from "@/components/ui/common/textarea"
-import { Edit, Shield, Wallet, Settings, ChevronRight, Key, Store, AlertCircle } from "lucide-react"
+import { Edit, Shield, Wallet, Settings, ChevronRight, Key, Store, AlertCircle, PenTool } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { ownerRequestApi } from "@/services/auth/ownerRequest.api"
+import { SignatureManagement } from "@/components/ui/auth/signature/signature-management"
 
 interface QuickActionsCardProps {
   onEditProfile?: () => void;
@@ -31,6 +32,8 @@ export function QuickActionsCard({
   const isVerified = isPhoneConfirmed && isIdVerified;
   const router = useRouter();
   const [showRequestDialog, setShowRequestDialog] = useState(false);
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [currentSignatureUrl, setCurrentSignatureUrl] = useState<string | null>(null); 
   const [reason, setReason] = useState("");
   const [additionalInfo, setAdditionalInfo] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -93,6 +96,14 @@ export function QuickActionsCard({
     router.push('/auth/verify');
   };
 
+  const handleManageSignature = () => {
+    setShowSignatureModal(true);
+  };
+
+  const handleSignatureSuccess = (url: string | null) => {
+    setCurrentSignatureUrl(url);
+  };
+
   const actions = [
     { icon: Edit, label: "Chỉnh sửa hồ sơ", color: "from-blue-500/20 to-cyan-500/20", iconColor: "text-blue-600", action: onEditProfile },
     { icon: Key, label: "Đổi mật khẩu", color: "from-green-500/20 to-emerald-500/20", iconColor: "text-green-600", action: onChangePassword },
@@ -140,6 +151,13 @@ export function QuickActionsCard({
       color: "from-purple-500/20 to-pink-500/20",
       iconColor: "text-purple-600",
       action: handleIdentityVerification,
+    },
+    { 
+      icon: PenTool, 
+      label: currentSignatureUrl ? "Cập nhật chữ ký số" : "Tạo chữ ký số", 
+      color: "from-pink-500/20 to-rose-500/20", 
+      iconColor: "text-pink-600", 
+      action: handleManageSignature 
     },
     { icon: Wallet, label: "Quản lý ví", color: "from-emerald-500/20 to-teal-500/20", iconColor: "text-emerald-600" },
     {
@@ -288,6 +306,13 @@ export function QuickActionsCard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Signature Management */}
+      <SignatureManagement
+        isOpen={showSignatureModal}
+        onClose={() => setShowSignatureModal(false)}
+        onSuccess={handleSignatureSuccess}
+      />
     </Card>
   )
 }

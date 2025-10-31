@@ -72,3 +72,15 @@ export const confirmPhoneFirebase = async (idToken: string): Promise<Response> =
     return await instance.post("/auth/phone/confirm-firebase", { idToken });
 };
 
+// Signature CRUD API functions
+export const saveSignature = async (signatureData: string): Promise<Response> => {
+    return await instance.post("/signature", { signatureData });
+};
+
+export const getSignature = async (): Promise<Response> => {
+    return await instance.get("/signature");
+};
+
+export const deleteSignature = async (): Promise<Response> => {
+    return await instance.delete("/signature");
+};

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
@@ -21,9 +21,10 @@ import {
   X,
   ChevronRight,
   Sparkles,
+  ArrowUpDown,
 } from "lucide-react";
 import AddToCartButton from "@/components/ui/common/AddToCartButton";
-import { useSelector, useDispatch } from "react-redux";
+import { useSelector } from "react-redux";
 import { RootState } from "@/store/redux_store";
 import { toast } from "sonner";
 
@@ -171,12 +172,11 @@ const formatPrice = (price: number, currency: string): string => {
 };
 
 export default function MyFavoritePage(): React.JSX.Element {
-  const dispatch = useDispatch();
+
   const router = useRouter();
   const isAuthenticated = useSelector(
     (state: RootState) => !!state.auth.accessToken
   );
-  const accessToken = useSelector((state: RootState) => state.auth.accessToken);
   const [, setAllItems] = useState<Product[]>([]);
   const [favoriteItems, setFavoriteItems] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -191,10 +191,72 @@ export default function MyFavoritePage(): React.JSX.Element {
   );
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [sortBy, setSortBy] = useState<
-    "recent" | "price-low" | "price-high" | "popular"
-  >("recent");
-  const itemsPerPage = 9;
+  const [sortField, setSortField] = useState<"recent" | "price" | "popular">(
+    "recent"
+  );
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [itemsPerPage, setItemsPerPage] = useState<number>(9);
+
+  const fetchData = useCallback(async (): Promise<void> => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [itemData, favoritesRes] = await Promise.all([
+        getAllItems(),
+        getFavorites(),
+      ]);
+      const normalizedItems = normalizeItems(
+        itemData?.data?.items || itemData?.items || []
+      );
+      setAllItems(normalizedItems);
+
+      if (favoritesRes.ok) {
+        const data = await favoritesRes.json();
+        const favorites: RawFavorite[] = data.data || [];
+        const favoriteIds = new Set(
+          favorites.map((fav: RawFavorite) => toIdString(fav.productId?._id))
+        );
+        setLocalFavorites(favoriteIds);
+        const countsMap = new Map<string, number>();
+        const favoriteDates = new Map<string, string>();
+        favorites.forEach((fav: RawFavorite) => {
+          const prodId = toIdString(fav.productId?._id);
+          const count = fav.productId?.FavoriteCount || 0;
+          countsMap.set(prodId, count);
+          favoriteDates.set(prodId, fav.createdAt);
+        });
+        setLocalCounts(countsMap);
+
+        const favoriteProducts = normalizedItems
+          .filter((item) => favoriteIds.has(item._id))
+          .map((item) => ({
+            ...item,
+            favoriteCreatedAt: favoriteDates.get(item._id),
+          }));
+        setFavoriteItems(favoriteProducts);
+      } else {
+        const errorData = (await favoritesRes.json().catch(() => ({}))) as {
+          message?: string;
+        };
+        const errorMsg =
+          errorData.message ||
+          `Lỗi tải danh sách yêu thích: ${favoritesRes.status}`;
+        if (favoritesRes.status === 401 || favoritesRes.status === 403) {
+          router.push("/auth/login");
+          toast.error("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.");
+        } else {
+          toast.error(errorMsg);
+        }
+      }
+    } catch (err) {
+      console.error("Fetch data error:", err);
+      const errorMsg = "Lỗi khi tải dữ liệu.";
+      setError(errorMsg);
+      toast.error(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  }, [router]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -203,69 +265,12 @@ export default function MyFavoritePage(): React.JSX.Element {
       return;
     }
 
-    const fetchData = async (): Promise<void> => {
-      try {
-        setLoading(true);
-        setError(null);
-        const [itemData, favoritesRes] = await Promise.all([
-          getAllItems(),
-          getFavorites(),
-        ]);
-        const normalizedItems = normalizeItems(
-          itemData?.data?.items || itemData?.items || []
-        );
-        setAllItems(normalizedItems);
-
-        if (favoritesRes.ok) {
-          const data = await favoritesRes.json();
-          const favorites: RawFavorite[] = data.data || [];
-          const favoriteIds = new Set(
-            favorites.map((fav: RawFavorite) => toIdString(fav.productId?._id))
-          );
-          setLocalFavorites(favoriteIds);
-          const countsMap = new Map<string, number>();
-          const favoriteDates = new Map<string, string>();
-          favorites.forEach((fav: RawFavorite) => {
-            const prodId = toIdString(fav.productId?._id);
-            const count = fav.productId?.FavoriteCount || 0;
-            countsMap.set(prodId, count);
-            favoriteDates.set(prodId, fav.createdAt);
-          });
-          setLocalCounts(countsMap);
-
-          const favoriteProducts = normalizedItems
-            .filter((item) => favoriteIds.has(item._id))
-            .map((item) => ({
-              ...item,
-              favoriteCreatedAt: favoriteDates.get(item._id),
-            }));
-          setFavoriteItems(favoriteProducts);
-        } else {
-          const errorData = (await favoritesRes.json().catch(() => ({}))) as {
-            message?: string;
-          };
-          const errorMsg =
-            errorData.message ||
-            `Lỗi tải danh sách yêu thích: ${favoritesRes.status}`;
-          if (favoritesRes.status === 401 || favoritesRes.status === 403) {
-            router.push("/auth/login");
-            toast.error("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.");
-          } else {
-            toast.error(errorMsg);
-          }
-        }
-      } catch (err) {
-        console.error("Fetch data error:", err);
-        const errorMsg = "Lỗi khi tải dữ liệu.";
-        setError(errorMsg);
-        toast.error(errorMsg);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
-  }, [isAuthenticated, accessToken, dispatch, router]);
+  }, [isAuthenticated, router, fetchData]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, sortField, sortOrder]);
 
   const filteredAndSortedItems = useMemo((): Product[] => {
     let items = [...favoriteItems];
@@ -280,27 +285,28 @@ export default function MyFavoritePage(): React.JSX.Element {
       );
     }
 
-    switch (sortBy) {
-      case "price-low":
-        items.sort((a, b) => a.basePrice - b.basePrice);
-        break;
-      case "price-high":
-        items.sort((a, b) => b.basePrice - a.basePrice);
-        break;
-      case "popular":
-        items.sort((a, b) => b.viewCount - a.viewCount);
-        break;
-      case "recent":
-      default:
-        items.sort(
-          (a, b) =>
-            new Date(b.favoriteCreatedAt || b.createdAt).getTime() -
-            new Date(a.favoriteCreatedAt || a.createdAt).getTime()
-        );
-    }
+    const getCmp = (a: Product, b: Product): number => {
+      switch (sortField) {
+        case "recent":
+          const aDate = new Date(a.favoriteCreatedAt || a.createdAt).getTime();
+          const bDate = new Date(b.favoriteCreatedAt || b.createdAt).getTime();
+          return aDate - bDate; // asc: older first
+        case "popular":
+          return a.viewCount - b.viewCount; // asc: less views first
+        case "price":
+          return a.basePrice - b.basePrice; // asc: low to high
+        default:
+          return 0;
+      }
+    };
+
+    items.sort((a, b) => {
+      const cmp = getCmp(a, b);
+      return sortOrder === "asc" ? cmp : -cmp;
+    });
 
     return items;
-  }, [favoriteItems, searchQuery, sortBy]);
+  }, [favoriteItems, searchQuery, sortField, sortOrder]);
 
   const updatePage = (page: number): void => {
     setCurrentPage(page);
@@ -312,14 +318,31 @@ export default function MyFavoritePage(): React.JSX.Element {
   const totalPages = useMemo(
     (): number =>
       Math.max(1, Math.ceil(filteredAndSortedItems.length / itemsPerPage)),
-    [filteredAndSortedItems.length]
+    [filteredAndSortedItems.length, itemsPerPage]
   );
 
   const pagedItems = useMemo((): Product[] => {
     const start = (currentPage - 1) * itemsPerPage;
     const end = start + itemsPerPage;
     return filteredAndSortedItems.slice(start, end);
-  }, [filteredAndSortedItems, currentPage]);
+  }, [filteredAndSortedItems, currentPage, itemsPerPage]);
+
+  const handleItemsPerPageChange = (newItemsPerPage: number): void => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1);
+  };
+
+  const handleFieldChange = (e: React.ChangeEvent<HTMLSelectElement>): void => {
+    const newField = e.target.value as "recent" | "price" | "popular";
+    setSortField(newField);
+    setSortOrder("desc");
+    setCurrentPage(1);
+  };
+
+  const handleOrderToggle = (): void => {
+    setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    setCurrentPage(1);
+  };
 
   const handleRentNow = (productId: string): void => {
     router.push(`/products/details?id=${productId}`);
@@ -400,7 +423,103 @@ export default function MyFavoritePage(): React.JSX.Element {
     return localCounts.get(productId) ?? apiCount;
   };
 
-  if (loading) {
+  const Pagination = () => {
+    const indexOfFirst = (currentPage - 1) * itemsPerPage;
+    const indexOfLast = indexOfFirst + itemsPerPage;
+    const displayLast = Math.min(indexOfLast, filteredAndSortedItems.length);
+
+    return (
+      <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6">
+        <div className="flex justify-between flex-1 sm:hidden">
+          <button
+            onClick={() => updatePage(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Trước
+          </button>
+          <button
+            onClick={() => updatePage(currentPage + 1)}
+            disabled={
+              currentPage === totalPages || filteredAndSortedItems.length === 0
+            }
+            className="relative ml-3 inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Sau
+          </button>
+        </div>
+        <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm text-gray-600">
+              Hiển thị{" "}
+              <span className="font-medium text-gray-900">
+                {filteredAndSortedItems.length === 0 ? 0 : indexOfFirst + 1}
+              </span>{" "}
+              đến{" "}
+              <span className="font-medium text-gray-900">{displayLast}</span>{" "}
+              của{" "}
+              <span className="font-medium text-gray-900">
+                {filteredAndSortedItems.length}
+              </span>{" "}
+              kết quả
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <select
+              value={itemsPerPage}
+              onChange={(e) =>
+                handleItemsPerPageChange(parseInt(e.target.value))
+              }
+              className="px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white text-gray-700"
+            >
+              <option value={9}>9</option>
+              <option value={18}>18</option>
+              <option value={27}>27</option>
+            </select>
+            <nav
+              className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px"
+              aria-label="Pagination"
+            >
+              <button
+                onClick={() => updatePage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Trước
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                (page) => (
+                  <button
+                    key={page}
+                    onClick={() => updatePage(page)}
+                    className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                      currentPage === page
+                        ? "z-10 bg-blue-50 border-blue-300 text-blue-600"
+                        : "bg-white text-gray-700 hover:bg-gray-50 border-gray-300"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                )
+              )}
+              <button
+                onClick={() => updatePage(currentPage + 1)}
+                disabled={
+                  currentPage === totalPages ||
+                  filteredAndSortedItems.length === 0
+                }
+                className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Sau
+              </button>
+            </nav>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  if (loading && favoriteItems.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
         <div className="text-center">
@@ -443,7 +562,7 @@ export default function MyFavoritePage(): React.JSX.Element {
       {/* Hero Header với Glassmorphism */}
       <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600">
         <div className="absolute inset-0 bg-black/10"></div>
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMzBoLTJWMGgydjMwek0wIDMwaDJ2MzBIMFYzMHoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-20"></div>
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48cGF0aCBkPSJNMzYgMzBoLTJWMGhydjMwek0wIDMwaDJ2MzBIMFYzMHoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-20"></div>
 
         <div className="relative container mx-auto px-4 py-12">
           <div className="flex items-center justify-between">
@@ -506,26 +625,29 @@ export default function MyFavoritePage(): React.JSX.Element {
               </div>
             </div>
 
-            {/* Sort Dropdown */}
-            <div className="flex items-center gap-3">
-              <select
-                value={sortBy}
-                onChange={(e) =>
-                  setSortBy(
-                    e.target.value as
-                      | "recent"
-                      | "price-low"
-                      | "price-high"
-                      | "popular"
-                  )
-                }
-                className="px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all duration-300 bg-white cursor-pointer"
-              >
-                <option value="recent">Mới thích nhất</option>
-                <option value="price-low">Giá thấp đến cao</option>
-                <option value="price-high">Giá cao đến thấp</option>
-                <option value="popular">Phổ biến nhất</option>
-              </select>
+            {/* Sort and View Mode */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <select
+                  value={sortField}
+                  onChange={handleFieldChange}
+                  className="px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all duration-300 bg-white cursor-pointer"
+                >
+                  <option value="recent">Gần đây</option>
+                  <option value="price">Giá thuê</option>
+                  <option value="popular">Phổ biến nhất</option>
+                </select>
+                <button
+                  onClick={handleOrderToggle}
+                  className="p-3 rounded-xl border-2 border-gray-200 hover:border-blue-500 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all duration-300 bg-white hover:bg-gray-50 flex items-center justify-center"
+                >
+                  <ArrowUpDown
+                    className={`w-5 h-5 transition-transform duration-300 ${
+                      sortOrder === "asc" ? "rotate-0" : "rotate-180"
+                    }`}
+                  />
+                </button>
+              </div>
 
               {/* View Mode Toggle */}
               <div className="flex bg-gray-100 rounded-xl p-1">
@@ -554,262 +676,8 @@ export default function MyFavoritePage(): React.JSX.Element {
           </div>
         </div>
 
-        {/* Products Grid/List */}
-        {pagedItems.length > 0 ? (
-          <div
-            className={`grid gap-6 ${
-              viewMode === "grid"
-                ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-4"
-                : "grid-cols-1"
-            }`}
-          >
-            {pagedItems.map((item, index) => {
-              const currentFavoriteCount = getFavoriteCount(
-                item._id,
-                item.favoriteCount
-              );
-              const isLocalFavorite = localFavorites.has(item._id);
-
-              return (
-                <div
-                  key={item._id}
-                  onClick={() => handleRentNow(item._id)}
-                  role="button"
-                  tabIndex={0}
-                  className={`group relative cursor-pointer bg-white rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 overflow-hidden ${
-                    viewMode === "list"
-                      ? "flex flex-row h-auto"
-                      : "h-full flex flex-col"
-                  }`}
-                  style={{
-                    animation: `fadeInUp 0.6s ease-out ${index * 0.1}s both`,
-                  }}
-                >
-                  <div
-                    className={`relative overflow-hidden bg-gray-200 ${
-                      viewMode === "list" ? "w-72 h-56 flex-shrink-0" : "h-48"
-                    }`}
-                  >
-                    <Image
-                      src={item.thumbnail}
-                      alt={item.title}
-                      fill
-                      className={`object-cover transition-transform duration-300 ease-out group-hover:scale-105 ${
-                        viewMode === "list" ? "" : ""
-                      }`}
-                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-                    />
-                    {item.availableQuantity === 0 && (
-                      <div className="absolute top-3 right-3 bg-red-600 text-white px-2 py-1 rounded-full text-xs font-semibold">
-                        Hết hàng
-                      </div>
-                    )}
-                    {/* Favorite Button - Floating for list mode */}
-                    {viewMode === "list" && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleFavorite(item._id, currentFavoriteCount);
-                        }}
-                        disabled={favoriteLoading.has(item._id)}
-                        className={`absolute top-3 left-3 w-10 h-10 rounded-full backdrop-blur-md border-2 flex items-center justify-center transition-all duration-300 ${
-                          isLocalFavorite
-                            ? "bg-yellow-500 border-yellow-400 text-white shadow-lg shadow-yellow-500/50"
-                            : "bg-white/90 border-white/50 text-gray-600 hover:bg-yellow-500 hover:text-white hover:border-yellow-400"
-                        } ${
-                          favoriteLoading.has(item._id)
-                            ? "opacity-50 cursor-not-allowed"
-                            : "hover:scale-110"
-                        }`}
-                      >
-                        <Bookmark
-                          size={18}
-                          className={
-                            favoriteLoading.has(item._id) ? "animate-pulse" : ""
-                          }
-                          fill={isLocalFavorite ? "currentColor" : "none"}
-                        />
-                      </button>
-                    )}
-                  </div>
-                  <div
-                    className={`${
-                      viewMode === "list"
-                        ? "p-6 flex flex-col flex-1 justify-between"
-                        : "p-4 flex-1 flex flex-col"
-                    }`}
-                  >
-                    {/* Category & Condition Tags - Only in grid mode */}
-                    {viewMode === "grid" && (
-                      <div className="flex items-center justify-between mb-3 text-xs text-gray-500 min-h-[2rem]">
-                        <div className="flex items-center gap-2">
-                          {item.category && (
-                            <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded">
-                              {item.category.name}
-                            </span>
-                          )}
-                          {item.condition && (
-                            <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded">
-                              {item.condition.ConditionName}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleFavorite(item._id, currentFavoriteCount);
-                            }}
-                            disabled={favoriteLoading.has(item._id)}
-                            className={`p-1 rounded transition-colors ${
-                              isLocalFavorite
-                                ? "text-yellow-500 hover:text-yellow-600"
-                                : "text-gray-500 hover:text-yellow-500"
-                            } ${
-                              favoriteLoading.has(item._id)
-                                ? "opacity-50 cursor-not-allowed"
-                                : "cursor-pointer"
-                            }`}
-                            title={
-                              isLocalFavorite
-                                ? "Bỏ yêu thích"
-                                : "Thêm yêu thích"
-                            }
-                          >
-                            <Bookmark
-                              size={16}
-                              className={
-                                favoriteLoading.has(item._id)
-                                  ? "animate-pulse"
-                                  : ""
-                              }
-                              fill={isLocalFavorite ? "currentColor" : "none"}
-                            />
-                          </button>
-                          <span>{currentFavoriteCount}</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Title */}
-                    <h3 className="font-bold text-gray-900 text-base mb-2 line-clamp-2 min-h-[3.5rem] group-hover:text-blue-600 transition-colors">
-                      {item.title}
-                    </h3>
-
-                    {/* Location */}
-                    <div
-                      className={`flex items-center gap-1 text-sm text-gray-600 mb-3 min-h-[1.5rem] ${
-                        viewMode === "list" ? "" : ""
-                      }`}
-                    >
-                      <MapPin size={14} className="text-gray-400" />
-                      <span className="truncate">
-                        {item.district}, {item.city}
-                      </span>
-                    </div>
-
-                    {/* Price Card */}
-                    <div
-                      className={`bg-blue-50 rounded-lg p-3 mb-3 min-h-[4.5rem] ${
-                        viewMode === "list"
-                          ? "border-2 border-blue-100 group-hover:border-blue-300 transition-colors"
-                          : ""
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-xs text-gray-600 mb-1">Giá thuê</p>
-                          <p
-                            className={`font-bold ${
-                              viewMode === "list"
-                                ? "text-lg bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent"
-                                : "text-lg text-blue-600"
-                            }`}
-                          >
-                            {formatPrice(item.basePrice, item.currency)}
-                            <span className="text-sm font-normal text-gray-600">
-                              /{item.priceUnit?.UnitName || "ngày"}
-                            </span>
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs text-gray-600 mb-1">Đặt cọc</p>
-                          <p className="text-sm font-semibold text-gray-700">
-                            {formatPrice(item.depositAmount, item.currency)}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Stock Info */}
-                    <div
-                      className={`flex items-center justify-between text-xs text-gray-600 mb-4 pb-4 border-b border-gray-100 min-h-[2rem] ${
-                        viewMode === "list" ? "justify-between" : ""
-                      }`}
-                    >
-                      <div className="flex items-center gap-1">
-                        <Eye size={14} className="text-gray-400" />
-                        <span>{item.viewCount} lượt xem</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Package size={14} className="text-gray-400" />
-                        <span>{item.rentCount} lượt thuê</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="font-semibold">
-                          {item.availableQuantity}/{item.quantity}
-                        </span>{" "}
-                        còn lại
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="mt-auto flex gap-2">
-                      <div
-                        onClick={(e) => e.stopPropagation()}
-                        className="flex-1"
-                      >
-                        <AddToCartButton
-                          itemId={item._id}
-                          availableQuantity={item.availableQuantity}
-                          size="sm"
-                          variant="outline"
-                          showText
-                          className={`w-full ${
-                            viewMode === "list"
-                              ? "border-2 border-blue-200 hover:border-blue-400 hover:bg-blue-50 transition-all duration-300"
-                              : ""
-                          }`}
-                        />
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRentNow(item._id);
-                        }}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg font-semibold transition-all duration-300 ${
-                          viewMode === "list"
-                            ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl hover:scale-105"
-                            : "bg-blue-600 text-white hover:bg-blue-700 text-sm"
-                        }`}
-                      >
-                        <Zap
-                          size={16}
-                          className={
-                            viewMode === "list"
-                              ? "group-hover:rotate-12 transition-transform"
-                              : ""
-                          }
-                        />
-                        {viewMode === "list" ? "Chi tiết" : "Xem chi tiết"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
+        {/* Content */}
+        {favoriteItems.length === 0 ? (
           <div className="text-center py-20">
             <div className="relative inline-block mb-6">
               <div className="w-32 h-32 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center">
@@ -835,82 +703,293 @@ export default function MyFavoritePage(): React.JSX.Element {
               <ChevronRight className="w-5 h-5 group-hover:translate-x-2 transition-transform" />
             </button>
           </div>
-        )}
-
-        {/* Premium Pagination */}
-        {filteredAndSortedItems.length > itemsPerPage && (
-          <div className="mt-12 flex items-center justify-center gap-3">
+        ) : filteredAndSortedItems.length === 0 ? (
+          <div className="text-center py-20">
+            <div className="relative inline-block mb-6">
+              <div className="w-32 h-32 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center">
+                <Search className="w-16 h-16 text-gray-400" />
+              </div>
+            </div>
+            <h3 className="text-3xl font-bold text-gray-900 mb-3">
+              Không tìm thấy sản phẩm nào
+            </h3>
+            <p className="text-gray-600 mb-8 max-w-md mx-auto">
+              Thử thay đổi từ khóa tìm kiếm hoặc sắp xếp.
+            </p>
             <button
-              onClick={() => updatePage(currentPage - 1)}
-              disabled={currentPage === 1}
-              className={`group px-5 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 ${
-                currentPage === 1
-                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                  : "bg-white text-gray-700 shadow-md hover:shadow-lg hover:-translate-x-1 border-2 border-gray-200 hover:border-blue-400"
+              onClick={() => setSearchQuery("")}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-xl font-bold hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 shadow-xl hover:shadow-2xl"
+            >
+              Xóa tìm kiếm
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Products Grid/List */}
+            <div
+              className={`grid gap-6 ${
+                viewMode === "grid"
+                  ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-4"
+                  : "grid-cols-1"
               }`}
             >
-              <ChevronRight className="w-4 h-4 rotate-180 group-hover:-translate-x-1 transition-transform" />
-              Trước
-            </button>
-
-            <div className="flex items-center gap-2">
-              {Array.from({ length: totalPages }).map((_, i) => {
-                const pageNum = i + 1;
-                const isActive = currentPage === pageNum;
-                const isNearCurrent = Math.abs(currentPage - pageNum) <= 1;
-                const isFirst = pageNum === 1;
-                const isLast = pageNum === totalPages;
-                const shouldShow = isFirst || isLast || isNearCurrent;
-
-                if (!shouldShow && pageNum === 2 && currentPage > 3) {
-                  return (
-                    <span key={i} className="text-gray-400 px-2">
-                      ...
-                    </span>
-                  );
-                }
-                if (
-                  !shouldShow &&
-                  pageNum === totalPages - 1 &&
-                  currentPage < totalPages - 2
-                ) {
-                  return (
-                    <span key={i} className="text-gray-400 px-2">
-                      ...
-                    </span>
-                  );
-                }
-                if (!shouldShow) return null;
+              {pagedItems.map((item, index) => {
+                const currentFavoriteCount = getFavoriteCount(
+                  item._id,
+                  item.favoriteCount
+                );
+                const isLocalFavorite = localFavorites.has(item._id);
 
                 return (
-                  <button
-                    key={i}
-                    onClick={() => updatePage(pageNum)}
-                    className={`w-12 h-12 rounded-xl font-bold transition-all duration-300 ${
-                      isActive
-                        ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg scale-110 ring-4 ring-blue-200"
-                        : "bg-white text-gray-700 shadow-md hover:shadow-lg hover:scale-105 border-2 border-gray-200 hover:border-blue-400"
+                  <div
+                    key={item._id}
+                    onClick={() => handleRentNow(item._id)}
+                    role="button"
+                    tabIndex={0}
+                    className={`group relative cursor-pointer bg-white rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 overflow-hidden ${
+                      viewMode === "list"
+                        ? "flex flex-row h-auto"
+                        : "h-full flex flex-col"
                     }`}
+                    style={{
+                      animation: `fadeInUp 0.6s ease-out ${index * 0.1}s both`,
+                    }}
                   >
-                    {pageNum}
-                  </button>
+                    <div
+                      className={`relative overflow-hidden bg-gray-200 ${
+                        viewMode === "list" ? "w-72 h-56 flex-shrink-0" : "h-48"
+                      }`}
+                    >
+                      <Image
+                        src={item.thumbnail}
+                        alt={item.title}
+                        fill
+                        className={`object-cover transition-transform duration-300 ease-out group-hover:scale-105 ${
+                          viewMode === "list" ? "" : ""
+                        }`}
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                      />
+                      {item.availableQuantity === 0 && (
+                        <div className="absolute top-3 right-3 bg-red-600 text-white px-2 py-1 rounded-full text-xs font-semibold">
+                          Hết hàng
+                        </div>
+                      )}
+                      {/* Favorite Button - Floating for list mode */}
+                      {viewMode === "list" && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavorite(item._id, currentFavoriteCount);
+                          }}
+                          disabled={favoriteLoading.has(item._id)}
+                          className={`absolute top-3 left-3 w-10 h-10 rounded-full backdrop-blur-md border-2 flex items-center justify-center transition-all duration-300 ${
+                            isLocalFavorite
+                              ? "bg-yellow-500 border-yellow-400 text-white shadow-lg shadow-yellow-500/50"
+                              : "bg-white/90 border-white/50 text-gray-600 hover:bg-yellow-500 hover:text-white hover:border-yellow-400"
+                          } ${
+                            favoriteLoading.has(item._id)
+                              ? "opacity-50 cursor-not-allowed"
+                              : "hover:scale-110"
+                          }`}
+                        >
+                          <Bookmark
+                            size={18}
+                            className={
+                              favoriteLoading.has(item._id)
+                                ? "animate-pulse"
+                                : ""
+                            }
+                            fill={isLocalFavorite ? "currentColor" : "none"}
+                          />
+                        </button>
+                      )}
+                    </div>
+                    <div
+                      className={`${
+                        viewMode === "list"
+                          ? "p-6 flex flex-col flex-1 justify-between"
+                          : "p-4 flex-1 flex flex-col"
+                      }`}
+                    >
+                      {/* Category & Condition Tags - Only in grid mode */}
+                      {viewMode === "grid" && (
+                        <div className="flex items-center justify-between mb-3 text-xs text-gray-500 min-h-[2rem]">
+                          <div className="flex items-center gap-2">
+                            {item.category && (
+                              <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded">
+                                {item.category.name}
+                              </span>
+                            )}
+                            {item.condition && (
+                              <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded">
+                                {item.condition.ConditionName}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleFavorite(item._id, currentFavoriteCount);
+                              }}
+                              disabled={favoriteLoading.has(item._id)}
+                              className={`p-1 rounded transition-colors ${
+                                isLocalFavorite
+                                  ? "text-yellow-500 hover:text-yellow-600"
+                                  : "text-gray-500 hover:text-yellow-500"
+                              } ${
+                                favoriteLoading.has(item._id)
+                                  ? "opacity-50 cursor-not-allowed"
+                                  : "cursor-pointer"
+                              }`}
+                              title={
+                                isLocalFavorite
+                                  ? "Bỏ yêu thích"
+                                  : "Thêm yêu thích"
+                              }
+                            >
+                              <Bookmark
+                                size={16}
+                                className={
+                                  favoriteLoading.has(item._id)
+                                    ? "animate-pulse"
+                                    : ""
+                                }
+                                fill={isLocalFavorite ? "currentColor" : "none"}
+                              />
+                            </button>
+                            <span>{currentFavoriteCount}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Title */}
+                      <h3 className="font-bold text-gray-900 text-base mb-2 line-clamp-2 min-h-[3.5rem] group-hover:text-blue-600 transition-colors">
+                        {item.title}
+                      </h3>
+
+                      {/* Location */}
+                      <div
+                        className={`flex items-center gap-1 text-sm text-gray-600 mb-3 min-h-[1.5rem] ${
+                          viewMode === "list" ? "" : ""
+                        }`}
+                      >
+                        <MapPin size={14} className="text-gray-400" />
+                        <span className="truncate">
+                          {item.district}, {item.city}
+                        </span>
+                      </div>
+
+                      {/* Price Card */}
+                      <div
+                        className={`bg-blue-50 rounded-lg p-3 mb-3 min-h-[4.5rem] ${
+                          viewMode === "list"
+                            ? "border-2 border-blue-100 group-hover:border-blue-300 transition-colors"
+                            : ""
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs text-gray-600 mb-1">
+                              Giá thuê
+                            </p>
+                            <p
+                              className={`font-bold ${
+                                viewMode === "list"
+                                  ? "text-lg bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent"
+                                  : "text-lg text-blue-600"
+                              }`}
+                            >
+                              {formatPrice(item.basePrice, item.currency)}
+                              <span className="text-sm font-normal text-gray-600">
+                                /{item.priceUnit?.UnitName || "ngày"}
+                              </span>
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-gray-600 mb-1">
+                              Đặt cọc
+                            </p>
+                            <p className="text-sm font-semibold text-gray-700">
+                              {formatPrice(item.depositAmount, item.currency)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Stock Info */}
+                      <div
+                        className={`flex items-center justify-between text-xs text-gray-600 mb-4 pb-4 border-b border-gray-100 min-h-[2rem] ${
+                          viewMode === "list" ? "justify-between" : ""
+                        }`}
+                      >
+                        <div className="flex items-center gap-1">
+                          <Eye size={14} className="text-gray-400" />
+                          <span>{item.viewCount} lượt xem</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Package size={14} className="text-gray-400" />
+                          <span>{item.rentCount} lượt thuê</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-semibold">
+                            {item.availableQuantity}/{item.quantity}
+                          </span>{" "}
+                          còn lại
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="mt-auto flex gap-2">
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex-1"
+                        >
+                          <AddToCartButton
+                            itemId={item._id}
+                            availableQuantity={item.availableQuantity}
+                            size="sm"
+                            variant="outline"
+                            showText
+                            className={`w-full ${
+                              viewMode === "list"
+                                ? "border-2 border-blue-200 hover:border-blue-400 hover:bg-blue-50 transition-all duration-300"
+                                : ""
+                            }`}
+                          />
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRentNow(item._id);
+                          }}
+                          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg font-semibold transition-all duration-300 ${
+                            viewMode === "list"
+                              ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl hover:scale-105"
+                              : "bg-blue-600 text-white hover:bg-blue-700 text-sm"
+                          }`}
+                        >
+                          <Zap
+                            size={16}
+                            className={
+                              viewMode === "list"
+                                ? "group-hover:rotate-12 transition-transform"
+                                : ""
+                            }
+                          />
+                          {viewMode === "list"
+                            ? "Xem chi tiết"
+                            : "Xem chi tiết"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 );
               })}
             </div>
 
-            <button
-              onClick={() => updatePage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className={`group px-5 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2 ${
-                currentPage === totalPages
-                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                  : "bg-white text-gray-700 shadow-md hover:shadow-lg hover:translate-x-1 border-2 border-gray-200 hover:border-blue-400"
-              }`}
-            >
-              Sau
-              <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </button>
-          </div>
+            {totalPages > 1 && <Pagination />}
+          </>
         )}
       </div>
 
