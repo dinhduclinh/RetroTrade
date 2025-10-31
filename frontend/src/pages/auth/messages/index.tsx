@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/store/redux_store";
 import { jwtDecode } from "jwt-decode";
 import { useRouter } from "next/router";
@@ -11,15 +11,17 @@ import {
   socketHandlers,
   getMessages,
   getConversations,
-  getStaff,
-  sendMessage as sendMessageAPI,
-  createConversation,
+  sendMessageWithMedia,
+  updateMessage as updateMessageAPI,
+  deleteMessage as deleteMessageAPI,
+  markAsRead,
   Conversation,
   Message,
-  StaffMember
 } from "@/services/messages/messages.api";
+import { setOnline, setOffline, setOnlineUsers } from "@/store/presence/presence.slice";
 import ConversationList from "@/components/common/chat/ConversationList";
 import MessageList from "@/components/common/chat/MessageList";
+import EmojiPicker from "@/components/common/chat/EmojiPicker";
 import { Search } from "lucide-react";
 import Image from "next/image";
 import Head from "next/head";
@@ -53,14 +55,22 @@ const MessagesPage = () => {
   }, [accessToken]);
   
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
-  const [showSupport, setShowSupport] = useState(false);
+  
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageInput, setMessageInput] = useState("");
+  const typingTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const isTypingSelfRef = React.useRef(false);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [typingUser, setTypingUser] = useState<string | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const emojiPickerRef = React.useRef<HTMLDivElement>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState<string>("");
+  const [menuMessageId, setMenuMessageId] = useState<string | null>(null);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -73,7 +83,7 @@ const MessagesPage = () => {
   useEffect(() => {
     if (user) {
       loadConversations();
-      connectSocket();
+      connectSocket(typeof accessToken === 'string' ? accessToken : undefined);
     }
 
     return () => {
@@ -96,15 +106,59 @@ const MessagesPage = () => {
     }
   };
 
+  const dispatch = useDispatch();
+
   // Listen for new messages
   useEffect(() => {
     if (!user) return;
 
     socketHandlers.onNewMessage((message: Message) => {
-      if (message.conversationId === selectedConversation?._id) {
-        setMessages((prev) => [...prev, message]);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const convIdAny: any = (message as any).conversationId;
+      const incomingConvId = typeof convIdAny === 'string' ? convIdAny : String(convIdAny?._id || "");
+      const currentConvId = String(selectedConversation?._id || "");
+      if (incomingConvId && currentConvId && incomingConvId === currentConvId) {
+        // Avoid duplicates: check if message already exists
+        setMessages((prev) => {
+          const exists = prev.some(m => m._id === message._id);
+          if (exists) return prev;
+          return [...prev, message];
+        });
+        
+        // Auto mark as read when receiving new message in opened conversation
+        // Only if message is from other user
+        const messageFromUserId = String(message.fromUserId._id || message.fromUserId);
+        const currentUserId = String(user?._id || user?.userGuid || "");
+        if (messageFromUserId !== currentUserId && selectedConversation) {
+          const markAsReadDebounced = async () => {
+            try {
+              // Optimistic update: keep unreadCount at 0
+              setConversations(prev => prev.map(conv => 
+                conv._id === selectedConversation._id 
+                  ? { ...conv, unreadCount: 0 }
+                  : conv
+              ));
+              
+              await markAsRead(selectedConversation._id);
+              socketHandlers.markAsRead(selectedConversation._id);
+              // Reload to sync with server
+              loadConversations();
+            } catch (error) {
+              console.error("Error auto-marking as read:", error);
+              loadConversations(); // Revert on error
+            }
+          };
+          // Small delay to ensure message is processed
+          setTimeout(markAsReadDebounced, 500);
+        }
       }
     });
+
+    // Presence listeners
+    socketHandlers.onUserOnline(({ userId }) => dispatch(setOnline({ userId })));
+    socketHandlers.onUserOffline(({ userId }) => dispatch(setOffline({ userId })));
+    socketHandlers.onOnlineUsers((ids) => dispatch(setOnlineUsers(ids)));
+    socketHandlers.requestOnlineUsers();
 
     socketHandlers.onTyping((data) => {
       const userId = user?._id || user?.userGuid;
@@ -116,6 +170,7 @@ const MessagesPage = () => {
 
     return () => {
       socketHandlers.offNewMessage();
+      socketHandlers.offPresence();
       socketHandlers.offTyping();
     };
   }, [user, selectedConversation]);
@@ -125,6 +180,30 @@ const MessagesPage = () => {
     if (selectedConversation) {
       loadMessages(selectedConversation._id);
       socketHandlers.joinConversation(selectedConversation._id);
+      
+      // Mark conversation as read when opened
+      const markConversationAsRead = async () => {
+        try {
+          // Optimistic update: set unreadCount to 0 immediately
+          setConversations(prev => prev.map(conv => 
+            conv._id === selectedConversation._id 
+              ? { ...conv, unreadCount: 0 }
+              : conv
+          ));
+          
+          await markAsRead(selectedConversation._id);
+          // Also emit socket event for real-time
+          socketHandlers.markAsRead(selectedConversation._id);
+          
+          // Reload conversations to sync with server
+          loadConversations();
+        } catch (error) {
+          console.error("Error marking conversation as read:", error);
+          // Revert optimistic update on error
+          loadConversations();
+        }
+      };
+      markConversationAsRead();
     }
 
     return () => {
@@ -134,18 +213,7 @@ const MessagesPage = () => {
     };
   }, [selectedConversation]);
 
-  const loadStaffMembers = async () => {
-    try {
-      const response = await getStaff();
-      if (response.ok) {
-        const data = await response.json();
-        setStaffMembers(data.data || []);
-        setShowSupport(true);
-      }
-    } catch (error) {
-      console.error("Error loading staff:", error);
-    }
-  };
+  // Removed staff support
 
   const loadMessages = async (conversationId: string) => {
     try {
@@ -153,7 +221,9 @@ const MessagesPage = () => {
       const response = await getMessages(conversationId);
       if (response.ok) {
         const data = await response.json();
-        setMessages(data.data || []);
+        const messagesList = data.data || [];
+        const recent = messagesList.slice(-50);
+        setMessages(recent);
       }
     } catch (error) {
       console.error("Error loading messages:", error);
@@ -162,20 +232,7 @@ const MessagesPage = () => {
     }
   };
 
-  const handleStartConversationWithStaff = async (staffId: string) => {
-    try {
-      const response = await createConversation(staffId);
-      if (response.ok) {
-        const data = await response.json();
-        const conversationData = data.data || data;
-        setSelectedConversation(conversationData);
-        setShowSupport(false);
-        setStaffMembers([]);
-      }
-    } catch (error) {
-      console.error("Error creating conversation with staff:", error);
-    }
-  };
+  // removed staff conversation starter
 
   const handleSelectConversation = (conversation: Conversation) => {
     setSelectedConversation(conversation);
@@ -188,53 +245,30 @@ const MessagesPage = () => {
     const messageContent = messageInput.trim();
     setMessageInput(""); // Clear input immediately
 
-    // Optimistic update: Add message to UI immediately
-    const tempMessage: Message = {
-      _id: `temp_${Date.now()}`,
-      conversationId: selectedConversation._id,
-      fromUserId: {
-        _id: user._id || user.userGuid || "",
-        fullName: user.fullName || "",
-        email: user.email || ""
-      } as any,
-      content: messageContent,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    // Add temporary message to messages list
-    setMessages((prev) => [...prev, tempMessage]);
-
     try {
-      // Send via Socket.IO for real-time
+      // Only send via socket (socket handler saves to DB and emits new_message)
       socketHandlers.sendMessage(selectedConversation._id, messageContent);
-
-      // Also send via REST API for persistence
-      const response = await sendMessageAPI({
-        conversationId: selectedConversation._id,
-        content: messageContent
-      });
-
-      // Update with actual message from server (replaces temp message)
-      if (response.ok) {
-        const data = await response.json();
-        const actualMessage = data.data || data;
-        
-        // Replace temp message with actual message
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg._id === tempMessage._id ? actualMessage : msg
-          )
-        );
-      }
+      // stop typing
+      socketHandlers.setTyping(selectedConversation._id, false);
+      isTypingSelfRef.current = false;
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      // Socket will emit 'new_message' event which we listen to
     } catch (error) {
       console.error("Error sending message:", error);
-      // Remove temp message on error
-      setMessages((prev) =>
-        prev.filter((msg) => msg._id !== tempMessage._id)
-      );
-      // Restore input
-      setMessageInput(messageContent);
+      setMessageInput(messageContent); // Restore input on error
+    }
+  };
+
+  const handleSendQuickEmoji = (emoji: string) => {
+    if (!selectedConversation || !user) return;
+    try {
+      socketHandlers.sendMessage(selectedConversation._id, emoji);
+      // stop typing if any
+      socketHandlers.setTyping(selectedConversation._id, false);
+      isTypingSelfRef.current = false;
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    } catch (error) {
+      console.error("Error sending quick emoji:", error);
     }
   };
 
@@ -242,6 +276,140 @@ const MessagesPage = () => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
+    }
+  };
+
+  const handleInputChange = (value: string) => {
+    setMessageInput(value);
+    if (!selectedConversation) return;
+    if (!isTypingSelfRef.current) {
+      socketHandlers.setTyping(selectedConversation._id, true);
+      isTypingSelfRef.current = true;
+    }
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      socketHandlers.setTyping(selectedConversation._id, false);
+      isTypingSelfRef.current = false;
+    }, 1500);
+  };
+
+  const handleEmojiSelect = (emoji: string) => {
+    setMessageInput((prev) => prev + emoji);
+    setShowEmojiPicker(false);
+    setTimeout(() => {
+      const input = document.querySelector('input[placeholder="Enter Message"]') as HTMLInputElement;
+      if (input) input.focus();
+    }, 0);
+  };
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    if (showEmojiPicker) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showEmojiPicker]);
+
+  const startEditMessage = (message: Message) => {
+    setEditingMessageId(message._id);
+    setEditingContent(message.content);
+    setMenuMessageId(null);
+  };
+
+  const cancelEditMessage = () => {
+    setEditingMessageId(null);
+    setEditingContent("");
+  };
+
+  const confirmEditMessage = async () => {
+    if (!editingMessageId || !editingContent.trim()) return;
+    try {
+      const res = await updateMessageAPI(editingMessageId, editingContent.trim());
+      if (res.ok) {
+        const data = await res.json();
+        const updated: Message = data.data || data;
+        setMessages(prev => prev.map(m => (m._id === editingMessageId ? updated : m)));
+        setEditingMessageId(null);
+        setEditingContent("");
+      }
+    } catch (err) {
+      console.error('Error updating message:', err);
+    }
+  };
+
+  const deleteMessage = async (messageId: string) => {
+    try {
+      // Optimistic update
+      setMessages(prev => prev.map(m => 
+        m._id === messageId 
+          ? { ...m, content: '[Tin nhắn đã được thu hồi]', isDeleted: true, deletedAt: new Date().toISOString() } as Message 
+          : m
+      ));
+      await deleteMessageAPI(messageId);
+    } catch (err) {
+      console.error('Error deleting message:', err);
+      // Optionally reload messages
+    }
+  };
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !selectedConversation || !user) return;
+
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/');
+    
+    if (!isImage && !isVideo) {
+      alert('Chỉ hỗ trợ file ảnh hoặc video');
+      return;
+    }
+
+    if (file.size > 50 * 1024 * 1024) {
+      alert('File quá lớn. Kích thước tối đa là 50MB');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      const response = await sendMessageWithMedia({
+        conversationId: selectedConversation._id,
+        content: messageInput.trim() || undefined,
+        file
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const newMessage = data.data || data;
+        setMessages((prev) => {
+          const exists = prev.some(m => m._id === newMessage._id);
+          if (exists) return prev;
+          return [...prev, newMessage];
+        });
+        setMessageInput("");
+        socketHandlers.setTyping(selectedConversation._id, false);
+        isTypingSelfRef.current = false;
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      } else {
+        const error = await response.json();
+        alert(error.message || 'Lỗi khi gửi media');
+      }
+    } catch (error) {
+      console.error("Error sending media:", error);
+      alert('Lỗi khi gửi media');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -296,95 +464,15 @@ const MessagesPage = () => {
                 </div>
               </div>
 
-              {/* Support button */}
-              <div className="p-3 border-b">
-                {!showSupport ? (
-                  <button
-                    onClick={loadStaffMembers}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:opacity-90 transition-opacity font-medium"
-                  >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M14 9V5a3 3 0 0 0-6 0v4"/>
-                      <path d="M9 14H5a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h4"/>
-                      <path d="M15 14h4a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-4"/>
-                      <path d="M9 10H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h4"/>
-                    </svg>
-                    <span>Yêu cầu hỗ trợ</span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setShowSupport(false);
-                      setStaffMembers([]);
-                    }}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
-                  >
-                    <span>✕ Đóng</span>
-                  </button>
-                )}
-              </div>
-
-              {/* Staff members or Conversations list */}
+              {/* Conversations list */}
               <div className="flex-1 overflow-y-auto">
-                {showSupport ? (
-                  // Staff members list
-                  <div className="p-2">
-                    <div className="text-xs font-semibold px-3 mb-2 text-gray-500 uppercase tracking-wide">
-                      Hỗ trợ
-                    </div>
-                    {staffMembers.length > 0 ? (
-                      <div className="space-y-1">
-                        {staffMembers.map((staff) => (
-                          <button
-                            key={staff._id}
-                            onClick={() => handleStartConversationWithStaff(staff._id)}
-                            className="w-full flex items-center gap-3 p-3 hover:bg-gray-100 rounded-lg transition-colors text-left"
-                          >
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center flex-shrink-0">
-                              {staff.avatarUrl ? (
-                                <Image
-                                  src={staff.avatarUrl}
-                                  alt={staff.fullName}
-                                  width={48}
-                                  height={48}
-                                  className="rounded-full object-cover"
-                                />
-                              ) : (
-                                <span className="text-white text-sm font-semibold">
-                                  {staff.fullName?.charAt(0).toUpperCase() || "S"}
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-gray-900 font-medium text-sm truncate flex items-center gap-2">
-                                {staff.fullName}
-                                <span className="text-xs bg-green-500 text-white px-1.5 py-0.5 rounded">
-                                  {staff.role === 'admin' ? 'Admin' : 'Mod'}
-                                </span>
-                              </div>
-                              <div className="text-gray-500 text-xs truncate">
-                                Nhân viên hỗ trợ
-                              </div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-gray-500 text-sm text-center py-8">
-                        Không có nhân viên hỗ trợ
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  // Conversations list - Only show when NOT in support mode
-                  !showSupport && user && (
-                    <ConversationList
-                      onSelectConversation={handleSelectConversation}
-                      selectedConversationId={selectedConversation?._id}
-                      currentUserId={user._id || user.userGuid || ""}
-                      excludeUserIds={staffMembers.map(s => String(s._id))}
-                    />
-                  )
+                {user && (
+                  <ConversationList
+                    conversations={conversations}
+                    onSelectConversation={handleSelectConversation}
+                    selectedConversationId={selectedConversation?._id}
+                    currentUserId={user._id || user.userGuid || ""}
+                  />
                 )}
               </div>
             </div>
@@ -445,7 +533,24 @@ const MessagesPage = () => {
                       </div>
                     ) : (
                       <>
-                        <MessageList messages={messages} currentUserId={user._id || user.userGuid || ""} />
+                        <MessageList 
+                          messages={messages} 
+                          currentUserId={user._id || user.userGuid || ""}
+                          otherUserId={selectedConversation ? (
+                            String(selectedConversation.userId1._id || selectedConversation.userId1) === String(user._id || user.userGuid) 
+                              ? String(selectedConversation.userId2._id || selectedConversation.userId2)
+                              : String(selectedConversation.userId1._id || selectedConversation.userId1)
+                          ) : undefined}
+                          onEditMessage={startEditMessage}
+                          onDeleteMessage={deleteMessage}
+                          editingMessageId={editingMessageId}
+                          editingContent={editingContent}
+                          onEditingContentChange={setEditingContent}
+                          onConfirmEdit={confirmEditMessage}
+                          onCancelEdit={cancelEditMessage}
+                          menuMessageId={menuMessageId}
+                          onMenuToggle={setMenuMessageId}
+                        />
                         {typingUser && (
                           <div className="flex items-start gap-2 px-4 pb-4">
                             <div className="flex gap-1 rounded-3xl bg-gray-200 px-4 py-3">
@@ -460,34 +565,59 @@ const MessagesPage = () => {
                   </div>
 
                   {/* Message input */}
-                  <div className="border-t border-gray-200 p-4 bg-white">
+                  <div className="border-t border-gray-200 p-4 bg-white relative">
+                    {/* Emoji Picker */}
+                    {showEmojiPicker && (
+                      <div ref={emojiPickerRef} className="absolute bottom-full right-4 mb-2">
+                        <EmojiPicker onSelectEmoji={handleEmojiSelect} onClose={() => setShowEmojiPicker(false)} />
+                      </div>
+                    )}
+                    
                     <div className="flex items-center gap-2">
-                      <button className="h-9 w-9 shrink-0 rounded-full hover:bg-gray-100 transition-colors flex items-center justify-center">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-600">
-                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                          <circle cx="8.5" cy="8.5" r="1.5"/>
-                          <polyline points="21 15 16 10 5 21"/>
-                        </svg>
+                      <button 
+                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                        className="h-9 w-9 shrink-0 rounded-full hover:bg-gray-100 transition-colors flex items-center justify-center text-xl"
+                        title="Chọn emoji"
+                      >
+                        😀
                       </button>
-                      <button className="h-9 w-9 shrink-0 rounded-full hover:bg-gray-100 transition-colors flex items-center justify-center">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-600">
-                          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
-                          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                          <line x1="12" y1="18" x2="12" y2="22"/>
-                          <line x1="8" y1="22" x2="16" y2="22"/>
-                        </svg>
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading || !selectedConversation}
+                        className="h-9 w-9 shrink-0 rounded-full hover:bg-gray-100 transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Chọn hình ảnh hoặc video"
+                      >
+                        {uploading ? (
+                          <svg className="animate-spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="10" strokeOpacity="0.25"/>
+                            <path d="M12 2A10 10 0 0 1 22 12" strokeLinecap="round"/>
+                          </svg>
+                        ) : (
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-600">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                            <circle cx="8.5" cy="8.5" r="1.5"/>
+                            <polyline points="21 15 16 10 5 21"/>
+                          </svg>
+                        )}
                       </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*,video/*"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                      />
                       <div className="relative flex-1">
                         <input
                           type="text"
                           value={messageInput}
-                          onChange={(e) => setMessageInput(e.target.value)}
+                          onChange={(e) => handleInputChange(e.target.value)}
                           onKeyPress={handleKeyPress}
                           placeholder="Enter Message"
                           className="h-11 w-full rounded-full border-0 bg-gray-100 pr-20 text-sm placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 pl-4"
                         />
                         <div className="absolute right-2 top-1/2 flex -translate-y-1/2 gap-1">
-                          <button className="h-7 w-7 rounded-full hover:bg-transparent flex items-center justify-center">
+                          <button onClick={() => handleSendQuickEmoji('❤️')} className="h-7 w-7 rounded-full hover:bg-transparent flex items-center justify-center" title="Gửi ❤️">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-500">
                               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
                             </svg>

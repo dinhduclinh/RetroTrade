@@ -3,14 +3,14 @@
 import React from "react";
 import {
   LayoutDashboard,
-  Users,
   FileText,
-  Search,
   Package,
   Settings,
   Shield,
+  MessageSquare,
 } from "lucide-react";
-import { Button } from "@/components/ui/common/button";
+// import { Button } from "@/components/ui/common/button";
+import Link from "next/link";
 
 interface ModeratorSidebarProps {
   activeTab:
@@ -106,13 +106,11 @@ export function ModeratorSidebar({
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
-            const hasSubItems =
-              item.id === "blog" || item.id === "productManagement";
 
             return (
               <div key={item.id}>
                 <button
-                  onClick={() => onTabChange(item.id)}
+                  onClick={() => onTabChange(item.id as "dashboard" | "requests" | "verification" | "blog" | "productManagement")}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
                     isActive
                       ? "bg-white/20 text-white shadow-lg"
@@ -129,7 +127,7 @@ export function ModeratorSidebar({
                     {blogSubItems.map((subItem) => (
                       <button
                         key={subItem.id}
-                        onClick={() => onBlogTabChange(subItem.id)}
+                        onClick={() => onBlogTabChange(subItem.id as "posts" | "categories" | "comments" | "tags")}
                         className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-200 ${
                           activeBlogTab === subItem.id
                             ? "bg-white/20 text-white"
@@ -148,7 +146,7 @@ export function ModeratorSidebar({
                     {productSubItems.map((subItem) => (
                       <button
                         key={subItem.id}
-                        onClick={() => onProductTabChange(subItem.id)}
+                        onClick={() => onProductTabChange(subItem.id as "products" | "categories" | "highlights")}
                         className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-200 ${
                           activeProductTab === subItem.id
                             ? "bg-white/20 text-white"
@@ -163,6 +161,16 @@ export function ModeratorSidebar({
               </div>
             );
           })}
+
+          {/* Top-level Messages entry (navigates to /moderator/messages) */}
+          <Link href="/moderator/messages" className="block">
+            <button
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 text-white/70 hover:bg-white/10 hover:text-white`}
+            >
+              <MessageSquare className="w-5 h-5" />
+              <span className="font-medium">Tin nhắn</span>
+            </button>
+          </Link>
         </nav>
 
         {/* Footer */}

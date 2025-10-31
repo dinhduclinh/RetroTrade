@@ -30,6 +30,9 @@ require("dotenv").config();
 
 // Socket.io
 socketHandler(io);
+// Set io instance for message emission helper
+const { setIO } = require("./src/utils/emitMessage");
+setIO(io);
 
 const corsOptions = {
   origin: [

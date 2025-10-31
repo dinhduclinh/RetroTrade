@@ -7,6 +7,7 @@ import { RootState } from "@/store/redux_store";
 import { jwtDecode } from "jwt-decode";
 import { toast } from "sonner";
 import { ModeratorSidebar } from "@/components/ui/moderator/moderator-sidebar";
+import { ChatButton } from "@/components/common/chatbutton";
 import { ModeratorHeader } from "@/components/ui/moderator/moderator-header";
 import { ModeratorStats } from "@/components/ui/moderator/moderator-stats";
 import { VerificationQueue } from "@/components/ui/moderator/verification-queue";
@@ -346,6 +347,8 @@ export default function ModeratorDashboard() {
           </main>
         </div>
       </div>
+      {/* Floating chat button visible for logged-in users */}
+      <ChatButton />
     </div>
   );
 }
