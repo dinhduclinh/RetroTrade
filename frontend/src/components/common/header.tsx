@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { Button } from "@/components/ui/common/button";
-import { LogOut, User, Package, Settings, Shield, Crown, Moon, Sun, Wallet ,BoxIcon} from "lucide-react";
+import { LogOut, User, Package, Settings, Shield, Crown, Moon, Sun, Wallet ,BoxIcon, Bookmark} from "lucide-react";
 import { NotificationIcon } from "@/components/ui/common/notification-icon";
 
 import {
@@ -127,6 +127,10 @@ export function Header() {
   const handleGoToOwnerPanel = () => {
     router.push('/owner/myproducts');
   };
+
+    const handleGoToMyfavirite = () => {
+      router.push("/products/myfavorite");
+    };
 
   // Render menu items dựa trên role
   const renderRoleSpecificMenuItems = () => {
@@ -313,6 +317,14 @@ export function Header() {
                   >
                     <Package className="mr-2 h-4 w-4" />
                     <span>Đơn hàng của tôi</span>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    className="cursor-pointer"
+                    onClick={handleGoToMyfavirite}
+                  >
+                    <Bookmark className="mr-2 h-4 w-4" />
+                    <span>Danh sách yêu thích</span>
                   </DropdownMenuItem>
 
                   {(userInfo?.role === 'renter' || userInfo?.role === 'owner') && (

@@ -33,7 +33,7 @@ export function QuickActionsCard({
   const router = useRouter();
   const [showRequestDialog, setShowRequestDialog] = useState(false);
   const [showSignatureModal, setShowSignatureModal] = useState(false);
-  const [currentSignatureUrl, setCurrentSignatureUrl] = useState<string | null>(null); 
+  const [,setCurrentSignatureUrl] = useState<string | null>(null); 
   const [reason, setReason] = useState("");
   const [additionalInfo, setAdditionalInfo] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -154,7 +154,7 @@ export function QuickActionsCard({
     },
     { 
       icon: PenTool, 
-      label: currentSignatureUrl ? "Cập nhật chữ ký số" : "Tạo chữ ký số", 
+      label: "Chữ ký số", 
       color: "from-pink-500/20 to-rose-500/20", 
       iconColor: "text-pink-600", 
       action: handleManageSignature 
