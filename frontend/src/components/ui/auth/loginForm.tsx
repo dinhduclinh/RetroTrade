@@ -43,11 +43,12 @@ export function LoginForm() {
       const result = await response.json();
 
       if (result.code === 200) {
-        // Lưu tokens vào Redux store
+       
         dispatch(
           loginAction({
             accessToken: result.data.accessToken,
             refreshToken: result.data.refreshToken,
+            
           })
         );
 

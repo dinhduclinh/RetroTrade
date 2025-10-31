@@ -67,7 +67,7 @@ module.exports.login = async (req, res) => {
             message: "Đăng nhập thành công",
             data: {
                 accessToken: accessToken,
-                refreshToken: refreshToken
+                refreshToken: refreshToken,
             }
         });
     } catch (error) {
