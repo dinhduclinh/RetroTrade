@@ -23,6 +23,7 @@ import {
   Zap,
   Star,
   Bookmark,
+  RefreshCw,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -258,10 +259,22 @@ export default function ProductPage() {
           
           console.log('Final thumbnail URL:', thumbnailUrl); // Debug log
           
-          // Get the price unit name, handling both array and direct object cases
-          const priceUnit = (product.priceUnit && (product.priceUnit[0] || product.priceUnit)) || 
-                          (product.PriceUnit && { UnitName: product.PriceUnit }) || 
-                          { UnitName: 'ngày' };
+          // Map PriceUnitId to the corresponding unit name
+          const getUnitName = (priceUnitId: number) => {
+            switch(priceUnitId) {
+              case 1: return 'giờ';
+              case 2: return 'ngày';
+              case 3: return 'tuần';
+              case 4: return 'tháng';
+              default: return 'ngày';
+            }
+          };
+          
+          // Use PriceUnitId if available, otherwise fall back to priceUnit from the backend
+          const unitName = product.PriceUnitId ? getUnitName(product.PriceUnitId) : 
+                         (product.priceUnit?.UnitName || 'ngày');
+          
+          const priceUnit = { UnitName: unitName };
           
           return {
             _id: product._id || '',

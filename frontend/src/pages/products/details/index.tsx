@@ -34,6 +34,8 @@ interface ProductDetailDto {
   Category?: { _id: string; name: string } | null;
   Images?: { Url: string }[];
   Owner?: {
+    _id?: string;
+    userGuid?: string;
     DisplayName?: string;
     FullName?: string;
     AvatarUrl?: string;
@@ -635,8 +637,12 @@ const handleRentNow = () => {
                     </button>
                     <button
                       onClick={() => {
-                        const ownerId = (product as any)?.Owner?._id || (product as any)?.Owner?.userGuid || (product as any)?.Owner?.UserGuid;
-                        if (ownerId) router.push(`/store/${ownerId}`);
+                        const ownerGuid = product?.Owner?.userGuid || product?.Owner?._id;
+                        if (ownerGuid) {
+                          router.push(`/store/${ownerGuid}`);
+                        } else {
+                          toast.error('Không tìm thấy thông tin cửa hàng');
+                        }
                       }}
                       className="px-3 py-1.5 text-sm rounded-md border text-gray-700 hover:bg-gray-50"
                     >
