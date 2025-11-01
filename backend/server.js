@@ -3,7 +3,8 @@ const cors = require("cors");
 const bodyParser = require("body-parser");
 const app = express();
 const connectDB = require("./src/config/db");
-const router = require("./src/routes/index")
+const router = require("./src/routes/index");
+
 
 const cron = require("node-cron");
 const {
