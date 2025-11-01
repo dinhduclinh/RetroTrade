@@ -376,7 +376,11 @@ const getProductByProductId = async (req, res) => {
       StatusId: 2,
       IsDeleted: false,
     })
-      .populate({ path: "OwnerId", model: User, select: "FullName DisplayName AvatarUrl fullName displayName avatarUrl" })
+      .populate({ 
+        path: "OwnerId", 
+        model: User, 
+        select: "FullName DisplayName AvatarUrl fullName displayName avatarUrl userGuid" 
+      })
       .lean();
 
     if (!item) {
@@ -422,6 +426,7 @@ const getProductByProductId = async (req, res) => {
       Owner: ownerPop
         ? {
             _id: ownerPop._id,
+            userGuid: ownerPop.userGuid,
             FullName: ownerPop.FullName || ownerPop.fullName,
             DisplayName: ownerPop.DisplayName || ownerPop.displayName,
             AvatarUrl: ownerPop.AvatarUrl || ownerPop.avatarUrl,
@@ -861,7 +866,7 @@ const getHighlightedProducts = async (req, res) => {
         $lookup: {
           from: "itemconditions",
           localField: "ConditionId",
-          foreignField: "ConditionId",
+          foreignField: "_id",
           as: "condition"
         }
       },
@@ -869,7 +874,7 @@ const getHighlightedProducts = async (req, res) => {
         $lookup: {
           from: "priceunits",
           localField: "PriceUnitId",
-          foreignField: "PriceUnitId",
+          foreignField: "_id",
           as: "priceUnit"
         }
       },
@@ -908,6 +913,7 @@ const getHighlightedProducts = async (req, res) => {
           category: { $arrayElemAt: ["$category", 0] },
           condition: { $arrayElemAt: ["$condition", 0] },
           priceUnit: { $arrayElemAt: ["$priceUnit", 0] },
+          PriceUnitId: 1,
           tags: {
             $map: {
               input: "$tags",
