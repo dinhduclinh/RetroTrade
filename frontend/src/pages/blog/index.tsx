@@ -10,7 +10,6 @@ import {
   getPostsByTag,
 } from "@/services/auth/blog.api";
 import { CalendarDays, Tag, User } from "lucide-react";
-import ChatButton from "@/components/common/chatbutton";
 
 interface Post {
   _id: string;
@@ -309,9 +308,6 @@ export default function BlogPage() {
           )}
         </div>
       </main>
-
-      {/* Floating Chat Button */}
-      <ChatButton badgeCount={3} />
     </div>
   );
 }

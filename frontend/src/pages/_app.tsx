@@ -1,5 +1,6 @@
 import Footer from "@/components/common/footer";
 import Header from "@/components/common/header";
+import ChatButton from "@/components/common/chatbutton";
 import "@/styles/globals.css";
 import type { AppProps } from "next/app";
 import { Toaster } from "sonner";
@@ -50,8 +51,8 @@ export default function App({ Component, pageProps }: AppProps) {
 
             {!isManagementPage && <Footer />}
 
-          
-
+            {/* Chat Button - Show on all pages */}
+            <ChatButton />
 
             {mounted && (
               <Toaster
