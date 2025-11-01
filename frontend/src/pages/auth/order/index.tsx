@@ -15,7 +15,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
-// === HÀM TÍNH THỜI GIAN THUÊ CHÍNH XÁC ===
+
 const calculateRentalDays = (item: CartItem): number => {
   if (!item.rentalStartDate || !item.rentalEndDate) return 0;
   const start = new Date(item.rentalStartDate);
@@ -163,8 +163,11 @@ export default function Checkout() {
         return;
       }
       await Promise.all(
-        cartItems.map((item) => dispatch(removeItemFromCartAction(item._id)))
+        cartItems
+          .filter((item) => !item._id?.startsWith("temp-")) 
+          .map((item) => dispatch(removeItemFromCartAction(item._id)))
       );
+
       alert("Thuê thành công!");
       sessionStorage.removeItem("checkoutItems");
       router.push("/auth/order");

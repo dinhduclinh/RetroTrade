@@ -3,20 +3,29 @@ const Message = require('../models/Messages.model');
 const Conversation = require('../models/Conversation.model');
 
 const socketHandler = (io) => {
+  // Track presence: userId -> connection count
+  const userConnectionCount = new Map();
+
   // Authentication middleware for socket
   io.use((socket, next) => {
-    const token = socket.handshake.auth.token;
+    // Support both auth.token and Authorization header
+    const token = socket.handshake.auth.token || 
+                  (socket.handshake.headers.authorization && socket.handshake.headers.authorization.split(' ')[1]);
     
     if (!token) {
       return next(new Error('Authentication error: No token provided'));
     }
 
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      socket.userId = decoded._id;
+      // Use same secret as REST API middleware
+      const secret = process.env.TOKEN_SECRET || process.env.JWT_SECRET;
+      const decoded = jwt.verify(token, secret);
+      // support tokens that carry either _id or userGuid
+      socket.userId = decoded._id || decoded.userGuid;
       socket.user = decoded;
       next();
     } catch (err) {
+      console.error('Socket auth error:', err.message);
       return next(new Error('Authentication error: Invalid token'));
     }
   });
@@ -26,6 +35,22 @@ const socketHandler = (io) => {
 
     // User joins their own room
     socket.join(`user_${socket.userId}`);
+
+    // Presence: increment and broadcast if first connection
+    const uid = String(socket.userId);
+    const prev = userConnectionCount.get(uid) || 0;
+    userConnectionCount.set(uid, prev + 1);
+    if (prev === 0) {
+      io.emit('user_online', { userId: uid });
+    }
+
+    // Reply current online users on request
+    socket.on('get_online_users', () => {
+      const online = Array.from(userConnectionCount.entries())
+        .filter(([_, count]) => count > 0)
+        .map(([userId]) => userId);
+      socket.emit('online_users', online);
+    });
 
     // Listen for join conversation
     socket.on('join_conversation', async (conversationId) => {
@@ -98,11 +123,8 @@ const socketHandler = (io) => {
         const populatedMessage = await Message.findById(message._id)
           .populate('fromUserId', 'fullName email avatarUrl');
 
-        // Emit to all clients in this conversation
+        // Emit to all clients in this conversation room only (avoids duplicates)
         io.to(`conversation_${conversationId}`).emit('new_message', populatedMessage);
-
-        // Also emit to user's own room for confirmation
-        socket.emit('message_sent', populatedMessage);
 
         console.log(`Message sent in conversation ${conversationId} by user ${socket.userId}`);
       } catch (error) {
@@ -152,6 +174,30 @@ const socketHandler = (io) => {
           return;
         }
 
+        const now = new Date();
+
+        // Update lastReadBy for the current user
+        const isUser1 = conversation.userId1.equals(socket.userId);
+        if (isUser1) {
+          conversation.lastReadBy = conversation.lastReadBy || {};
+          conversation.lastReadBy.userId1 = now;
+        } else {
+          conversation.lastReadBy = conversation.lastReadBy || {};
+          conversation.lastReadBy.userId2 = now;
+        }
+        await conversation.save();
+
+        // Mark all messages in this conversation as read by current user
+        await Message.updateMany(
+          { 
+            conversationId: conversationId,
+            fromUserId: { $ne: socket.userId } // Only mark messages from other users
+          },
+          { 
+            $addToSet: { readBy: socket.userId } // Add userId to readBy array if not exists
+          }
+        );
+
         // Notify others that user has read messages
         socket.to(`conversation_${conversationId}`).emit('messages_read', {
           userId: socket.userId,
@@ -165,6 +211,13 @@ const socketHandler = (io) => {
     // Handle disconnect
     socket.on('disconnect', () => {
       console.log(`❌ User disconnected: ${socket.userId} (${socket.id})`);
+      const uid = String(socket.userId);
+      const prev = userConnectionCount.get(uid) || 0;
+      const next = Math.max(0, prev - 1);
+      userConnectionCount.set(uid, next);
+      if (prev > 0 && next === 0) {
+        io.emit('user_offline', { userId: uid });
+      }
     });
 
     // Handle disconnect
