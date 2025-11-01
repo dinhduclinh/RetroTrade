@@ -1,25 +1,14 @@
 import Head from "next/head";
-import { Button } from "@/components/ui/common/button";
-import { Badge } from "@/components/ui/common/badge";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/common/card";
+import Image from "next/image";
 import { Container } from "@/components/layout/Container";
 import { SectionHeading } from "@/components/ui/common/section-heading";
 import {
-  ArrowRight,
   Shield,
   Zap,
   Users,
-  Star,
-  CheckCircle,
   TrendingUp,
   MessageCircle,
   Heart,
-  Sparkles,
 } from "lucide-react";
 import styles from "@/pages/TwoLayouts.module.css";
 import HoverCard from "@/components/ui/common/FlipCard";
