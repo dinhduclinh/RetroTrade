@@ -44,20 +44,20 @@ export function VerificationQueue() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
-        return <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">Chờ xác thực</Badge>
+        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300">Chờ xác thực</Badge>
       case "verified":
-        return <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Đã xác thực</Badge>
+        return <Badge className="bg-green-100 text-green-800 border-green-300">Đã xác thực</Badge>
       case "rejected":
-        return <Badge className="bg-red-500/20 text-red-400 border-red-500/30">Từ chối</Badge>
+        return <Badge className="bg-red-100 text-red-800 border-red-300">Từ chối</Badge>
       default:
-        return <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30">Không xác định</Badge>
+        return <Badge className="bg-gray-100 text-gray-800 border-gray-300">Không xác định</Badge>
     }
   }
 
   return (
-    <Card className="bg-white/10 backdrop-blur-md border-white/20">
+    <Card className="bg-white border border-gray-200 shadow-sm">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-white">
+        <CardTitle className="flex items-center gap-2 text-gray-900">
           <Shield className="w-5 h-5" />
           Hàng đợi xác thực
         </CardTitle>
@@ -66,41 +66,41 @@ export function VerificationQueue() {
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow className="border-white/20">
-                <TableHead className="text-white/70">Người dùng</TableHead>
-                <TableHead className="text-white/70">Email</TableHead>
-                <TableHead className="text-white/70">Loại giấy tờ</TableHead>
-                <TableHead className="text-white/70">Số giấy tờ</TableHead>
-                <TableHead className="text-white/70">Trạng thái</TableHead>
-                <TableHead className="text-white/70">Ngày gửi</TableHead>
-                <TableHead className="text-white/70">Ngày xác thực</TableHead>
-                <TableHead className="text-white/70">Hành động</TableHead>
+              <TableRow className="border-gray-200">
+                <TableHead className="text-gray-600">Người dùng</TableHead>
+                <TableHead className="text-gray-600">Email</TableHead>
+                <TableHead className="text-gray-600">Loại giấy tờ</TableHead>
+                <TableHead className="text-gray-600">Số giấy tờ</TableHead>
+                <TableHead className="text-gray-600">Trạng thái</TableHead>
+                <TableHead className="text-gray-600">Ngày gửi</TableHead>
+                <TableHead className="text-gray-600">Ngày xác thực</TableHead>
+                <TableHead className="text-gray-600">Hành động</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {verifications.map((verification) => (
-                <TableRow key={verification.id} className="border-white/20">
-                  <TableCell className="text-white font-medium">{verification.user}</TableCell>
-                  <TableCell className="text-white/70">{verification.email}</TableCell>
-                  <TableCell className="text-white/70">{verification.documentType}</TableCell>
-                  <TableCell className="text-white/70">{verification.documentNumber}</TableCell>
+                <TableRow key={verification.id} className="border-gray-200">
+                  <TableCell className="text-gray-900 font-medium">{verification.user}</TableCell>
+                  <TableCell className="text-gray-600">{verification.email}</TableCell>
+                  <TableCell className="text-gray-600">{verification.documentType}</TableCell>
+                  <TableCell className="text-gray-600">{verification.documentNumber}</TableCell>
                   <TableCell>{getStatusBadge(verification.status)}</TableCell>
-                  <TableCell className="text-white/70">{verification.submittedAt}</TableCell>
-                  <TableCell className="text-white/70">{verification.verifiedAt || "—"}</TableCell>
+                  <TableCell className="text-gray-600">{verification.submittedAt}</TableCell>
+                  <TableCell className="text-gray-600">{verification.verifiedAt || "—"}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
                       {verification.status === "pending" && (
                         <>
-                          <Button size="sm" variant="ghost" className="text-green-400 hover:bg-green-500/10">
+                          <Button size="sm" variant="ghost" className="text-green-600 hover:bg-green-50">
                             <CheckCircle className="w-4 h-4" />
                           </Button>
-                          <Button size="sm" variant="ghost" className="text-red-400 hover:bg-red-500/10">
+                          <Button size="sm" variant="ghost" className="text-red-600 hover:bg-red-50">
                             <XCircle className="w-4 h-4" />
                           </Button>
                         </>
                       )}
                       {verification.status === "verified" && (
-                        <Button size="sm" variant="ghost" className="text-blue-400 hover:bg-blue-500/10">
+                        <Button size="sm" variant="ghost" className="text-blue-600 hover:bg-blue-50">
                           <Clock className="w-4 h-4" />
                         </Button>
                       )}

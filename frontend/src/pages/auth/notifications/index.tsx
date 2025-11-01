@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store/redux_store';
@@ -74,20 +74,76 @@ export default function NotificationsPage() {
     }
   };
 
-  const getNotificationIcon = (notificationType: string) => {
+  const getNotificationIcon = (notificationType: string, isWhite = false) => {
+    const iconClass = "w-6 h-6";
+    
+    if (isWhite) {
+      switch (notificationType) {
+        case 'Identity Verified':
+        case 'Login Success':
+        case 'Registration Success':
+        case 'Email Verified':
+        case 'Order Placed':
+        case 'Order Confirmed':
+        case 'Payment Received':
+        case 'Product Approved':
+          return <CheckCircle className={`${iconClass} text-white`} />;
+        case 'Profile Updated':
+        case 'Avatar Updated':
+          return <CheckCircle2 className={`${iconClass} text-white`} />;
+        case 'Password Changed':
+          return <AlertCircle className={`${iconClass} text-white`} />;
+        case 'Product Rejected':
+          return <AlertCircle className={`${iconClass} text-white`} />;
+        default:
+          return <Info className={`${iconClass} text-white`} />;
+      }
+    }
+    
     switch (notificationType) {
       case 'Identity Verified':
-        return <CheckCircle className="w-5 h-5 text-green-500" />;
+      case 'Login Success':
+      case 'Registration Success':
+      case 'Email Verified':
+        return <CheckCircle className={`${iconClass} text-green-500`} />;
       case 'Profile Updated':
       case 'Avatar Updated':
-        return <CheckCircle2 className="w-5 h-5 text-blue-500" />;
+        return <CheckCircle2 className={`${iconClass} text-blue-500`} />;
       case 'Password Changed':
-        return <AlertCircle className="w-5 h-5 text-orange-500" />;
+        return <AlertCircle className={`${iconClass} text-orange-500`} />;
       case 'Order Placed':
+      case 'Order Confirmed':
       case 'Payment Received':
-        return <CheckCircle className="w-5 h-5 text-green-500" />;
+        return <CheckCircle className={`${iconClass} text-green-500`} />;
+      case 'Product Approved':
+        return <CheckCircle className={`${iconClass} text-emerald-500`} />;
+      case 'Product Rejected':
+        return <AlertCircle className={`${iconClass} text-red-500`} />;
       default:
-        return <Info className="w-5 h-5 text-blue-500" />;
+        return <Info className={`${iconClass} text-blue-500`} />;
+    }
+  };
+
+  const getNotificationColor = (notificationType: string) => {
+    switch (notificationType) {
+      case 'Identity Verified':
+      case 'Login Success':
+      case 'Registration Success':
+      case 'Email Verified':
+      case 'Product Approved':
+      case 'Payment Received':
+        return 'from-green-500 to-emerald-600';
+      case 'Profile Updated':
+      case 'Avatar Updated':
+      case 'Order Placed':
+      case 'Order Confirmed':
+        return 'from-blue-500 to-indigo-600';
+      case 'Password Changed':
+        return 'from-orange-500 to-amber-600';
+      case 'Product Rejected':
+        return 'from-red-500 to-rose-600';
+      default:
+        return 'from-gray-500 to-gray-600';
     }
   };
 
@@ -109,116 +165,155 @@ export default function NotificationsPage() {
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8">
-      <div className="container mx-auto px-4 max-w-4xl">
-        {/* Header */}
-        <div className="mb-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 pt-24 pb-12">
+      <div className="container mx-auto px-4 sm:px-6 max-w-5xl">
+        {/* Header Section */}
+        <div className="mb-8">
           <Button
             variant="ghost"
             onClick={() => router.back()}
-            className="mb-4"
+            className="mb-6 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Quay lại
           </Button>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl shadow-lg">
-                <Bell className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Thông báo</h1>
-                <p className="text-sm text-gray-600">
-                  {notifications.length} thông báo {unreadCount > 0 && `• ${unreadCount} chưa đọc`}
-                </p>
-              </div>
-            </div>
+          {/* Header Card */}
+          <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 overflow-hidden">
+            <CardContent className="p-6 sm:p-8">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="p-4 bg-white/20 backdrop-blur-sm rounded-2xl shadow-lg">
+                    <Bell className="w-8 h-8 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-3xl font-bold text-white mb-1">Thông báo</h1>
+                    <p className="text-white/90 text-sm sm:text-base">
+                      {notifications.length} thông báo 
+                      {unreadCount > 0 && (
+                        <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 bg-white/20 backdrop-blur-sm rounded-full text-white font-semibold">
+                          <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+                          {unreadCount} chưa đọc
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
 
-            {unreadCount > 0 && (
-              <Button
-                onClick={handleMarkAllAsRead}
-                variant="outline"
-                className="flex items-center gap-2"
-              >
-                <CheckCheck className="w-4 h-4" />
-                Đánh dấu tất cả đã đọc
-              </Button>
-            )}
-          </div>
+                {unreadCount > 0 && (
+                  <Button
+                    onClick={handleMarkAllAsRead}
+                    variant="secondary"
+                    className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm transition-all hover:scale-105"
+                  >
+                    <CheckCheck className="w-4 h-4 mr-2" />
+                    Đánh dấu tất cả đã đọc
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Content */}
         {isLoading ? (
-          <Card>
-            <CardContent className="py-12">
+          <Card className="border-0 shadow-xl">
+            <CardContent className="py-20">
               <div className="flex flex-col items-center justify-center">
-                <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                <p className="text-gray-600">Đang tải thông báo...</p>
+                <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-6"></div>
+                <p className="text-gray-600 text-lg font-medium">Đang tải thông báo...</p>
               </div>
             </CardContent>
           </Card>
         ) : error ? (
-          <Card>
-            <CardContent className="py-12">
+          <Card className="border-0 shadow-xl bg-red-50 dark:bg-red-950/20">
+            <CardContent className="py-20">
               <div className="flex flex-col items-center justify-center">
-                <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
-                <p className="text-gray-900 mb-4">{error}</p>
-                <Button onClick={fetchNotifications} variant="outline">
+                <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-6">
+                  <AlertCircle className="w-8 h-8 text-red-500" />
+                </div>
+                <p className="text-gray-900 dark:text-white text-lg font-semibold mb-2">{error}</p>
+                <p className="text-gray-600 dark:text-gray-400 text-sm mb-6">Vui lòng thử lại sau</p>
+                <Button 
+                  onClick={fetchNotifications} 
+                  variant="outline"
+                  className="border-red-300 text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30"
+                >
                   Thử lại
                 </Button>
               </div>
             </CardContent>
           </Card>
         ) : notifications.length === 0 ? (
-          <Card>
-            <CardContent className="py-12">
+          <Card className="border-0 shadow-xl">
+            <CardContent className="py-20">
               <div className="flex flex-col items-center justify-center">
-                <Bell className="w-16 h-16 text-gray-300 mb-4" />
-                <p className="text-gray-600 text-lg mb-2">Chưa có thông báo nào</p>
-                <p className="text-gray-500 text-sm">Thông báo mới sẽ hiển thị ở đây</p>
+                <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-full flex items-center justify-center mb-6">
+                  <Bell className="w-10 h-10 text-blue-500 dark:text-blue-400" />
+                </div>
+                <p className="text-gray-900 dark:text-white text-xl font-bold mb-2">Chưa có thông báo nào</p>
+                <p className="text-gray-600 dark:text-gray-400 text-sm">Thông báo mới sẽ hiển thị ở đây</p>
               </div>
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {notifications.map((notification) => (
               <Card
                 key={notification._id}
-                className={`cursor-pointer transition-all hover:shadow-md ${
-                  !notification.isRead ? 'bg-blue-50 border-blue-200 border-l-4' : ''
+                className={`group relative cursor-pointer transition-all duration-300 hover:shadow-xl hover:scale-[1.01] border-0 overflow-hidden ${
+                  !notification.isRead 
+                    ? 'bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 dark:from-blue-950/20 dark:via-indigo-950/20 dark:to-blue-950/20 shadow-lg border-l-4 border-blue-500' 
+                    : 'bg-white dark:bg-gray-900 shadow-md hover:shadow-lg'
                 }`}
+                onClick={() => {
+                  router.push(`/auth/notifications/${notification._id}`);
+                }}
               >
-                <CardContent className="p-4" onClick={() => !notification.isRead && handleMarkAsRead(notification._id)}>
-                  <div className="flex items-start gap-4">
-                    {/* Icon */}
-                    <div className="flex-shrink-0 mt-1">
-                      {getNotificationIcon(notification.notificationType)}
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-5">
+                    {/* Icon with background */}
+                    <div className={`flex-shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-110 ${
+                      !notification.isRead
+                        ? `bg-gradient-to-br ${getNotificationColor(notification.notificationType)}`
+                        : 'bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700'
+                    }`}>
+                      {getNotificationIcon(notification.notificationType, !notification.isRead)}
                     </div>
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <h3 className={`font-semibold ${!notification.isRead ? 'text-gray-900' : 'text-gray-700'}`}>
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <h3 className={`text-base sm:text-lg font-bold line-clamp-2 ${
+                          !notification.isRead 
+                            ? 'text-gray-900 dark:text-white' 
+                            : 'text-gray-700 dark:text-gray-300'
+                        }`}>
                           {notification.title}
                         </h3>
                         {!notification.isRead && (
-                          <Badge variant="default" className="bg-blue-500 text-white">
+                          <Badge 
+                            variant="default" 
+                            className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white border-0 shadow-md flex-shrink-0 animate-pulse"
+                          >
                             Mới
                           </Badge>
                         )}
                       </div>
                       
-                      <p className="text-gray-600 text-sm mb-2">
+                      <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base mb-4 line-clamp-2 leading-relaxed">
                         {notification.body}
                       </p>
 
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs text-gray-500">
-                            {formatDate(notification.CreatedAt)}
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <span className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-full">
+                            <span>{formatDate(notification.CreatedAt)}</span>
                           </span>
-                          <Badge variant="outline" className="text-xs">
+                          <Badge 
+                            variant="outline" 
+                            className="text-xs px-3 py-1 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                          >
                             {notification.notificationType}
                           </Badge>
                         </div>
@@ -231,15 +326,18 @@ export default function NotificationsPage() {
                               e.stopPropagation();
                               handleMarkAsRead(notification._id);
                             }}
-                            className="h-7 text-xs"
+                            className="h-8 text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-green-100 dark:hover:bg-green-900/30 text-green-700 dark:text-green-400"
                           >
-                            <CheckCircle className="w-3 h-3 mr-1" />
+                            <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
                             Đánh dấu đã đọc
                           </Button>
                         )}
                       </div>
                     </div>
                   </div>
+                  
+                  {/* Hover indicator */}
+                  <div className={`absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r ${getNotificationColor(notification.notificationType)} opacity-0 group-hover:opacity-100 transition-opacity`}></div>
                 </CardContent>
               </Card>
             ))}

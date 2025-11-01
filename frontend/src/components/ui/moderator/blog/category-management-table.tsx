@@ -71,11 +71,11 @@ export function CategoryManagementTable() {
 
   const getStatusBadge = (isDeleted?: boolean) =>
     isDeleted ? (
-      <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30">
+      <Badge className="bg-gray-200 text-gray-700 border-gray-300">
         Đã xóa
       </Badge>
     ) : (
-      <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-300">
         Hoạt động
       </Badge>
     );

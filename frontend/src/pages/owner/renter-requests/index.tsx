@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import OwnerLayout from "../layout";
 import {
   listOrders,
   confirmOrder,
@@ -30,6 +31,14 @@ import {
 } from "@/components/ui/common/dialog";
 
 export default function OwnerRenterRequests() {
+  return (
+    <OwnerLayout>
+      <RenterRequestsContent />
+    </OwnerLayout>
+  );
+}
+
+function RenterRequestsContent() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [openRejectModal, setOpenRejectModal] = useState(false);

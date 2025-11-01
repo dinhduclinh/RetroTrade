@@ -43,6 +43,9 @@ export default function FacebookCallbackPage() {
           dispatch(loginAction({ accessToken: result.data.accessToken, refreshToken: result.data.refreshToken }));
           toast.success("Đăng nhập Facebook thành công!");
           router.replace("/");
+        } else if (result.code === 403 && result.isBanned) {
+          // Redirect to banned account page
+          router.replace("/auth/banned");
         } else {
           toast.error(result.message || "Đăng nhập Facebook thất bại");
           router.replace("/auth/login");

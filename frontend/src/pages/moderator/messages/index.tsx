@@ -318,12 +318,7 @@ const ModeratorMessagesPage: React.FC = () => {
         <title>Tin nhắn Moderator | RetroTrade</title>
       </Head>
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-800 via-purple-900 to-slate-800 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(120,119,198,0.2),rgba(255,255,255,0))] animate-pulse" />
-        <div className="absolute top-0 -left-4 w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-15 animate-blob" />
-        <div className="absolute top-0 -right-4 w-96 h-96 bg-indigo-400 rounded-full mix-blend-multiply filter blur-3xl opacity-15 animate-blob animation-delay-2000" />
-        <div className="absolute -bottom-8 left-20 w-96 h-96 bg-pink-400 rounded-full mix-blend-multiply filter blur-3xl opacity-15 animate-blob animation-delay-4000" />
-
+      <div className="min-h-screen bg-white relative overflow-hidden">
         <div className="relative z-10 flex">
           <ModeratorSidebar
             activeTab={"messages"}
@@ -345,7 +340,7 @@ const ModeratorMessagesPage: React.FC = () => {
             }}
           />
 
-          <div className="flex-1 transition-all duration-300 moderator-content-area min-w-0">
+          <div className="flex-1 transition-all duration-300 moderator-content-area min-w-0 bg-gray-50">
             <ModeratorHeader />
 
             <main className="p-4 lg:p-8">
@@ -409,7 +404,7 @@ const ModeratorMessagesPage: React.FC = () => {
                       </div>
 
                       {/* Messages */}
-                      <div className="flex-1 overflow-y-auto bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
+                      <div className="flex-1 overflow-y-auto bg-gray-50">
                         {loading ? (
                           <div className="flex items-center justify-center h-full">
                             <div className="text-gray-500">Đang tải tin nhắn...</div>

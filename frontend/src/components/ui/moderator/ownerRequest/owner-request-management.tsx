@@ -119,13 +119,13 @@ export function OwnerRequestManagement() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
-        return <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">Chờ duyệt</Badge>;
+        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300">Chờ duyệt</Badge>;
       case "approved":
-        return <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Đã duyệt</Badge>;
+        return <Badge className="bg-green-100 text-green-800 border-green-300">Đã duyệt</Badge>;
       case "rejected":
-        return <Badge className="bg-red-500/20 text-red-400 border-red-500/30">Đã từ chối</Badge>;
+        return <Badge className="bg-red-100 text-red-800 border-red-300">Đã từ chối</Badge>;
       case "cancelled":
-        return <Badge className="bg-gray-500/20 text-gray-400 border-gray-500/30">Đã hủy</Badge>;
+        return <Badge className="bg-gray-100 text-gray-800 border-gray-300">Đã hủy</Badge>;
       default:
         return null;
     }
@@ -144,18 +144,18 @@ export function OwnerRequestManagement() {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <RefreshCw className="w-8 h-8 text-white animate-spin" />
+        <RefreshCw className="w-8 h-8 text-gray-900 animate-spin" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <Card className="bg-white/10 backdrop-blur-md border-white/20">
+      <Card className="bg-white border border-gray-200 shadow-sm">
         <CardContent className="p-8 text-center">
-          <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <p className="text-white mb-4">{error}</p>
-          <Button onClick={fetchRequests} variant="outline" className="text-white">
+          <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-4" />
+          <p className="text-gray-900 mb-4">{error}</p>
+          <Button onClick={fetchRequests} variant="outline" className="text-gray-900">
             Thử lại
           </Button>
         </CardContent>
@@ -165,22 +165,22 @@ export function OwnerRequestManagement() {
 
   return (
     <>
-      <Card className="bg-white/10 backdrop-blur-md border-white/20">
+      <Card className="bg-white border border-gray-200 shadow-sm">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-white">Yêu cầu cấp quyền Owner</CardTitle>
+            <CardTitle className="text-gray-900">Yêu cầu cấp quyền Owner</CardTitle>
             <div className="flex items-center gap-4">
               <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/50" />
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder="Tìm kiếm theo tên, email..."
-                  className="pl-10 bg-white/10 border-white/20 text-white placeholder:text-white/50 w-64"
+                  className="pl-10 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 w-64"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
               <select
-                className="px-4 py-2 bg-white/10 border border-white/20 rounded text-white"
+                className="px-4 py-2 bg-gray-50 border border-gray-200 rounded text-gray-900"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
@@ -190,7 +190,7 @@ export function OwnerRequestManagement() {
                 <option value="rejected">Đã từ chối</option>
                 <option value="cancelled">Đã hủy</option>
               </select>
-              <Button onClick={fetchRequests} variant="ghost" size="icon" className="text-white">
+              <Button onClick={fetchRequests} variant="ghost" size="icon" className="text-gray-900">
                 <RefreshCw className="h-4 w-4" />
               </Button>
             </div>
@@ -198,7 +198,7 @@ export function OwnerRequestManagement() {
         </CardHeader>
         <CardContent>
           {filteredRequests.length === 0 ? (
-            <div className="text-center py-12 text-white/70">
+            <div className="text-center py-12 text-gray-600">
               Không có yêu cầu nào
             </div>
           ) : (
@@ -206,24 +206,24 @@ export function OwnerRequestManagement() {
               {filteredRequests.map((request) => (
                 <div
                   key={request._id}
-                  className="bg-white/5 border border-white/10 rounded-lg p-6 hover:bg-white/10 transition-colors"
+                  className="bg-gray-50 border border-gray-200 rounded-lg p-6 hover:bg-gray-100 transition-colors"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-4 flex-1">
                       <Avatar className="h-12 w-12">
                         <AvatarImage src={request.user.avatarUrl} />
-                        <AvatarFallback className="bg-blue-500/20 text-white">
+                        <AvatarFallback className="bg-blue-100 text-blue-700">
                           {request.user.fullName?.charAt(0) || "U"}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-white font-semibold">
+                          <h3 className="text-gray-900 font-semibold">
                             {request.user.fullName || "Unknown"}
                           </h3>
                           {getStatusBadge(request.status)}
                         </div>
-                        <div className="space-y-1 text-sm text-white/70">
+                        <div className="space-y-1 text-sm text-gray-600">
                           <p className="flex items-center gap-2">
                             <Mail className="h-4 w-4" />
                             {request.user.email}
@@ -238,17 +238,17 @@ export function OwnerRequestManagement() {
                               <span className="font-medium">Thông tin thêm:</span> {request.additionalInfo}
                             </p>
                           )}
-                          <p className="text-xs text-white/50">
+                          <p className="text-xs text-gray-500">
                             Yêu cầu vào: {formatDate(request.CreatedAt)}
                           </p>
                           {request.reviewedAt && (
-                            <p className="text-xs text-white/50">
+                            <p className="text-xs text-gray-500">
                               Đã xử lý vào: {formatDate(request.reviewedAt)}
                               {request.reviewedBy && ` bởi ${request.reviewedBy.fullName}`}
                             </p>
                           )}
                           {request.rejectionReason && (
-                            <p className="text-red-400 text-sm">
+                            <p className="text-red-600 text-sm">
                               <AlertCircle className="h-4 w-4 inline mr-1" />
                               Lý do từ chối: {request.rejectionReason}
                             </p>
@@ -259,7 +259,7 @@ export function OwnerRequestManagement() {
                     <div className="flex gap-2">
                       <Button
                         onClick={() => setDetailDialog({ open: true, request })}
-                        className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border-blue-500/30"
+                        className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
                       >
                         <Eye className="h-4 w-4 mr-2" />
                         Xem chi tiết
@@ -270,7 +270,7 @@ export function OwnerRequestManagement() {
                             setSelectedRequest(request);
                             setActionDialog({ open: true, type: "approve" });
                           }}
-                          className="bg-green-500/20 hover:bg-green-500/30 text-green-400 border-green-500/30"
+                          className="bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
                         >
                           <CheckCircle className="h-4 w-4 mr-2" />
                           Duyệt
@@ -282,7 +282,7 @@ export function OwnerRequestManagement() {
                             setSelectedRequest(request);
                             setActionDialog({ open: true, type: "reject" });
                           }}
-                          className="bg-red-500/20 hover:bg-red-500/30 text-red-400 border-red-500/30"
+                          className="bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
                         >
                           <XCircle className="h-4 w-4 mr-2" />
                           Từ chối
@@ -299,17 +299,17 @@ export function OwnerRequestManagement() {
 
       {/* Approve Dialog */}
       <Dialog open={actionDialog.open && actionDialog.type === "approve"} onOpenChange={(open) => !open && setActionDialog({ open: false, type: null })}>
-        <DialogContent className="bg-slate-900 border-slate-700 text-white">
+        <DialogContent className="bg-white border border-gray-200 text-gray-900">
           <DialogHeader>
             <DialogTitle>Duyệt yêu cầu cấp quyền Owner</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <p>Bạn có chắc muốn duyệt yêu cầu này?</p>
             <div>
-              <label className="text-sm text-white/70 mb-2 block">Ghi chú (tùy chọn)</label>
+              <label className="text-sm text-gray-700 mb-2 block">Ghi chú (tùy chọn)</label>
               <Textarea
                 placeholder="Nhập ghi chú..."
-                className="bg-white/10 border-white/20 text-white"
+                className="bg-gray-50 border-gray-200 text-gray-900"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />
@@ -319,11 +319,11 @@ export function OwnerRequestManagement() {
             <Button
               variant="outline"
               onClick={() => setActionDialog({ open: false, type: null })}
-              className="bg-gray-600 hover:bg-gray-500 text-white border-gray-500"
+              className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
             >
               Hủy
             </Button>
-            <Button onClick={handleApprove} className="bg-green-500 hover:bg-green-600">
+            <Button onClick={handleApprove} className="bg-green-600 hover:bg-green-700">
               Duyệt
             </Button>
           </DialogFooter>
@@ -332,7 +332,7 @@ export function OwnerRequestManagement() {
 
       {/* User Detail Dialog */}
       <Dialog open={detailDialog.open} onOpenChange={(open) => !open && setDetailDialog({ open: false, request: null })}>
-        <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-white border border-gray-200 text-gray-900 max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <User className="w-5 h-5" />
@@ -343,35 +343,35 @@ export function OwnerRequestManagement() {
             <div className="space-y-6 mt-4">
               {/* User Info */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="flex items-center gap-3 bg-white/5 p-4 rounded-lg">
+                <div className="flex items-center gap-3 bg-gray-50 p-4 rounded-lg border border-gray-200">
                   <Avatar className="h-16 w-16">
                     <AvatarImage src={detailDialog.request.user.avatarUrl} />
-                    <AvatarFallback className="bg-blue-500/20 text-white text-xl">
+                    <AvatarFallback className="bg-blue-100 text-blue-700 text-xl">
                       {detailDialog.request.user.fullName?.charAt(0) || "U"}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="text-lg font-semibold text-white">
+                    <p className="text-lg font-semibold text-gray-900">
                       {detailDialog.request.user.fullName || "Unknown"}
                     </p>
-                    <p className="text-sm text-white/60">Role: {detailDialog.request.user.role}</p>
+                    <p className="text-sm text-gray-600">Role: {detailDialog.request.user.role}</p>
                   </div>
                 </div>
-                <div className="bg-white/5 p-4 rounded-lg space-y-2">
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-2">
                   <div className="flex items-center gap-2 text-sm">
-                    <Mail className="h-4 w-4 text-white/60 flex-shrink-0" />
-                    <span className="text-white break-all">{detailDialog.request.user.email}</span>
+                    <Mail className="h-4 w-4 text-gray-600 flex-shrink-0" />
+                    <span className="text-gray-900 break-all">{detailDialog.request.user.email}</span>
                   </div>
                   {detailDialog.request.user.phone && (
                     <div className="flex items-center gap-2 text-sm">
-                      <Phone className="h-4 w-4 text-white/60 flex-shrink-0" />
-                      <span className="text-white">{detailDialog.request.user.phone}</span>
+                      <Phone className="h-4 w-4 text-gray-600 flex-shrink-0" />
+                      <span className="text-gray-900">{detailDialog.request.user.phone}</span>
                     </div>
                   )}
                 </div>
-                <div className="bg-white/5 p-4 rounded-lg">
-                  <p className="text-sm text-white/60 mb-2">Thời gian</p>
-                  <p className="text-xs text-white/50">
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <p className="text-sm text-gray-600 mb-2">Thời gian</p>
+                  <p className="text-xs text-gray-500">
                     {formatDate(detailDialog.request.CreatedAt)}
                   </p>
                 </div>
@@ -379,14 +379,14 @@ export function OwnerRequestManagement() {
 
               {/* Request Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-white/5 p-4 rounded-lg">
-                  <h3 className="text-sm font-semibold mb-2 text-white/60">Lý do yêu cầu</h3>
-                  <p className="text-white">{detailDialog.request.reason}</p>
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <h3 className="text-sm font-semibold mb-2 text-gray-700">Lý do yêu cầu</h3>
+                  <p className="text-gray-900">{detailDialog.request.reason}</p>
                 </div>
                 {detailDialog.request.additionalInfo && (
-                  <div className="bg-white/5 p-4 rounded-lg">
-                    <h3 className="text-sm font-semibold mb-2 text-white/60">Thông tin thêm</h3>
-                    <p className="text-white">{detailDialog.request.additionalInfo}</p>
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <h3 className="text-sm font-semibold mb-2 text-gray-700">Thông tin thêm</h3>
+                    <p className="text-gray-900">{detailDialog.request.additionalInfo}</p>
                   </div>
                 )}
               </div>
@@ -400,8 +400,8 @@ export function OwnerRequestManagement() {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {detailDialog.request.user.documents.map((doc, index) => (
-                      <div key={index} className="bg-white/5 p-4 rounded-lg hover:bg-white/10 transition-colors">
-                        <div className="aspect-square bg-white/10 rounded-lg overflow-hidden border border-white/10 mb-3 cursor-pointer hover:border-white/30 transition-colors"
+                      <div key={index} className="bg-gray-50 p-4 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+                        <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden border border-gray-200 mb-3 cursor-pointer hover:border-gray-300 transition-colors"
                              onClick={() => window.open(doc.fileUrl, '_blank')}>
                           <img
                             src={doc.fileUrl}
@@ -410,19 +410,19 @@ export function OwnerRequestManagement() {
                           />
                         </div>
                         <div className="text-center space-y-1">
-                          <p className="text-sm text-white font-medium capitalize">
+                          <p className="text-sm text-gray-900 font-medium capitalize">
                             {doc.documentType === 'selfie' && '📸 Ảnh chân dung'}
                             {doc.documentType === 'idCardFront' && '🆔 Mặt trước căn cước'}
                             {doc.documentType === 'idCardBack' && '🆔 Mặt sau căn cước'}
                           </p>
-                          <p className="text-xs text-white/50">
+                          <p className="text-xs text-gray-500">
                             {doc.status === 'approved' && '✓ Đã duyệt'}
                             {doc.status === 'pending' && '⏳ Đang chờ'}
                             {doc.status === 'rejected' && '✗ Đã từ chối'}
                           </p>
                           <button
                             onClick={() => window.open(doc.fileUrl, '_blank')}
-                            className="mt-2 text-xs text-blue-400 hover:text-blue-300 underline"
+                            className="mt-2 text-xs text-blue-600 hover:text-blue-700 underline"
                           >
                             Mở ảnh đầy đủ →
                           </button>
@@ -434,10 +434,10 @@ export function OwnerRequestManagement() {
               )}
 
               {(!detailDialog.request.user.documents || detailDialog.request.user.documents.length === 0) && (
-                <div className="border-t border-white/10 pt-4">
-                  <div className="text-center py-8 bg-white/5 rounded-lg">
-                    <CreditCard className="h-12 w-12 text-white/30 mx-auto mb-3" />
-                    <p className="text-white/60">Người dùng chưa upload giấy tờ tùy thân</p>
+                <div className="border-t border-gray-200 pt-4">
+                  <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+                    <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                    <p className="text-gray-600">Người dùng chưa upload giấy tờ tùy thân</p>
                   </div>
                 </div>
               )}
@@ -447,7 +447,7 @@ export function OwnerRequestManagement() {
             <Button
               variant="outline"
               onClick={() => setDetailDialog({ open: false, request: null })}
-              className="flex-1 bg-gray-600 hover:bg-gray-500 text-white border-gray-500"
+              className="flex-1 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
             >
               Đóng
             </Button>
@@ -459,7 +459,7 @@ export function OwnerRequestManagement() {
                     setSelectedRequest(detailDialog.request);
                     setActionDialog({ open: true, type: "approve" });
                   }}
-                  className="flex-1 bg-green-500 hover:bg-green-600"
+                  className="flex-1 bg-green-600 hover:bg-green-700"
                 >
                   <CheckCircle className="h-4 w-4 mr-2" />
                   Duyệt
@@ -470,7 +470,7 @@ export function OwnerRequestManagement() {
                     setSelectedRequest(detailDialog.request);
                     setActionDialog({ open: true, type: "reject" });
                   }}
-                  className="flex-1 bg-red-500 hover:bg-red-600"
+                  className="flex-1 bg-red-600 hover:bg-red-700"
                 >
                   <XCircle className="h-4 w-4 mr-2" />
                   Từ chối
@@ -483,26 +483,26 @@ export function OwnerRequestManagement() {
 
       {/* Reject Dialog */}
       <Dialog open={actionDialog.open && actionDialog.type === "reject"} onOpenChange={(open) => !open && setActionDialog({ open: false, type: null })}>
-        <DialogContent className="bg-slate-900 border-slate-700 text-white">
+        <DialogContent className="bg-white border border-gray-200 text-gray-900">
           <DialogHeader>
             <DialogTitle>Từ chối yêu cầu cấp quyền Owner</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <label className="text-sm text-white/70 mb-2 block">Lý do từ chối *</label>
+              <label className="text-sm text-gray-700 mb-2 block">Lý do từ chối *</label>
               <Textarea
                 placeholder="Nhập lý do từ chối..."
-                className="bg-white/10 border-white/20 text-white"
+                className="bg-gray-50 border-gray-200 text-gray-900"
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
                 required
               />
             </div>
             <div>
-              <label className="text-sm text-white/70 mb-2 block">Ghi chú (tùy chọn)</label>
+              <label className="text-sm text-gray-700 mb-2 block">Ghi chú (tùy chọn)</label>
               <Textarea
                 placeholder="Nhập ghi chú..."
-                className="bg-white/10 border-white/20 text-white"
+                className="bg-gray-50 border-gray-200 text-gray-900"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />
@@ -512,13 +512,13 @@ export function OwnerRequestManagement() {
             <Button
               variant="outline"
               onClick={() => setActionDialog({ open: false, type: null })}
-              className="bg-gray-600 hover:bg-gray-500 text-white border-gray-500"
+              className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
             >
               Hủy
             </Button>
             <Button
               onClick={handleReject}
-              className="bg-red-500 hover:bg-red-600"
+              className="bg-red-600 hover:bg-red-700"
               disabled={!rejectionReason}
             >
               Từ chối

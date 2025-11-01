@@ -17,5 +17,7 @@ router.post('/', authenticateToken, authorizeRoles('admin'), userController.crea
 router.put('/:id', authenticateToken, authorizeRoles('admin'), userController.updateUser);
 router.delete('/:id', authenticateToken, authorizeRoles('admin'), userController.deleteUser);
 router.put('/role/update', authenticateToken, authorizeRoles('admin'), userController.updateUserRole);
+router.post('/:id/ban', authenticateToken, authorizeRoles('admin'), userController.banUser);
+router.post('/:id/unban', authenticateToken, authorizeRoles('admin'), userController.unbanUser);
 
 module.exports = router;

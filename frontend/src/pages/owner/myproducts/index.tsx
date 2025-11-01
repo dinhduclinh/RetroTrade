@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import OwnerLayout from "../layout";
 import {
   Edit2,
   Trash2,
@@ -49,6 +50,14 @@ interface Product {
 }
 
 export default function OwnerPanel() {
+  return (
+    <OwnerLayout>
+      <MyProductsContent />
+    </OwnerLayout>
+  );
+}
+
+function MyProductsContent() {
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -323,31 +332,27 @@ export default function OwnerPanel() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-            <XCircle size={48} className="mx-auto text-red-400 mb-4" />
-            <h3 className="text-lg font-semibold text-red-800 mb-2">
-              Lỗi tải dữ liệu
-            </h3>
-            <p className="text-red-600 mb-4">{error}</p>
-            <button
-              onClick={fetchProducts}
-              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
-            >
-              Thử lại
-            </button>
-          </div>
+      <div className="max-w-7xl mx-auto">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+          <XCircle size={48} className="mx-auto text-red-400 mb-4" />
+          <h3 className="text-lg font-semibold text-red-800 mb-2">
+            Lỗi tải dữ liệu
+          </h3>
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={fetchProducts}
+            className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Thử lại
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <>
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="mb-6">
+    <div className="max-w-7xl mx-auto">
+      <div className="mb-6">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
@@ -366,11 +371,11 @@ export default function OwnerPanel() {
                 Đăng sản phẩm mới
               </Link>
             </div>
-          </div>
+      </div>
 
-          <StatusStats />
+      <StatusStats />
 
-          <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+      <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1 relative">
                 <Search
@@ -400,9 +405,9 @@ export default function OwnerPanel() {
                 </select>
               </div>
             </div>
-          </div>
+      </div>
 
-          {loading ? (
+      {loading ? (
             <div className="text-center py-12">
               <div className="inline-block w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
               <p className="text-gray-600 mt-4">Đang tải...</p>
@@ -424,9 +429,9 @@ export default function OwnerPanel() {
                 Đăng sản phẩm mới
               </Link>
             </div>
-          ) : (
-            <>
-              <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+      ) : (
+        <>
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -588,13 +593,13 @@ export default function OwnerPanel() {
                     </tbody>
                   </table>
                 </div>
-                <Pagination />
-              </div>
-            </>
-          )}
+            <Pagination />
+          </div>
+        </>
+      )}
 
-          {/* Delete Modal */}
-          {showDeleteModal && (
+      {/* Delete Modal */}
+      {showDeleteModal && (
             <div className="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50 p-4">
               <div className="bg-white rounded-2xl max-w-md w-full p-6 animate-scale-in">
                 <div className="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mx-auto mb-4">
@@ -633,30 +638,6 @@ export default function OwnerPanel() {
               </div>
             </div>
           )}
-        </div>
-      </div>
-
-      <style jsx>{`
-        @keyframes scale-in {
-          from {
-            transform: scale(0.9);
-            opacity: 0;
-          }
-          to {
-            transform: scale(1);
-            opacity: 1;
-          }
-        }
-        .animate-scale-in {
-          animation: scale-in 0.2s ease-out;
-        }
-        .line-clamp-2 {
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-      `}</style>
-    </>
+    </div>
   );
 }

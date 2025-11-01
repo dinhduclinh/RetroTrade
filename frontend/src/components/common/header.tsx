@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { Button } from "@/components/ui/common/button";
-import { LogOut, User, Package, Settings, Shield, Crown, Moon, Sun, Wallet ,BoxIcon, Bookmark} from "lucide-react";
+import { LogOut, User, Package, Shield, Crown, Moon, Sun, Wallet, Bookmark, LayoutDashboard} from "lucide-react";
 import { NotificationIcon } from "@/components/ui/common/notification-icon";
 
 import {
@@ -125,7 +125,7 @@ export function Header() {
   };
 
   const handleGoToOwnerPanel = () => {
-    router.push('/owner/myproducts');
+    router.push('/owner');
   };
 
     const handleGoToMyfavirite = () => {
@@ -171,19 +171,8 @@ export function Header() {
             className="cursor-pointer"
             onClick={handleGoToOwnerPanel}
           >
-            <Settings className="mr-2 h-4 w-4" />
-            <span>Sản phẩm của tôi</span>
-          </DropdownMenuItem>
-        );
-
-        items.push(
-          <DropdownMenuItem
-            key="renter-requests"
-            className="cursor-pointer"
-            onClick={() => router.push("/owner/renter-requests")}
-          >
-            <BoxIcon className="mr-2 h-4 w-4" />
-            <span>Yêu cầu thuê hàng</span>
+            <LayoutDashboard className="mr-2 h-4 w-4" />
+            <span>Trang quản lý</span>
           </DropdownMenuItem>
         );
         break;

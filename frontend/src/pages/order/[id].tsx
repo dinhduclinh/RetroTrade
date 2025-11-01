@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import type { Order } from "@/services/auth/order.api";
 import Image from "next/image";
+import { getCurrentTax } from "@/services/tax/tax.api";
 interface TimelineStep {
   status: string;
   label: string;
@@ -66,6 +67,7 @@ export default function OrderDetail() {
   const [pendingAction, setPendingAction] = useState<() => Promise<void>>(
     () => async () => {}
   );
+  const [taxRate, setTaxRate] = useState<number | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -79,6 +81,26 @@ export default function OrderDetail() {
       const res = await getOrderDetails(id as string);
       if (res.data) {
         setOrder(res.data);
+        // Calculate tax rate from order data if available
+        const rentalAmount = calculateRentalAmount(res.data);
+        const serviceFee = res.data.serviceFee || 0;
+        if (rentalAmount > 0 && serviceFee > 0) {
+          // Calculate tax rate from serviceFee
+          const calculatedTaxRate = Math.round((serviceFee / rentalAmount) * 100);
+          setTaxRate(calculatedTaxRate);
+        } else {
+          // Fetch current tax rate as fallback
+          try {
+            const taxResponse = await getCurrentTax();
+            if (taxResponse.success && taxResponse.data) {
+              setTaxRate(taxResponse.data.taxRate);
+            } else {
+              setTaxRate(3); // Default fallback
+            }
+          } catch {
+            setTaxRate(3); // Default fallback
+          }
+        }
       }
     } catch (error) {
       console.error("Lỗi tải đơn hàng:", error);
@@ -392,7 +414,10 @@ export default function OrderDetail() {
                 </div>
 
                 <div className="flex justify-between text-cyan-200">
-                  <span>Phí dịch vụ (10%)</span>
+                  <span>
+                    Phí dịch vụ
+                    {taxRate !== null ? ` (${taxRate}%)` : ""}
+                  </span>
                   <span>
                     {(order.serviceFee || 0).toLocaleString("vi-VN")}₫
                   </span>
