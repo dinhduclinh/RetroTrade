@@ -21,8 +21,8 @@ const calculateRentalDays = (item: CartItem): number => {
   const start = new Date(item.rentalStartDate);
   const end = new Date(item.rentalEndDate);
   const totalHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-
   let unitCount: number;
+
   switch (item.priceUnit.toLowerCase()) {
     case "hour":
     case "giờ":
@@ -74,6 +74,7 @@ const getRentalDurationText = (
   }
 };
 
+
 export default function Checkout() {
   const dispatch = useDispatch<any>();
   const router = useRouter();
@@ -87,6 +88,48 @@ export default function Checkout() {
   });
   const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingDates, setEditingDates] = useState<{
+    [key: string]: { start: string; end: string };
+  }>({});
+  // Bắt đầu chỉnh sửa
+  const startEditing = (id: string, start?: string, end?: string) => {
+    setEditingDates((prev) => ({
+      ...prev,
+      [id]: {
+        start: start ? start.substring(0, 16) : "",
+        end: end ? end.substring(0, 16) : "",
+      },
+    }));
+  };
+
+  const saveEditing = (id: string) => {
+    const { start, end } = editingDates[id];
+    if (!start || !end) {
+      alert("Vui lòng chọn đầy đủ thời gian thuê");
+      return;
+    }
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    if (endDate <= startDate) {
+      alert("Thời gian kết thúc phải sau thời gian bắt đầu");
+      return;
+    }
+
+    setCartItems((prev) =>
+      prev.map((item) =>
+        item._id === id
+          ? { ...item, rentalStartDate: start, rentalEndDate: end }
+          : item
+      )
+    );
+
+    setEditingDates((prev) => {
+      const newState = { ...prev };
+      delete newState[id];
+      return newState;
+    });
+  };
+
 
   // Lấy từ sessionStorage
   useEffect(() => {
@@ -250,14 +293,90 @@ export default function Checkout() {
                             {durationText}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-700">
-                          <Calendar className="w-4 h-4 text-emerald-600" />
-                          {format(
-                            new Date(item.rentalStartDate!),
-                            "dd/MM"
-                          )} →{" "}
-                          {format(new Date(item.rentalEndDate!), "dd/MM/yyyy")}
+                        <div className="text-sm text-gray-700">
+                          {editingDates[item._id] ? (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Calendar className="w-4 h-4 text-emerald-600" />
+                                <input
+                                  type="datetime-local"
+                                  value={editingDates[item._id].start}
+                                  onChange={(e) =>
+                                    setEditingDates((prev) => ({
+                                      ...prev,
+                                      [item._id]: {
+                                        ...prev[item._id],
+                                        start: e.target.value,
+                                      },
+                                    }))
+                                  }
+                                  className="border border-gray-300 rounded-lg px-2 py-1 text-xs"
+                                />
+                                →
+                                <input
+                                  type="datetime-local"
+                                  value={editingDates[item._id].end}
+                                  onChange={(e) =>
+                                    setEditingDates((prev) => ({
+                                      ...prev,
+                                      [item._id]: {
+                                        ...prev[item._id],
+                                        end: e.target.value,
+                                      },
+                                    }))
+                                  }
+                                  className="border border-gray-300 rounded-lg px-2 py-1 text-xs"
+                                />
+                              </div>
+                              <div className="flex gap-2 ml-6">
+                                <button
+                                  onClick={() => saveEditing(item._id)}
+                                  className="bg-emerald-600 text-white text-xs px-3 py-1 rounded hover:bg-emerald-700"
+                                >
+                                  Lưu
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    setEditingDates((prev) => {
+                                      const newState = { ...prev };
+                                      delete newState[item._id];
+                                      return newState;
+                                    })
+                                  }
+                                  className="text-gray-500 text-xs hover:underline"
+                                >
+                                  Hủy
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <Calendar className="w-4 h-4 text-emerald-600" />
+                              {format(
+                                new Date(item.rentalStartDate!),
+                                "dd/MM"
+                              )}{" "}
+                              →{" "}
+                              {format(
+                                new Date(item.rentalEndDate!),
+                                "dd/MM/yyyy"
+                              )}
+                              <button
+                                onClick={() =>
+                                  startEditing(
+                                    item._id,
+                                    item.rentalStartDate,
+                                    item.rentalEndDate
+                                  )
+                                }
+                                className="text-emerald-600 text-xs ml-2 hover:underline"
+                              >
+                                Chỉnh sửa
+                              </button>
+                            </div>
+                          )}
                         </div>
+
                         <div className="flex justify-between items-end pt-3 border-t border-gray-200">
                           <div>
                             <p className="text-lg font-bold text-emerald-600">

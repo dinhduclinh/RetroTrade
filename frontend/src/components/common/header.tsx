@@ -230,8 +230,8 @@ export function Header() {
             </Link>
           </nav>
 
-          <div className="flex items-center gap-4">
-            {/* Giỏ hàng - chỉ hiển thị khi đã đăng nhập */}
+          <div className="flex items-center gap-4 z-[100]">
+           
             {isLoggedIn && (
               <>
                 <Button
