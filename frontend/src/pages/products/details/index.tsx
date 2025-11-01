@@ -19,6 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Star,
+  Eye,
   Bookmark,
   ShoppingCart,
   Zap,
@@ -52,10 +53,21 @@ interface ProductDetailDto {
   } | null;
   City?: string;
   District?: string;
+  Address?: string;
   AvailableQuantity?: number;
   Quantity?: number;
   CreatedAt?: string;
   FavoriteCount?: number;
+  ViewCount?: number;
+  RentCount?: number;
+
+  // Rental duration fields used in the UI (optional because backend may omit them)
+  MinRentalDuration?: number;
+  MaxRentalDuration?: number | null;
+
+  // Some parts of the UI reference CategoryId / ConditionId (map backend shape)
+  CategoryId?: { _id?: string; name?: string } | null;
+  ConditionId?: number | null;
 }
 
 const formatPrice = (price: number, currency: string) => {
@@ -622,15 +634,28 @@ export default function ProductDetailPage() {
                 </p>
               )}
 
-              <div className="flex items-center gap-2 text-sm mt-2">
-                <div className="flex items-center text-yellow-500">
-                  <Star className="w-4 h-4 fill-yellow-500" />
-                  <Star className="w-4 h-4 fill-yellow-500" />
-                  <Star className="w-4 h-4 fill-yellow-500" />
-                  <Star className="w-4 h-4 fill-yellow-500" />
-                  <Star className="w-4 h-4" />
+              <div className="flex flex-wrap items-center justify-between gap-2 mt-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center text-yellow-500">
+                    <Star className="w-4 h-4 fill-yellow-500" />
+                    <Star className="w-4 h-4 fill-yellow-500" />
+                    <Star className="w-4 h-4 fill-yellow-500" />
+                    <Star className="w-4 h-4 fill-yellow-500" />
+                    <Star className="w-4 h-4" />
+                  </div>
+                  <span className="text-sm text-gray-500">(12 đánh giá)</span>
                 </div>
-                <span className="text-gray-500">(24 đánh giá)</span>
+                
+                <div className="flex items-center gap-4 text-sm text-gray-500">
+                  <div className="flex items-center gap-1">
+                    <Eye className="w-4 h-4" />
+                    <span>{product.ViewCount || 0} lượt xem</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <ShoppingCart className="w-4 h-4" />
+                    <span>{product.RentCount || 0} lượt thuê</span>
+                  </div>
+                </div>
               </div>
 
               <div className="rounded-2xl border bg-blue-50/60 p-4">
@@ -812,28 +837,135 @@ export default function ProductDetailPage() {
         {/* Bottom 10-col grid: left 7 info+desc, right 3 featured */}
         <div className="mt-10 grid grid-cols-1 lg:grid-cols-10 gap-8">
           <section className="lg:col-span-7 space-y-6">
-            <div className="bg-white border rounded-2xl p-4">
-              <h3 className="font-semibold mb-3">Thông tin sản phẩm</h3>
-              <div className="space-y-2 text-sm text-gray-700">
-                <div className="flex justify-between">
-                  <span>Tình trạng:</span>
-                  <span className="font-medium">{product.Condition?.ConditionName || "-"}</span>
+            {/* Product Information Card */}
+            <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
+              <div className="p-5">
+                <div className="flex justify-between items-start mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                    <svg className="w-6 h-6 text-indigo-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6h2m7-6h2m2 6h2M5 7h14a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2zm0 0V5a2 2 0 012-2h2M7 3h10a2 2 0 012 2v2H5V5a2 2 0 012-2z"></path>
+                    </svg>
+                    <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                      Thông tin sản phẩm
+                    </span>
+                  </h3>
+                  <div className="flex flex-col items-end space-y-1.5">
+                    {product.AvailableQuantity === 0 ? (
+                      <span className="px-3 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800 border border-red-200 shadow-sm flex items-center">
+                        <svg className="w-3.5 h-3.5 mr-1.5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+                        </svg>
+                        Hết hàng
+                      </span>
+                    ) : null}
+                    <span className={`px-3 py-1 text-xs font-medium rounded-full flex items-center ${
+                      product.Condition?.ConditionName === 'Mới' 
+                        ? 'bg-green-100 text-green-800 border border-green-200' 
+                        : 'bg-amber-100 text-amber-800 border border-amber-200'
+                    }`}>
+                      <svg className={`w-3.5 h-3.5 mr-1.5 ${product.Condition?.ConditionName === 'Mới' ? 'text-green-500' : 'text-amber-500'}`} fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                        {product.Condition?.ConditionName === 'Mới' ? (
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+                        ) : (
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+                        )}
+                      </svg>
+                      {product.Condition?.ConditionName || 'Đã sử dụng'}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span>Khu vực:</span>
-                  <span className="font-medium">{product.District || ""}{product.City ? `, ${product.City}` : ""}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Kho (sản phẩm):</span>
-                  <span className="font-medium">{typeof product.Quantity === "number" ? product.Quantity : "-"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Có sẵn (sản phẩm):</span>
-                  <span className="font-medium">{typeof product.AvailableQuantity === "number" ? product.AvailableQuantity : "-"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Ngày đăng:</span>
-                  <span className="font-medium">{product.CreatedAt ? new Date(product.CreatedAt).toLocaleDateString("vi-VN") : "-"}</span>
+                
+                <div className="space-y-6">
+                  {/* First Row - 2 columns */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Location */}
+                    <div className="flex items-start group">
+                      <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center mr-3 group-hover:bg-indigo-100 transition-colors">
+                        <MapPin className="h-5 w-5 text-indigo-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500 mb-0.5">Địa chỉ</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {[product.Address, product.District, product.City]
+                            .filter(Boolean)
+                            .join(', ')
+                            .replace(/,\s*$/, '') || 'Chưa cập nhật địa chỉ'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Posted Date */}
+                    <div className="flex items-start group">
+                      <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center mr-3 group-hover:bg-blue-100 transition-colors">
+                        <Calendar className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500 mb-0.5">Ngày đăng</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {product.CreatedAt ? new Date(product.CreatedAt).toLocaleDateString('vi-VN') : 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Second Row - 2 columns */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Total Quantity */}
+                    <div className="flex items-start group">
+                      <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center mr-3 group-hover:bg-purple-100 transition-colors">
+                        <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500 mb-0.5">Tổng số lượng</p>
+                        <p className="text-lg font-semibold text-gray-900">
+                          {product.Quantity || 0} <span className="text-sm font-normal text-gray-500">sản phẩm</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Available Quantity */}
+                    <div className="flex items-start group">
+                      <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center mr-3 group-hover:bg-emerald-100 transition-colors">
+                        <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500 mb-0.5">Có sẵn</p>
+                        <p className="text-lg font-semibold text-gray-900">
+                          {product.AvailableQuantity || 0} <span className="text-sm font-normal text-gray-500">sản phẩm</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Third Row - Full width */}
+                  <div className="pt-4 border-t border-gray-100">
+                    <div className="flex items-start">
+                      <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center mr-3">
+                        <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-500 mb-2">Thời gian thuê</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="bg-amber-50 p-3 rounded-lg border border-amber-100">
+                            <p className="text-xs text-amber-700 font-medium mb-1">Tối thiểu</p>
+                            <p className="text-base font-semibold text-amber-900">{product.MinRentalDuration || 1} ngày</p>
+                          </div>
+                          <div className="bg-amber-50 p-3 rounded-lg border border-amber-100">
+                            <p className="text-xs text-amber-700 font-medium mb-1">Tối đa</p>
+                            <p className="text-base font-semibold text-amber-900">
+                              {product.MaxRentalDuration ? `${product.MaxRentalDuration} ngày` : 'Không giới hạn'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -845,45 +977,218 @@ export default function ProductDetailPage() {
               </p>
             </div>
 
-            <div className="bg-white rounded-2xl p-4">
-              <h3 className="font-semibold mb-3">Sản phẩm tương tự</h3>
-              {similarItems.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {similarItems.map((it: any) => {
-                    const thumb = it?.Images?.[0]?.Url;
-                    const href = `/products/details?id=${it._id}`;
-                    return (
-                      <Link key={it._id} href={href} className="block">
-                        <div className="rounded-xl border bg-white overflow-hidden cursor-pointer transition-transform duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
-                          <div className="w-full aspect-video bg-gray-100">
-                            {thumb ? (
-                              <img src={thumb} alt={it.Title} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-gray-400">No image</div>
-                            )}
-                          </div>
-                          <div className="p-3">
-                            <div className="text-sm font-medium text-gray-900 line-clamp-2">
-                              {it.Title}
-                            </div>
-                            <div className="text-orange-600 font-semibold mt-1">
-                              {formatPrice(it.BasePrice, it.Currency)}
-                            </div>
-                            {(it.City || it.District) && (
-                              <div className="mt-1 flex items-center gap-1 text-xs text-gray-600">
-                                <MapPin className="w-3.5 h-3.5" />
-                                <span>{it.District || ""}{it.City ? `${it.District ? ", " : ""}${it.City}` : ""}</span>
-                              </div>
-                            )}
-                          </div>
+            {/* Reviews Section */}
+            <div className="bg-white rounded-xl shadow-sm border overflow-hidden mt-6">
+              <div className="border-b px-6 py-4 flex items-center gap-2">
+                <Star size={20} className="text-yellow-600" />
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Phản hồi và đánh giá từ khách hàng
+                </h3>
+              </div>
+              <div className="p-6">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        size={20}
+                        className={`${star <= 4 ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-xl font-bold text-gray-900">4</span>
+                  <span className="text-sm text-gray-600">(12 đánh giá)</span>
+                </div>
+                <div className="space-y-4 max-h-96 overflow-y-auto">
+                  {/* Review 1 */}
+                  <div className="flex gap-4 p-4 bg-gray-50 rounded-lg">
+                    <div className="flex-shrink-0">
+                      <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
+                        <span className="text-sm font-medium text-gray-600">N</span>
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium text-gray-900">Nguyễn Văn A</span>
+                        <div className="flex items-center gap-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              size={16}
+                              className={`${star <= 5 ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`}
+                            />
+                          ))}
                         </div>
-                      </Link>
-                    );
-                  })}
+                      </div>
+                      <p className="text-sm text-gray-600 mb-2">
+                        Sản phẩm tốt, đóng gói cẩn thận, giao hàng nhanh.
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {new Date().toLocaleDateString('vi-VN')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Review 2 */}
+                  <div className="flex gap-4 p-4 bg-gray-50 rounded-lg">
+                    <div className="flex-shrink-0">
+                      <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
+                        <span className="text-sm font-medium text-gray-600">T</span>
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium text-gray-900">Trần Thị B</span>
+                        <div className="flex items-center gap-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              size={16}
+                              className={`${star <= 4 ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-2">
+                        Sản phẩm như mô tả, shop tư vấn nhiệt tình, sẽ ủng hộ shop lần sau.
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toLocaleDateString('vi-VN')}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold">Sản phẩm tương tự</h3>
+                {similarItems.length > 3 && (
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        const container = document.querySelector('.similar-products-slider');
+                        if (container) {
+                          container.scrollBy({ left: -300, behavior: 'smooth' });
+                        }
+                      }}
+                      className="p-1.5 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                      aria-label="Previous products"
+                    >
+                      <ChevronLeft className="w-5 h-5 text-gray-600" />
+                    </button>
+                    <button 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        const container = document.querySelector('.similar-products-slider');
+                        if (container) {
+                          container.scrollBy({ left: 300, behavior: 'smooth' });
+                        }
+                      }}
+                      className="p-1.5 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                      aria-label="Next products"
+                    >
+                      <ChevronRight className="w-5 h-5 text-gray-600" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {similarItems.length > 0 ? (
+                <div className="relative">
+                  <div className="similar-products-slider flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 snap-x snap-mandatory scrollbar-hide">
+                    {similarItems.map((it: any) => {
+                      const thumb = it?.Images?.[0]?.Url;
+                      const href = `/products/details?id=${it._id}`;
+                      return (
+                        <div key={it._id} className="flex-none w-[calc(100%-2rem)] sm:w-[calc(50%-1rem)] lg:w-[calc(33.333%-1rem)] px-1 snap-start">
+                          <Link href={href} className="block">
+                            <div className="rounded-xl border bg-white overflow-hidden cursor-pointer transition-transform duration-300 ease-out hover:-translate-y-1 hover:shadow-lg h-full">
+                              <div className="w-full aspect-video bg-gray-100 relative">
+                                {thumb ? (
+                                  <img 
+                                    src={thumb} 
+                                    alt={it.Title} 
+                                    className="w-full h-full object-cover"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                    <span className="text-sm">Không có hình ảnh</span>
+                                  </div>
+                                )}
+                                {it.AvailableQuantity === 0 && (
+                                  <div className="absolute top-2 right-2 bg-red-600 text-white text-xs font-medium px-2 py-1 rounded-full">
+                                    Hết hàng
+                                  </div>
+                                )}
+                              </div>
+                              <div className="p-4">
+                                <h3 className="text-sm font-medium text-gray-900 line-clamp-2 h-10 mb-2">
+                                  {it.Title}
+                                </h3>
+                                
+                                {/* Price Row */}
+                                <div className="flex items-center gap-2 mb-1">
+                                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                  </svg>
+                                  <span className="text-orange-600 font-semibold">
+                                    {formatPrice(it.BasePrice, it.Currency)}
+                                  </span>
+                                  <span className="text-xs text-gray-500">/{it.PriceUnit?.UnitName || 'ngày'}</span>
+                                </div>
+
+                                {/* Deposit Row */}
+                                <div className="flex items-center gap-2 mb-2 text-sm">
+                                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                                  </svg>
+                                  <span className="text-gray-600">Đặt cọc: </span>
+                                  <span className="font-medium text-gray-800">
+                                    {formatPrice(it.DepositAmount || 0, it.Currency)}
+                                  </span>
+                                </div>
+
+                                {/* Address Row */}
+                                {(it.District || it.City) && (
+                                  <div className="flex items-start gap-2 text-sm mt-2 pt-2 border-t border-gray-100">
+                                    <MapPin className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                                    <span className="text-gray-600 line-clamp-2">
+                                      {[it.District, it.City].filter(Boolean).join(', ')}
+                                    </span>
+                                  </div>
+                                )}
+
+                              </div>
+                            </div>
+                          </Link>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               ) : (
-                <div className="text-sm text-gray-500">Chưa có sản phẩm tương tự</div>
+                <div className="text-sm text-gray-500 py-4">Chưa có sản phẩm tương tự</div>
               )}
+              
+              <style jsx global>{`
+                .similar-products-slider::-webkit-scrollbar {
+                  display: none;
+                }
+                .similar-products-slider {
+                  -ms-overflow-style: none;
+                  scrollbar-width: none;
+                }
+                .snap-mandatory {
+                  scroll-snap-type: x mandatory;
+                }
+                .snap-start {
+                  scroll-snap-align: start;
+                }
+              `}</style>
             </div>
           </section>
 
@@ -897,26 +1202,55 @@ export default function ProductDetailPage() {
                   return (
                     <Link key={it._id} href={href} className="block">
                       <div className="rounded-xl border bg-white overflow-hidden cursor-pointer transition-transform duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
-                        <div className="w-full aspect-video bg-gray-100">
+                        <div className="w-full aspect-video bg-gray-100 relative">
                           {thumb ? (
                             <img src={thumb} alt={it.Title} className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-gray-400">No image</div>
                           )}
-                        </div>
-                        <div className="p-3">
-                          <div className="text-sm font-medium text-gray-900 line-clamp-2">
-                            {it.Title}
-                          </div>
-                          <div className="text-orange-600 font-semibold mt-1">
-                            {formatPrice(it.BasePrice, it.Currency)}
-                          </div>
-                          {(it.City || it.District) && (
-                            <div className="mt-1 flex items-center gap-1 text-xs text-gray-600">
-                              <MapPin className="w-3.5 h-3.5" />
-                              <span>{it.District || ""}{it.City ? `${it.District ? ", " : ""}${it.City}` : ""}</span>
+                          {it.AvailableQuantity === 0 && (
+                            <div className="absolute top-2 right-2 bg-red-600 text-white text-xs font-medium px-2 py-1 rounded-full">
+                              Hết hàng
                             </div>
                           )}
+                        </div>
+                        <div className="p-4">
+                          <h3 className="text-sm font-medium text-gray-900 line-clamp-2 mb-2">
+                            {it.Title}
+                          </h3>
+                          
+                          {/* Price Row */}
+                          <div className="flex items-center gap-2 mb-1">
+                            <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span className="text-orange-600 font-semibold">
+                              {formatPrice(it.BasePrice, it.Currency)}
+                            </span>
+                            <span className="text-xs text-gray-500">/{it.PriceUnit?.UnitName || 'ngày'}</span>
+                          </div>
+
+                          {/* Deposit Row */}
+                          <div className="flex items-center gap-2 mb-2 text-sm">
+                            <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                            </svg>
+                            <span className="text-gray-600">Đặt cọc: </span>
+                            <span className="font-medium text-gray-800">
+                              {formatPrice(it.DepositAmount || 0, it.Currency)}
+                            </span>
+                          </div>
+
+                          {/* Address Row */}
+                          {(it.District || it.City) && (
+                            <div className="flex items-start gap-2 text-sm mt-2 pt-2 border-t border-gray-100">
+                              <MapPin className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                              <span className="text-gray-600 line-clamp-2">
+                                {[it.District, it.City].filter(Boolean).join(', ')}
+                              </span>
+                            </div>
+                          )}
+
                         </div>
                       </div>
                     </Link>
