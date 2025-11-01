@@ -14,6 +14,7 @@ interface DecodedToken {
   avatarUrl?: string;
   fullName?: string;
   _id?: string;
+  role?: string;
   exp: number;
   iat: number;
 }
@@ -69,6 +70,11 @@ const ChatFloatingButton: React.FC<ChatButtonProps> = ({ badgeCount = 0 }) => {
 
   // Don't show button if user not logged in
   if (!decodedUser) {
+    return null;
+  }
+
+  // Don't show button for moderator or admin (they have their own chat page)
+  if (decodedUser.role === "moderator" || decodedUser.role === "admin") {
     return null;
   }
 
