@@ -208,3 +208,22 @@ export const getAllCategories = async () => {
     return { data: [] };
   }
 };
+export const getPublicStoreByUserGuid = async (
+  userGuid: string,
+  params?: { page?: number; limit?: number }
+) => {
+  try {
+    const query = new URLSearchParams();
+    if (params?.page) query.set("page", String(params.page));
+    if (params?.limit) query.set("limit", String(params.limit));
+    const qs = query.toString();
+    const res = await instance.get(`/products/store/${userGuid}${qs ? `?${qs}` : ""}`);
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    return await res.json();
+  } catch (error) {
+    console.error("Error fetching public store by userGuid:", error);
+    return { data: { owner: null, items: [], total: 0 } } as any;
+  }
+};
