@@ -560,12 +560,12 @@ module.exports = {
 
       const filter = { isDeleted: false };
 
-      if (role === "renter") filter.renterId = userId;
-      else if (role === "owner") filter.ownerId = userId;
-      else
-        return res.status(403).json({
-          message: "You are not permitted to access orders",
-        });
+      // if (role === "renter") filter.renterId = userId;
+      // else if (role === "owner") filter.ownerId = userId;
+      // else
+      //   return res.status(403).json({
+      //     message: "You are not permitted to access orders",
+      //   });
 
       if (status) filter.orderStatus = status;
       if (paymentStatus) filter.paymentStatus = paymentStatus;

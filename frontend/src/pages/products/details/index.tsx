@@ -5,12 +5,22 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { useRouter } from "next/router";
 import AddToCartButton from "@/components/ui/common/AddToCartButton";
-import { getPublicItemById, getTopViewedItemsByOwner, getProductsByCategoryId } from "@/services/products/product.api";
+import { 
+  getPublicItemById, 
+  getTopViewedItemsByOwner, 
+  getProductsByCategoryId,
+  addToFavorites, 
+  removeFromFavorites, 
+  getFavorites 
+} from "@/services/products/product.api";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store/redux_store";
 import {
   ChevronLeft,
   ChevronRight,
   Star,
   Bookmark,
+  ShoppingCart,
   Zap,
   CheckCircle,
   Leaf,
@@ -45,6 +55,7 @@ interface ProductDetailDto {
   AvailableQuantity?: number;
   Quantity?: number;
   CreatedAt?: string;
+  FavoriteCount?: number;
 }
 
 const formatPrice = (price: number, currency: string) => {
@@ -53,6 +64,8 @@ const formatPrice = (price: number, currency: string) => {
   }
   return `$${price}`;
 };
+
+// toggleFavorite moved inside ProductDetailPage to access component state/hooks
 
 export default function ProductDetailPage() {
   const router = useRouter();
@@ -72,6 +85,41 @@ export default function ProductDetailPage() {
   const [dateError, setDateError] = useState<string>("");
   const [ownerTopItems, setOwnerTopItems] = useState<any[]>([]);
   const [similarItems, setSimilarItems] = useState<any[]>([]);
+  
+  // Favorite states
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [favoriteCount, setFavoriteCount] = useState(0);
+  
+  // Get authentication state
+  const isAuthenticated = useSelector((state: RootState) => !!state.auth.accessToken);
+  const accessToken = useSelector((state: RootState) => state.auth.accessToken);
+
+  // Fetch favorite status when product or authentication changes
+  useEffect(() => {
+    const fetchFavoriteStatus = async () => {
+      if (!id || !isAuthenticated) return;
+      
+      try {
+        setFavoriteLoading(true);
+        const res = await getFavorites();
+        if (res.ok) {
+          const data = await res.json();
+          const favorites = data.data || [];
+          const isFav = favorites.some(
+            (fav: any) => fav.productId?._id === id || fav.productId?._id?.$oid === id
+          );
+          setIsFavorite(isFav);
+        }
+      } catch (error) {
+        console.error("Error fetching favorite status:", error);
+      } finally {
+        setFavoriteLoading(false);
+      }
+    };
+    
+    fetchFavoriteStatus();
+  }, [id, isAuthenticated]);
 
   useEffect(() => {
     if (!id) return;
@@ -84,6 +132,7 @@ export default function ProductDetailPage() {
         const data = res?.data ?? res; // fallback if instance returns json body directly
         const detail: ProductDetailDto = data?.data || data;
         setProduct(detail);
+        setFavoriteCount(detail.FavoriteCount || 0);
         setSelectedImageIndex(0);
       } catch (err: unknown) {
         console.error("Failed to load product detail", err);
@@ -95,7 +144,60 @@ export default function ProductDetailPage() {
     fetchDetail();
   }, [id]);
 
-  // Fetch featured items from same owner
+  const toggleFavorite = async () => {
+    if (!isAuthenticated) {
+      router.push("/auth/login");
+      toast.error("Vui lòng đăng nhập để thêm vào yêu thích.");
+      return;
+    }
+
+    if (!product?._id) return;
+
+    setFavoriteLoading(true);
+    try {
+      let res: Response;
+      if (isFavorite) {
+        res = await removeFromFavorites(product._id);
+      } else {
+        res = await addToFavorites(product._id);
+      }
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        const errorMsg = errorData.message || `Lỗi! Mã trạng thái: ${res.status}`;
+        
+        if (res.status === 400) {
+          if (errorMsg.includes("đã được yêu thích") && !isFavorite) {
+            setIsFavorite(true);
+            setFavoriteCount(prev => prev + 1);
+            toast.success("Đã thêm vào yêu thích!");
+            return;
+          } else if (errorMsg.includes("chưa được yêu thích") && isFavorite) {
+            setIsFavorite(false);
+            setFavoriteCount(prev => Math.max(0, prev - 1));
+            return;
+          }
+        }
+        throw new Error(errorMsg);
+      }
+
+      // Toggle favorite status on success
+      const newFavoriteStatus = !isFavorite;
+      setIsFavorite(newFavoriteStatus);
+      setFavoriteCount(prev => newFavoriteStatus ? prev + 1 : Math.max(0, prev - 1));
+      
+      toast.success(newFavoriteStatus 
+        ? "Đã thêm vào yêu thích!" 
+        : "Đã xóa khỏi yêu thích!"
+      );
+    } catch (err: any) {
+      console.error("Error toggling favorite:", err);
+      toast.error(err.message || "Lỗi khi cập nhật yêu thích.");
+    } finally {
+      setFavoriteLoading(false);
+    }
+  };
+
   useEffect(() => {
     const run = async () => {
       const ownerId = (product?.Owner as any)?._id;
@@ -329,39 +431,38 @@ export default function ProductDetailPage() {
     toast.info("So sánh sản phẩm tương tự (đang phát triển)");
   };
 
-const handleRentNow = () => {
-  if (!product) return;
+  const handleRentNow = () => {
+    if (!product) return;
 
-  if (!dateFrom || !dateTo) {
-    toast.error("Vui lòng chọn thời gian thuê");
-    return;
-  }
+    if (!dateFrom || !dateTo) {
+      toast.error("Vui lòng chọn thời gian thuê");
+      return;
+    }
 
-  if (dateError) {
-    toast.error(dateError);
-    return;
-  }
+    if (dateError) {
+      toast.error(dateError);
+      return;
+    }
 
-  const checkoutItem = {
-    _id: "temp-" + product._id, 
-    itemId: product._id,
-    title: product.Title,
-    basePrice: product.BasePrice,
-    depositAmount: product.DepositAmount || 0,
-    quantity: 1,
-    priceUnit: product.PriceUnit?.UnitName || "ngày",
-    rentalStartDate: dateFrom,
-    rentalEndDate: dateTo,
-    primaryImage: product.Images?.[0]?.Url || "",
-    shortDescription: product.ShortDescription || "",
+    const checkoutItem = {
+      _id: "temp-" + product._id, 
+      itemId: product._id,
+      title: product.Title,
+      basePrice: product.BasePrice,
+      depositAmount: product.DepositAmount || 0,
+      quantity: 1,
+      priceUnit: product.PriceUnit?.UnitName || "ngày",
+      rentalStartDate: dateFrom,
+      rentalEndDate: dateTo,
+      primaryImage: product.Images?.[0]?.Url || "",
+      shortDescription: product.ShortDescription || "",
+    };
+
+    sessionStorage.setItem("checkoutItems", JSON.stringify([checkoutItem]));
+
+    toast.success("Đang chuyển đến trang thanh toán...");
+    router.push("/auth/order"); 
   };
-
-  sessionStorage.setItem("checkoutItems", JSON.stringify([checkoutItem]));
-
-  toast.success("Đang chuyển đến trang thanh toán...");
-  router.push("/auth/order"); 
-};
-
 
   useEffect(() => {
     const today = new Date(todayStr);
@@ -491,101 +592,126 @@ const handleRentNow = () => {
           {/* Summary */}
           <section>
             <div className="space-y-5 md:space-y-6">
-            <div className="flex items-start justify-between gap-4">
-              <h1 className="text-2xl md:text-3xl font-semibold text-gray-900">
-                {product.Title}
-              </h1>
-              <button
-                className="text-gray-600 hover:text-blue-600"
-                title="Yêu thích"
-              >
-                <Bookmark className="w-7 h-7" />
-              </button>
-            </div>
-
-            {product.ShortDescription && (
-              <p className="text-sm text-gray-600 leading-relaxed">
-                {product.ShortDescription}
-              </p>
-            )}
-
-            <div className="flex items-center gap-2 text-sm mt-2">
-              <div className="flex items-center text-yellow-500">
-                <Star className="w-4 h-4 fill-yellow-500" />
-                <Star className="w-4 h-4 fill-yellow-500" />
-                <Star className="w-4 h-4 fill-yellow-500" />
-                <Star className="w-4 h-4 fill-yellow-500" />
-                <Star className="w-4 h-4" />
-              </div>
-              <span className="text-gray-500">(24 đánh giá)</span>
-            </div>
-
-            <div className="rounded-2xl border bg-blue-50/60 p-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <div className="text-xs text-gray-600">Giá thuê</div>
-                  <div className="mt-1 flex items-baseline gap-1">
-                    <div className="text-3xl font-extrabold text-blue-600">
-                      {formatPrice(baseUnitPrice, product.Currency)}
-                    </div>
-                    <div className="text-sm text-gray-600">{baseUnitLabel}</div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xs text-gray-600">Đặt cọc</div>
-                  <div className="mt-1 text-2xl font-semibold text-gray-900">
-                    {formatPrice(product.DepositAmount, product.Currency)}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <button
-                onClick={handleCompare}
-                className="w-full flex items-center justify-center gap-2 border border-gray-300 text-gray-700 py-3 rounded-lg hover:bg-gray-50"
-              >
-                So sánh sản phẩm
-              </button>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="w-full">
-                  <AddToCartButton
-                    itemId={product._id}
-                    availableQuantity={product.AvailableQuantity ?? 0}
-                    size="md"
-                    variant="outline"
-                    showText
-                    className="w-full py-3"
-                  />
-                </div>
+              <div className="flex items-start justify-between gap-4">
+                <h1 className="text-2xl md:text-3xl font-semibold text-gray-900">
+                  {product.Title}
+                </h1>
                 <button
-                  onClick={handleRentNow}
-                  disabled={outOfStock}
-                  className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg ${
-                    outOfStock
-                      ? "bg-gray-300 text-gray-600 cursor-not-allowed"
-                      : "bg-blue-600 text-white hover:bg-blue-700"
+                  onClick={toggleFavorite}
+                  disabled={favoriteLoading}
+                  className={`p-2 rounded-full transition-colors ${
+                    isFavorite 
+                      ? "text-yellow-500 hover:text-yellow-600" 
+                      : "text-gray-400 hover:text-gray-500"
                   }`}
+                  title={isFavorite ? "Xóa khỏi yêu thích" : "Thêm vào yêu thích"}
                 >
-                  <Zap className="w-5 h-5" /> Thuê ngay
+                  {favoriteLoading ? (
+                    <div className="w-6 h-6 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <Bookmark 
+                      className={`w-6 h-6 ${isFavorite ? 'fill-current' : ''}`} 
+                    />
+                  )}
                 </button>
               </div>
 
-              <div className="rounded-xl bg-white p-4 space-y-4">
-                <div className="flex items-start gap-3 p-3 bg-white rounded-lg shadow-sm border border-gray-100">
-                  <CheckCircle className="w-6 h-6 text-green-600 mt-0.5 flex-shrink-0" />
-                  <p className="text-sm text-gray-700">
-                    <span className="font-semibold text-gray-900">RetroTrade</span> cam kết: nhận sản phẩm đúng mô tả hoặc hoàn tiền. Thông tin thanh toán của bạn được bảo mật tuyệt đối.
-                  </p>
+              {product.ShortDescription && (
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  {product.ShortDescription}
+                </p>
+              )}
+
+              <div className="flex items-center gap-2 text-sm mt-2">
+                <div className="flex items-center text-yellow-500">
+                  <Star className="w-4 h-4 fill-yellow-500" />
+                  <Star className="w-4 h-4 fill-yellow-500" />
+                  <Star className="w-4 h-4 fill-yellow-500" />
+                  <Star className="w-4 h-4 fill-yellow-500" />
+                  <Star className="w-4 h-4" />
                 </div>
-                <div className="flex items-start gap-3 p-3 bg-white rounded-lg shadow-sm border border-gray-100">
-                  <Leaf className="w-6 h-6 text-green-600 mt-0.5 flex-shrink-0" />
-                  <p className="text-sm text-gray-700">
-                    <span className="font-semibold text-gray-900">RetroTrade</span> - Nền tảng cho thuê đồ vì một trái đất xanh hơn!
-                  </p>
+                <span className="text-gray-500">(24 đánh giá)</span>
+              </div>
+
+              <div className="rounded-2xl border bg-blue-50/60 p-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-xs text-gray-600">Giá thuê</div>
+                    <div className="mt-1 flex items-baseline gap-1">
+                      <div className="text-3xl font-extrabold text-blue-600">
+                        {formatPrice(baseUnitPrice, product.Currency)}
+                      </div>
+                      <div className="text-sm text-gray-600">{baseUnitLabel}</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-gray-600">Đặt cọc</div>
+                    <div className="mt-1 text-2xl font-semibold text-gray-900">
+                      {formatPrice(product.DepositAmount, product.Currency)}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
+
+              <div className="space-y-3">
+                <button
+                  onClick={handleCompare}
+                  className="w-full flex items-center justify-center gap-2 border border-gray-300 text-gray-700 py-3 rounded-lg hover:bg-gray-50"
+                >
+                  So sánh sản phẩm
+                </button>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => {
+                      // This is a workaround to trigger the AddToCartButton's click handler
+                      const addToCartBtn = document.querySelector('.add-to-cart-btn') as HTMLElement;
+                      if (addToCartBtn) addToCartBtn.click();
+                    }}
+                    disabled={outOfStock}
+                    className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg border ${
+                      outOfStock
+                        ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                        : 'bg-white text-blue-600 border-blue-600 hover:bg-blue-50'
+                    }`}
+                  >
+                    <ShoppingCart className="w-5 h-5" /> Thêm vào giỏ
+                    <AddToCartButton
+                      itemId={product._id}
+                      availableQuantity={product.AvailableQuantity ?? 0}
+                      size="md"
+                      variant="outline"
+                      showText={false}
+                      className="hidden add-to-cart-btn"
+                    />
+                  </button>
+                  <button
+                    onClick={handleRentNow}
+                    disabled={outOfStock}
+                    className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg ${
+                      outOfStock
+                        ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                        : "bg-blue-600 text-white hover:bg-blue-700"
+                    }`}
+                  >
+                    <Zap className="w-5 h-5" /> Thuê ngay
+                  </button>
+                </div>
+
+                <div className="rounded-xl bg-white p-4 space-y-4">
+                  <div className="flex items-start gap-3 p-3 bg-white rounded-lg shadow-sm border border-gray-100">
+                    <CheckCircle className="w-6 h-6 text-green-600 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-gray-700">
+                      <span className="font-semibold text-gray-900">RetroTrade</span> cam kết: nhận sản phẩm đúng mô tả hoặc hoàn tiền. Thông tin thanh toán của bạn được bảo mật tuyệt đối.
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 bg-white rounded-lg shadow-sm border border-gray-100">
+                    <Leaf className="w-6 h-6 text-green-600 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-gray-700">
+                      <span className="font-semibold text-gray-900">RetroTrade</span> - Nền tảng cho thuê đồ vì một trái đất xanh hơn!
+                    </p>
+                  </div>
+                </div>
+              </div>
 
             </div>
 
