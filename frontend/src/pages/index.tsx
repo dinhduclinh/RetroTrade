@@ -2,23 +2,29 @@ import Head from "next/head";
 import Image from "next/image";
 import { Button } from "@/components/ui/common/button";
 import { Badge } from "@/components/ui/common/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/common/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/common/card";
 import { Container } from "@/components/layout/Container";
 import { SectionHeading } from "@/components/ui/common/section-heading";
-import { 
-  ArrowRight, 
-  Shield, 
-  Zap, 
-  Users, 
-  Star, 
+import {
+  ArrowRight,
+  Shield,
+  Zap,
+  Users,
+  Star,
   CheckCircle,
   TrendingUp,
   MessageCircle,
   Heart,
-  Sparkles
+  Sparkles,
 } from "lucide-react";
-
-
+import styles from "@/pages/TwoLayouts.module.css";
+import HoverCard from "@/components/ui/common/FlipCard";
+import InfiniteMarquee from "@/components/ui/common/InfiniteMarquee";
 export default function Home() {
   return (
     <>
@@ -31,96 +37,49 @@ export default function Home() {
       </Head>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden  min-h-screen flex items-center">
-        {/* Animated background elements */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(120,119,198,0.3),rgba(255,255,255,0))] animate-pulse" />
-        <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob" />
-        <div className="absolute top-0 -right-4 w-72 h-72 bg-indigo-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000" />
-        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000" />
-
-        <Container className="relative z-10">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            {/* Left Content */}
-            <div className="text-center lg:text-left space-y-8">
-              <div className="space-y-4">
-                <Badge className="px-4 py-2 bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-white border border-white/20 transition-all duration-300 text-black">
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Nền tảng buôn bán đồ cũ #1
-                </Badge>
-
-                <h1 className="text-4xl text-black sm:text-5xl lg:text-6xl font-bold bg-gradient-to-r from-white via-purple-100 to-pink-100 bg-clip-text  leading-tight">
-                  Nơi đồ cũ tìm được chủ mới
-                </h1>
-
-                <p className="text-xl text-gray-300 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-                  Đăng tin nhanh, thương lượng trực tiếp, giao dịch an toàn. Xây
-                  dựng thị trường đồ cũ của bạn với công nghệ hiện đại.
-                </p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                <Button
-                  size="lg"
-                  className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white border-0 shadow-lg hover:shadow-purple-500/50 transition-all duration-300 hover:scale-105 px-8 py-6 text-lg"
-                >
-                  Bắt đầu ngay
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="backdrop-blur-md bg-white/10 border-white/20 text-white hover:bg-white/20 hover:scale-105 transition-all duration-300 px-8 py-6 text-lg"
-                >
-                  Xem demo
-                </Button>
-              </div>
-
-              {/* Stats */}
-              <div className="grid grid-cols-3 gap-8 pt-8">
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-white">10K+</div>
-                  <div className="text-sm text-gray-400">Sản phẩm</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-white">5K+</div>
-                  <div className="text-sm text-gray-400">Người dùng</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-white">98%</div>
-                  <div className="text-sm text-gray-400">Hài lòng</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-center lg:justify-end">
-              <div className="relative">
-                <div className="w-96 h-96 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-3xl backdrop-blur-xl border border-white/10 p-8 shadow-2xl">
-                  <div className="w-full h-full bg-gradient-to-br from-white/10 to-white/5 rounded-2xl flex items-center justify-center">
-                    <div className="text-center space-y-4">
-                      <div className="w-20 h-20 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full mx-auto flex items-center justify-center">
-                        <Heart/>
-                      </div>
-                      <h3 className="text-xl font-semibold text-white">
-                        Giao dịch an toàn
-                      </h3>
-                      <p className="text-gray-300 text-sm">
-                        Được bảo vệ bởi hệ thống xác thực
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Floating elements */}
-                <div className="absolute -top-4 -right-4 w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-400 rounded-full flex items-center justify-center animate-float">
-                  <Star className="w-8 h-8 text-white" />
-                </div>
-                <div className="absolute -bottom-4 -left-4 w-12 h-12 bg-gradient-to-br from-green-400 to-emerald-400 rounded-full flex items-center justify-center animate-float animation-delay-2000">
-                  <CheckCircle className="w-6 h-6 text-white" />
-                </div>
-              </div>
+      <section className="relative overflow-hidden  flex items-center">
+        <div className={styles.body}>
+          <div className={styles.leftSide}>
+            <p>
+              Đăng tin nhanh,
+              <br />
+              thương lượng trực tiếp, giao dịch an toàn.
+            </p>
+            <div className={styles.imageWrapper}>
+              <Image
+                src="/flower.gif"
+                alt="Flower"
+                fill
+                className={styles.flowerImage}
+                priority
+              />
             </div>
           </div>
-        </Container>
+
+          <div className={styles.rightSide}>
+            <div
+              className={styles.containerShape}
+              style={{
+                backgroundImage: `url('/liquid.gif')`,
+              }}
+            >
+              Content here...
+            </div>
+
+            <div className={styles.floatingBlock1}>
+              <h3>Khám phá</h3>
+              <p>Nơi đồ cũ tìm được chủ mới!</p>
+            </div>
+
+            <div className={styles.floatingBlock2}>
+              <h4>
+                Tiết kiệm – độc đáo – phong cách
+                <br />
+                Thuê hôm nay, tỏa sáng ngay
+              </h4>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* Features Section */}
@@ -133,73 +92,43 @@ export default function Home() {
               công nghệ hiện đại
             </p>
           </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              {
-                icon: Zap,
-                title: "Đăng tin siêu nhanh",
-                description:
-                  "Chỉ cần 3 phút để đăng sản phẩm với AI hỗ trợ mô tả và định giá",
-                color: "from-yellow-400 to-orange-400",
-              },
-              {
-                icon: MessageCircle,
-                title: "Chat trực tiếp",
-                description:
-                  "Thương lượng giá cả và điều kiện giao dịch ngay trên nền tảng",
-                color: "from-blue-400 to-cyan-400",
-              },
-              {
-                icon: Shield,
-                title: "Bảo mật tuyệt đối",
-                description:
-                  "Xác thực danh tính, đánh giá uy tín và bảo vệ giao dịch",
-                color: "from-green-400 to-emerald-400",
-              },
-              {
-                icon: TrendingUp,
-                title: "Gợi ý thông minh",
-                description:
-                  "AI phân tích thị trường để đề xuất giá phù hợp nhất",
-                color: "from-purple-400 to-pink-400",
-              },
-              {
-                icon: Users,
-                title: "Cộng đồng lớn",
-                description:
-                  "Kết nối với hàng nghìn người dùng tin cậy trên toàn quốc",
-                color: "from-indigo-400 to-blue-400",
-              },
-              {
-                icon: Heart,
-                title: "Dịch vụ tận tâm",
-                description:
-                  "Hỗ trợ 24/7 và cam kết mang đến trải nghiệm tốt nhất",
-                color: "from-red-400 to-pink-400",
-              },
-            ].map((feature, index) => (
-              <Card
-                key={index}
-                className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-2 border-0 shadow-lg"
-              >
-                <CardHeader className="text-center pb-4">
-                  <div
-                    className={`w-16 h-16 bg-gradient-to-br ${feature.color} rounded-2xl mx-auto flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}
-                  >
-                    <feature.icon className="w-8 h-8 text-white" />
-                  </div>
-                  <CardTitle className="text-xl font-semibold">
-                    {feature.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600 text-center leading-relaxed">
-                    {feature.description}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 justify-center">
+            <HoverCard
+              icon={<Zap className="w-12 h-12" />}
+              title="Đăng tin siêu nhanh"
+              description="Chỉ cần 3 phút để đăng sản phẩm với AI hỗ trợ mô tả và định giá"
+              gradient="-45deg, #c084fc 0%, #f472b6 100%"
+            />
+            <HoverCard
+              icon={<MessageCircle className="w-12 h-12" />}
+              title="Chat trực tiếp"
+              description="Thương lượng giá cả và điều kiện giao dịch ngay trên nền tảng"
+              gradient="-45deg, #93c5fd 0%, #a78bfa 100%"
+            />
+            <HoverCard
+              icon={<Shield className="w-12 h-12" />}
+              title="Bảo mật tuyệt đối"
+              description="Xác thực danh tính, đánh giá uy tín và bảo vệ giao dịch"
+              gradient="-45deg, #c084fc 0%, #f472b6 100%"
+            />
+            <HoverCard
+              icon={<TrendingUp className="w-12 h-12" />}
+              title="Gợi ý thông minh"
+              description="AI phân tích thị trường để đề xuất giá phù hợp nhất"
+              gradient="-45deg, #93c5fd 0%, #a78bfa 100%"
+            />
+            <HoverCard
+              icon={<Users className="w-12 h-12" />}
+              title="Cộng đồng lớn"
+              description="Kết nối với hàng nghìn người dùng tin cậy trên toàn quốc"
+              gradient="-45deg, #c084fc 0%, #f472b6 100%"
+            />
+            <HoverCard
+              icon={<Heart className="w-12 h-12" />}
+              title="Dịch vụ tận tâm"
+              description="Hỗ trợ 24/7 và cam kết mang đến trải nghiệm tốt nhất"
+              gradient="-45deg, #93c5fd 0%, #a78bfa 100%"
+            />
           </div>
         </Container>
       </section>
@@ -259,33 +188,7 @@ export default function Home() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-purple-600 to-indigo-600">
-        <Container>
-          <div className="text-center text-white">
-            <h2 className="text-4xl font-bold mb-6">Sẵn sàng bắt đầu?</h2>
-            <p className="text-xl text-purple-100 mb-8 max-w-2xl mx-auto">
-              Tham gia cộng đồng RetroTrade ngay hôm nay và khám phá những cơ
-              hội tuyệt vời
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button
-                size="lg"
-                className="bg-white text-purple-600 hover:bg-gray-100 hover:scale-105 transition-all duration-300 px-8 py-6 text-lg font-semibold"
-              >
-                Đăng ký miễn phí
-                <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="border-white text-white hover:bg-white hover:text-purple-600 hover:scale-105 transition-all duration-300 px-8 py-6 text-lg"
-              >
-                Tìm hiểu thêm
-              </Button>
-            </div>
-          </div>
-        </Container>
-      </section>
+      <InfiniteMarquee />
     </>
   );
 }
