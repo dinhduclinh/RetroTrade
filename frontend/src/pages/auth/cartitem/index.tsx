@@ -516,8 +516,16 @@ const handleCheckout = () => {
     return sum;
   }, 0);
 
-  const tax = subtotal * 0.1;
-  const total = subtotal + tax;
+  // Calculate total deposit for selected items
+  const totalDeposit = cartItems.reduce((sum, item) => {
+    if (selectedItems.has(getDisplayKey(item))) {
+      return sum + item.depositAmount * item.quantity;
+    }
+    return sum;
+  }, 0);
+
+  const tax = subtotal * 0.03;
+  const total = subtotal + tax + totalDeposit;
 
   // Format price helper
   const formatPrice = (price: number, currency: string) => {
@@ -1115,9 +1123,19 @@ const handleCheckout = () => {
 
                 {/* Tax */}
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-700">Thuế (10%):</span>
+                  <span className="text-slate-700">Thuế (3%):</span>
                   <span className="text-slate-800 font-semibold">
                     {tax.toLocaleString("vi-VN")}đ
+                  </span>
+                </div>
+
+                <Separator className="bg-purple-200/50" />
+
+                {/* Deposit */}
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-700">Tiền đặt cọc:</span>
+                  <span className="text-slate-800 font-semibold">
+                    {totalDeposit.toLocaleString("vi-VN")}đ
                   </span>
                 </div>
 
@@ -1143,7 +1161,7 @@ const handleCheckout = () => {
                 </Button>
 
                 {/* Continue Shopping */}
-                <Link href="/">
+                <Link href="/products">
                   <Button
                     variant="outline"
                     className="w-full border-purple-200 text-purple-600 hover:bg-purple-50 bg-transparent"

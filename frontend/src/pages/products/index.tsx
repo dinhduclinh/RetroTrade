@@ -27,6 +27,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import AddToCartButton from "@/components/ui/common/AddToCartButton";
+import FeaturedProductsSlider from "@/components/ui/products/featured-products-slider";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/store/redux_store";
 import { toast } from "sonner";
@@ -857,140 +858,17 @@ export default function ProductPage() {
       </div>
 
       {/* Featured Products Slider */}
-      <div className="bg-gray-50 py-8">
-        <div className="container mx-auto px-4">
-          <h2 className="text-2xl font-bold mb-6 text-center">Sản phẩm nổi bật</h2>
-          {isLoading ? (
-            <div className="flex justify-center items-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-            </div>
-          ) : featuredProducts.length > 0 ? (
-            <div className="relative">
-              <div 
-                ref={sliderRef}
-                className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 overflow-hidden transition-transform duration-500 ease-in-out"
-              >
-                {getVisibleProducts().map((product, index) => (
-                  <div 
-                    key={`${product._id}-${currentSlide}-${index}`}
-                    className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
-                    onClick={() => router.push(`/products/details?id=${product._id}`)}
-                  >
-                    <div className="relative h-48 overflow-hidden">
-                      <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                        <img
-                          src={product.thumbnail}
-                          alt={product.title || 'Product image'}
-                          className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            if (target.src !== '/placeholder.jpg') {
-                              target.src = '/placeholder.jpg';
-                            }
-                          }}
-                        />
-                      </div>
-                      <div className="absolute top-2 right-2 bg-yellow-400 text-xs font-bold px-2 py-1 rounded-full flex items-center">
-                        <Star className="w-3 h-3 mr-1" />
-                        <span>Nổi bật</span>
-                      </div>
-                    </div>
-                    <div className="p-4 flex-1 flex flex-col">
-                      <h3 className="font-semibold text-lg mb-2 line-clamp-2 h-14">{product.title}</h3>
-                      
-                      <div className="flex items-center gap-1 text-sm text-gray-600 mb-3">
-                        <MapPin size={14} className="text-gray-400" />
-                        <span className="truncate">
-                          {[product.district, product.city].filter(Boolean).join(', ')}
-                        </span>
-                      </div>
-                      
-                      <div className="bg-blue-50 rounded-lg p-3 mb-3">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-xs text-gray-600 mb-1">Giá thuê</p>
-                            <p className="text-lg font-bold text-blue-600">
-                              {formatPrice(product.basePrice, product.currency)}
-                              {product.priceUnit?.UnitName && (
-                                <span className="text-sm font-normal text-gray-600">
-                                  /{product.priceUnit.UnitName}
-                                </span>
-                              )}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs text-gray-600 mb-1">Đặt cọc</p>
-                            <p className="text-sm font-semibold text-gray-700">
-                              {formatPrice(product.depositAmount, product.currency)}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between text-xs text-gray-600 mb-4 pb-4 border-b border-gray-100">
-                        <div className="flex items-center gap-1">
-                          <Eye size={14} />
-                          <span>{product.viewCount?.toLocaleString() || '0'} lượt xem</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Package size={14} />
-                          <span>{product.rentCount || '0'} lượt thuê</span>
-                        </div>
-                      </div>
-                      
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              {featuredProducts.length > 4 && (
-                <>
-                  <button
-                    onClick={prevSlide}
-                    className="absolute left-0 top-1/2 -translate-y-1/2 bg-white hover:bg-gray-100 rounded-full p-2 shadow-lg z-10 -ml-4 transition-all duration-200 hover:scale-110"
-                    aria-label="Previous slide"
-                  >
-                    <ChevronLeft className="w-6 h-6" />
-                  </button>
-                  <button
-                    onClick={nextSlide}
-                    className="absolute right-0 top-1/2 -translate-y-1/2 bg-white hover:bg-gray-100 rounded-full p-2 shadow-lg z-10 -mr-4 transition-all duration-200 hover:scale-110"
-                    aria-label="Next slide"
-                  >
-                    <ChevronRight className="w-6 h-6" />
-                  </button>
-                </>
-              )}
-              
-              <div className="flex justify-center mt-6 space-x-2">
-                {Array.from({ length: Math.max(1, featuredProducts.length - 3) }).map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setCurrentSlide(index)}
-                    className={`w-3 h-3 rounded-full transition-all duration-200 ${
-                      currentSlide === index 
-                        ? 'bg-blue-600 w-8' 
-                        : 'bg-gray-300 hover:bg-gray-400'
-                    }`}
-                    aria-label={`Go to slide ${index + 1}`}
-                  />
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-12 bg-white rounded-lg shadow">
-              <p className="text-gray-500">Hiện chưa có sản phẩm nổi bật nào</p>
-              <button 
-                onClick={fetchFeaturedProducts}
-                className="mt-4 text-blue-600 hover:text-blue-800 flex items-center justify-center mx-auto"
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Tải lại
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
+      <FeaturedProductsSlider
+        featuredProducts={featuredProducts}
+        isLoading={isLoading}
+        currentSlide={currentSlide}
+        onSlideChange={setCurrentSlide}
+        onNextSlide={nextSlide}
+        onPrevSlide={prevSlide}
+        onRefresh={fetchFeaturedProducts}
+        getVisibleProducts={getVisibleProducts}
+        formatPrice={formatPrice}
+      />
 
       <div className="container mx-auto px-4 max-w-7xl py-8">
         <div className="flex gap-8">

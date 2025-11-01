@@ -7,7 +7,6 @@ import { RootState } from "@/store/redux_store";
 import { jwtDecode } from "jwt-decode";
 import { toast } from "sonner";
 import { ModeratorSidebar } from "@/components/ui/moderator/moderator-sidebar";
-import { ChatButton } from "@/components/common/chatbutton";
 import { ModeratorHeader } from "@/components/ui/moderator/moderator-header";
 import { ModeratorStats } from "@/components/ui/moderator/moderator-stats";
 import { VerificationQueue } from "@/components/ui/moderator/verification-queue";
@@ -56,7 +55,7 @@ export default function ModeratorDashboard() {
   const searchParams = useSearchParams();
   const { accessToken } = useSelector((state: RootState) => state.auth);
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "requests" | "verification" | "blog" | "productManagement"
+    "dashboard" | "requests" | "verification" | "blog" | "productManagement" | "messages"
   >("dashboard");
   const [activeBlogTab, setActiveBlogTab] = useState<
     "posts" | "categories" | "comments" | "tags"
@@ -74,8 +73,16 @@ export default function ModeratorDashboard() {
       | "verification"
       | "blog"
       | "productManagement"
+      | "messages"
   ) => {
     console.log("Moderator handleTabChange called with:", tab);
+    
+    // Navigate to messages page
+    if (tab === "messages") {
+      router.push("/moderator/messages");
+      return;
+    }
+    
     setActiveTab(tab);
     console.log("State updated: activeTab=", tab);
   };
@@ -121,9 +128,15 @@ export default function ModeratorDashboard() {
         "verification",
         "blog",
         "productManagement",
+        "messages",
       ].includes(tab)
     ) {
       console.log("Setting activeTab from URL query parameter:", tab);
+      // If messages tab, navigate to messages page
+      if (tab === "messages") {
+        router.push("/moderator/messages");
+        return;
+      }
       setActiveTab(
         tab as
           | "dashboard"
@@ -131,9 +144,10 @@ export default function ModeratorDashboard() {
           | "verification"
           | "blog"
           | "productManagement"
+          | "messages"
       );
     }
-  }, [searchParams]);
+  }, [searchParams, router]);
 
   useEffect(() => {
     if (!accessToken) {
@@ -328,7 +342,7 @@ export default function ModeratorDashboard() {
           onBlogTabChange={handleBlogTabChange}
         />
 
-        <div className="flex-1 lg:ml-72">
+        <div className="flex-1 transition-all duration-300 moderator-content-area min-w-0">
           <ModeratorHeader />
 
           <main className="p-4 lg:p-8">
@@ -345,8 +359,6 @@ export default function ModeratorDashboard() {
           </main>
         </div>
       </div>
-      {/* Floating chat button visible for logged-in users */}
-      <ChatButton />
     </div>
   );
 }

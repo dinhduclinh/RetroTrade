@@ -87,7 +87,7 @@ export default function RequestManagementDashboard() {
           onBlogTabChange={handleBlogTabChange}
         />
 
-        <div className="flex-1 lg:ml-72">
+        <div className="flex-1 transition-all duration-300 moderator-content-area min-w-0">
           <ModeratorHeader />
 
           <main className="p-4 lg:p-8">

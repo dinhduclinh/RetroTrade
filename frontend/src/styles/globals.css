@@ -37,6 +37,19 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --moderator-sidebar-width: 288px;
+}
+
+/* Moderator sidebar content area */
+.moderator-content-area {
+  margin-left: 0;
+  transition: margin-left 300ms ease-in-out;
+}
+
+@media (min-width: 1024px) {
+  .moderator-content-area {
+    margin-left: var(--moderator-sidebar-width, 288px) !important;
+  }
 }
 
 .dark {

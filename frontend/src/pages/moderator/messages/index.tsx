@@ -326,12 +326,16 @@ const ModeratorMessagesPage: React.FC = () => {
 
         <div className="relative z-10 flex">
           <ModeratorSidebar
-            activeTab={"dashboard"}
+            activeTab={"messages"}
             activeProductTab={"products"}
             activeBlogTab={"posts"}
             onTabChange={(tab) => {
-              const target = `/moderator?tab=${tab}`;
-              router.push(target);
+              if (tab === "messages") {
+                router.push("/moderator/messages");
+              } else {
+                const target = `/moderator?tab=${tab}`;
+                router.push(target);
+              }
             }}
             onProductTabChange={() => {
               router.push(`/moderator?tab=productManagement`);
@@ -341,7 +345,7 @@ const ModeratorMessagesPage: React.FC = () => {
             }}
           />
 
-          <div className="flex-1 lg:ml-72">
+          <div className="flex-1 transition-all duration-300 moderator-content-area min-w-0">
             <ModeratorHeader />
 
             <main className="p-4 lg:p-8">
