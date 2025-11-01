@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ModeratorSidebar } from "@/components/ui/moderator/moderator-sidebar";
 import { ModeratorHeader } from "@/components/ui/moderator/moderator-header";
 import { ModeratorStats } from "@/components/ui/moderator/moderator-stats";
-import { RequestManagementTable } from "@/components/ui/moderator/request-management-table";
+import { OwnerRequestManagement } from "@/components/ui/moderator/owner-request-management";
 
 import { BlogManagementTable } from "@/components/ui/moderator/blog/blog-management-table";
 import { CategoryManagementTable } from "@/components/ui/moderator/blog/category-management-table";
@@ -36,7 +36,7 @@ export default function RequestManagementDashboard() {
           return <BlogManagementTable />;
       }
     }
-    return <RequestManagementTable />;
+    return <OwnerRequestManagement />;
   };
 
   const getPageTitle = () => {

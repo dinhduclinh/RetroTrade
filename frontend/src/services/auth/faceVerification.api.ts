@@ -1,8 +1,7 @@
 import api from '../customizeAPI';
 
 export interface FaceVerificationRequest {
-  images: File[]; // Array of files (user image and ID card image)
-  phoneNumber: string; // Phone number for verification
+  images: File[]; // Array of files (user image, front ID card, back ID card)
 }
 
 export interface FaceVerificationResponse {
@@ -22,34 +21,29 @@ export interface FaceVerificationResponse {
       AltText: string;
     }>;
     userId?: string;
-    phoneConfirmed?: boolean;
   };
 }
 
 export const faceVerificationAPI = {
   /**
    * Verify face images using face-api.js
-   * @param images Array of files (user image and ID card image)
-   * @param phoneNumber Phone number for verification
+   * @param images Array of files (user image, front ID card, back ID card)
    * @returns Promise<FaceVerificationResponse>
    */
   verifyFaceImages: async (
-    images: File[],
-    phoneNumber: string
+    images: File[]
   ): Promise<FaceVerificationResponse> => {
     try {
       console.log('Starting face verification:', {
         imagesCount: images.length,
-        phoneNumber: phoneNumber,
         imageSizes: images.map(img => ({ name: img.name, size: img.size, type: img.type }))
       });
 
-      // Create FormData to send files and phone number
+      // Create FormData to send files only (no phone number)
       const formData = new FormData();
       images.forEach((image) => {
         formData.append('images', image);
       });
-      formData.append('phoneNumber', phoneNumber);
 
       console.log('Sending request to:', '/auth/verify-face');
       const response = await api.post('/auth/verify-face', formData);
@@ -64,10 +58,10 @@ export const faceVerificationAPI = {
           errorMessage = errorData.message || errorData.error || errorMessage;
           console.error('Face verification error details:', errorData);
           
-          // Provide more specific error messages
+          // Provide more specific and helpful error messages
           if (response.status === 400) {
             if (errorMessage.includes('Không tìm thấy khuôn mặt')) {
-              errorMessage = 'Không tìm thấy khuôn mặt trong ảnh. Vui lòng chụp lại ảnh rõ nét hơn.';
+              errorMessage = '⚠️ Hệ thống không phát hiện được khuôn mặt.\n\nGợi ý:\n• Đảm bảo ảnh rõ nét, đủ ánh sáng\n• Khuôn mặt nhìn thẳng vào camera\n• Ảnh CCCD phải chụp cận và rõ\n• Không che khuôn mặt (kính râm, khẩu trang)\n• Thử chụp lại với ảnh chất lượng cao hơn';
             } else if (errorMessage.includes('Thiếu hình ảnh')) {
               errorMessage = 'Vui lòng tải lên đầy đủ ảnh cá nhân và CCCD.';
             } else if (errorMessage.includes('Số điện thoại')) {

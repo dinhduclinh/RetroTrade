@@ -1,5 +1,6 @@
 const User = require("../../models/User.model")
 const { hashPasswordWithSalt, comparePasswordWithSalt } = require("../../utils/bcryptHelper")
+const { createNotification } = require("../../middleware/createNotification")
 
 module.exports.getProfile = async (req, res) => {
     try {
@@ -12,17 +13,17 @@ module.exports.getProfile = async (req, res) => {
         if (!user) {
             return res.json({
                 code: 404,
-                message: "User not found"
+                message: "Không tìm thấy người dùng"
             });
         }
 
         return res.json({
             code: 200,
-            message: "Get Profile Successfully",
+            message: "Lấy thông tin hồ sơ thành công",
             user
         });
     } catch (error) {
-        return res.json({ code: 500, message: "Failed to get profile", error: error.message });
+        return res.json({ code: 500, message: "Lỗi khi lấy thông tin hồ sơ", error: error.message });
     }
 };
 
@@ -30,20 +31,64 @@ module.exports.updateProfile = async (req, res) => {
     try {
         const email = req.user.email;
         const { fullName, displayName, bio } = req.body;
-        const user = await User.findOneAndUpdate({ email: email }, { fullName, displayName, bio }, { new: true }).lean();
-        if (!user) {
+        
+        // Get current user data first
+        const currentUser = await User.findOne({ email: email });
+        if (!currentUser) {
             return res.json({
                 code: 404,
-                message: "User not found"
+                message: "Không tìm thấy người dùng"
             });
         }
+        
+        // Check if there are any changes
+        const hasChanges = (fullName && fullName !== currentUser.fullName) ||
+                          (displayName && displayName !== currentUser.displayName) ||
+                          (bio !== undefined && bio !== currentUser.bio);
+        
+        // Only update if there are actual changes
+        if (!hasChanges) {
+            return res.json({
+                code: 200,
+                message: "Không có thay đổi nào",
+                data: currentUser
+            });
+        }
+        
+        // Update user with new data
+        const updatedUser = await User.findOneAndUpdate(
+            { email: email }, 
+            { fullName, displayName, bio }, 
+            { new: true }
+        ).lean();
+        
+        // Create notification for profile update
+        try {
+            await createNotification(
+                currentUser._id,
+                "Profile Updated",
+                "Thông tin cá nhân đã được cập nhật",
+                `Xin chào ${updatedUser.fullName || currentUser.fullName}, thông tin cá nhân của bạn đã được cập nhật thành công vào lúc ${new Date().toLocaleString("vi-VN")}.`,
+                { 
+                    updateTime: new Date().toISOString(),
+                    updatedFields: {
+                        fullName: fullName && fullName !== currentUser.fullName ? 'changed' : 'unchanged',
+                        displayName: displayName && displayName !== currentUser.displayName ? 'changed' : 'unchanged',
+                        bio: bio !== undefined && bio !== currentUser.bio ? 'changed' : 'unchanged'
+                    }
+                }
+            );
+        } catch (notificationError) {
+            console.error("Error creating profile update notification:", notificationError);
+        }
+        
         return res.json({
             code: 200,
-            message: "Update Profile Successfully",
-            user
+            message: "Cập nhật hồ sơ thành công",
+            data: updatedUser
         });
     } catch (error) {
-        return res.json({ code: 500, message: "Failed to update profile", error: error.message });
+        return res.json({ code: 500, message: "Cập nhật hồ sơ thất bại", error: error.message });
     }
 }
 
@@ -51,22 +96,55 @@ module.exports.updateAvatar = async (req, res) => {
     try {
         const email = req.user.email;
         const { avatarUrl } = req.body;
-        const user = await User.findOneAndUpdate({ email: email }, { avatarUrl }, { new: true }).lean();
-
-        if (!user) {
+        
+        // Get current user data first
+        const currentUser = await User.findOne({ email: email });
+        if (!currentUser) {
             return res.json({
                 code: 404,
-                message: "User not found"
+                message: "Không tìm thấy người dùng"
             });
+        }
+        
+        // Check if avatar is actually changing
+        if (avatarUrl === currentUser.avatarUrl) {
+            return res.json({
+                code: 200,
+                message: "Không có thay đổi nào",
+                data: currentUser
+            });
+        }
+        
+        // Update avatar
+        const updatedUser = await User.findOneAndUpdate(
+            { email: email }, 
+            { avatarUrl }, 
+            { new: true }
+        ).lean();
+
+        // Create notification for avatar update
+        try {
+            await createNotification(
+                currentUser._id,
+                "Avatar Updated",
+                "Ảnh đại diện đã được cập nhật",
+                `Xin chào ${updatedUser.fullName || currentUser.fullName}, ảnh đại diện của bạn đã được cập nhật thành công vào lúc ${new Date().toLocaleString("vi-VN")}.`,
+                { 
+                    updateTime: new Date().toISOString(),
+                    newAvatarUrl: avatarUrl
+                }
+            );
+        } catch (notificationError) {
+            console.error("Error creating avatar update notification:", notificationError);
         }
 
         return res.json({
             code: 200,
-            message: "Update Avatar Successfully",
-            user
+            message: "Cập nhật ảnh đại diện thành công",
+            data: updatedUser
         });
     } catch (error) {
-        return res.json({ code: 500, message: "Failed to update avatar", error: error.message });
+        return res.json({ code: 500, message: "Cập nhật ảnh đại diện thất bại", error: error.message });
     }
 }
 
@@ -76,17 +154,33 @@ module.exports.changePassword = async (req, res) => {
         const { currentPassword, newPassword } = req.body;
         const user = await User.findOne({ email: email });
         if (!user) {
-            return res.json({ code: 404, message: "User not found" });
+            return res.json({ code: 404, message: "Không tìm thấy người dùng" });
         }
         const isPasswordValid = await comparePasswordWithSalt(currentPassword, user.passwordSalt, user.passwordHash);
         if (!isPasswordValid) {
-            return res.json({ code: 400, message: "Old password is incorrect" });
+            return res.json({ code: 400, message: "Mật khẩu cũ không đúng" });
         }
         const hashedPassword = await hashPasswordWithSalt(newPassword, user.passwordSalt);
         await User.findOneAndUpdate({ email: email }, { passwordHash: hashedPassword }, { new: true });
-        return res.json({ code: 200, message: "Password changed successfully" });
+        
+        // Create notification for password change
+        try {
+            await createNotification(
+                user._id,
+                "Đổi mật khẩu",
+                "Mật khẩu đã được thay đổi",
+                `Xin chào ${user.fullName}, mật khẩu tài khoản của bạn đã được thay đổi thành công vào lúc ${new Date().toLocaleString("vi-VN")}. Nếu bạn không thực hiện hành động này, vui lòng liên hệ hỗ trợ ngay.`,
+                { 
+                    updateTime: new Date().toISOString()
+                }
+            );
+        } catch (notificationError) {
+            console.error("Error creating password change notification:", notificationError);
+        }
+        
+        return res.json({ code: 200, message: "Đổi mật khẩu thành công" });
     } catch (error) {
-        return res.json({ code: 500, message: "Failed to change password", error: error.message });
+        return res.json({ code: 500, message: "Đổi mật khẩu thất bại", error: error.message });
     }
 }
 

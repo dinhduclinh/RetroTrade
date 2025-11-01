@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Edit2,
   Trash2,
@@ -16,6 +17,9 @@ import {
   Package,
   Settings,
   LucideIcon,
+  ChevronLeft,
+  ChevronRight,
+  Bookmark,
 } from "lucide-react";
 import {
   getUserProducts,
@@ -38,6 +42,7 @@ interface Product {
   District: string;
   City: string;
   ViewCount: number;
+  FavoriteCount: number;
   RentCount: number;
   AvailableQuantity: number;
   Quantity: number;
@@ -52,6 +57,8 @@ export default function OwnerPanel() {
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   useEffect(() => {
     fetchProducts();
@@ -95,10 +102,22 @@ export default function OwnerPanel() {
     }
 
     setFilteredProducts(filtered);
+    setCurrentPage(1); 
   }, [statusFilter, searchTerm, products]);
 
+  // Pagination logic
+  const indexOfLast = currentPage * itemsPerPage;
+  const indexOfFirst = indexOfLast - itemsPerPage;
+  const currentProducts = filteredProducts.slice(indexOfFirst, indexOfLast);
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+
+  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+
   const getStatusInfo = (statusId: number) => {
-    const statuses: Record<number, { label: string; color: string; icon: LucideIcon }> = {
+    const statuses: Record<
+      number,
+      { label: string; color: string; icon: LucideIcon }
+    > = {
       1: {
         label: "Chờ duyệt",
         color: "bg-yellow-100 text-yellow-800",
@@ -144,7 +163,9 @@ export default function OwnerPanel() {
     try {
       const response = await deleteProduct(productToDelete._id);
       if (response.ok) {
-        setProducts(products.filter((p: Product) => p._id !== productToDelete._id));
+        setProducts(
+          products.filter((p: Product) => p._id !== productToDelete._id)
+        );
         setFilteredProducts(
           filteredProducts.filter((p: Product) => p._id !== productToDelete._id)
         );
@@ -215,6 +236,85 @@ export default function OwnerPanel() {
             <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
               <XCircle className="text-red-600" size={24} />
             </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const Pagination = () => {
+    if (totalPages <= 1) return null;
+
+    const pageNumbers = [];
+    for (let i = 1; i <= totalPages; i++) {
+      pageNumbers.push(i);
+    }
+
+    return (
+      <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6">
+        <div className="flex justify-between flex-1 sm:hidden">
+          <button
+            onClick={() => setCurrentPage(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Trước
+          </button>
+          <button
+            onClick={() => setCurrentPage(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Sau
+          </button>
+        </div>
+        <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm text-gray-700">
+              Hiển thị <span className="font-medium">{indexOfFirst + 1}</span>{" "}
+              đến{" "}
+              <span className="font-medium">
+                {Math.min(indexOfLast, filteredProducts.length)}
+              </span>{" "}
+              của <span className="font-medium">{filteredProducts.length}</span>{" "}
+              kết quả
+            </p>
+          </div>
+          <div>
+            <nav
+              className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px"
+              aria-label="Pagination"
+            >
+              <button
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span className="sr-only">Previous</span>
+                <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+              </button>
+              {pageNumbers.map((number) => (
+                <button
+                  key={number}
+                  onClick={() => paginate(number)}
+                  className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium ${
+                    currentPage === number
+                      ? "z-10 bg-blue-50 border-blue-500 text-blue-600"
+                      : "bg-white text-gray-500 hover:bg-gray-50"
+                  }`}
+                >
+                  {number}
+                </button>
+              ))}
+              <button
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span className="sr-only">Next</span>
+                <ChevronRight className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </nav>
           </div>
         </div>
       </div>
@@ -325,132 +425,172 @@ export default function OwnerPanel() {
               </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredProducts.map((product: Product) => {
-                const statusInfo = getStatusInfo(product.StatusId);
-                const StatusIcon = statusInfo.icon;
+            <>
+              <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="w-28 px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Hình ảnh
+                        </th>
+                        <th className="w-56 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Tiêu đề & Mô tả
+                        </th>
+                        <th className="w-48 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Danh mục & Tình trạng
+                        </th>
+                        <th className="w-40 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Giá & Đặt cọc
+                        </th>
+                        <th className="w-28 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Vị trí
+                        </th>
+                        <th className="w-30 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Thống kê
+                        </th>
+                        <th className="w-24 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Trạng thái
+                        </th>
+                        <th className="w-20 px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {currentProducts.map((product: Product) => {
+                        const statusInfo = getStatusInfo(product.StatusId);
+                        const StatusIcon = statusInfo.icon;
 
-                return (
-                  <div
-                    key={product._id}
-                    className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group"
-                  >
-                    <div className="relative h-48 bg-gray-200 overflow-hidden">
-                      {product.Images && product.Images.length > 0 ? (
-                        <img
-                          src={product.Images[0].Url}
-                          alt={product.Title}
-                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Package size={48} className="text-gray-400" />
-                        </div>
-                      )}
-
-                      <div
-                        className={`absolute top-3 left-3 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold ${statusInfo.color}`}
-                      >
-                        <StatusIcon size={14} />
-                        {statusInfo.label}
-                      </div>
-
-                      {product.AvailableQuantity === 0 && (
-                        <div className="absolute top-3 right-3 bg-gray-900 text-white px-3 py-1.5 rounded-full text-xs font-semibold">
-                          Đã cho thuê hết
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="p-4">
-                      <h3 className="font-bold text-gray-900 text-lg mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
-                        {product.Title}
-                      </h3>
-
-                      <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                        {product.ShortDescription}
-                      </p>
-
-                      <div className="flex items-center gap-2 mb-3 text-xs text-gray-500">
-                        <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded">
-                          {product.Category?.name || "Chưa phân loại"}
-                        </span>
-                        <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded">
-                          {getConditionName(product)}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-1 text-sm text-gray-600 mb-3">
-                        <MapPin size={16} className="text-gray-400" />
-                        <span className="truncate">
-                          {product.District}, {product.City}
-                        </span>
-                      </div>
-
-                      <div className="bg-blue-50 rounded-lg p-3 mb-3">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-xs text-gray-600 mb-1">
-                              Giá thuê
-                            </p>
-                            <p className="text-lg font-bold text-blue-600">
-                              {formatPrice(product.BasePrice, product.Currency)}
-                              <span className="text-sm font-normal text-gray-600">
-                                /{getPriceUnitName(product)}
-                              </span>
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xs text-gray-600 mb-1">
-                              Đặt cọc
-                            </p>
-                            <p className="text-sm font-semibold text-gray-700">
-                              {formatPrice(
-                                product.DepositAmount,
-                                product.Currency
+                        return (
+                          <tr
+                            key={product._id}
+                            className="hover:bg-gray-50 transition-colors"
+                          >
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              {product.Images && product.Images.length > 0 ? (
+                                <Image
+                                  src={product.Images[0].Url}
+                                  alt={product.Title}
+                                  width={60}
+                                  height={50}
+                                  className="object-cover rounded"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center">
+                                  <Package
+                                    size={16}
+                                    className="text-gray-400"
+                                  />
+                                </div>
                               )}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between text-xs text-gray-600 mb-4 pb-4 border-b border-gray-100">
-                        <div className="flex items-center gap-1">
-                          <Eye size={14} />
-                          <span>{product.ViewCount}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Package size={14} />
-                          <span>{product.RentCount} lượt thuê</span>
-                        </div>
-                        <div>
-                          <span className="font-semibold">
-                            {product.AvailableQuantity}/{product.Quantity}
-                          </span>{" "}
-                          còn lại
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Link
-                          href={`/owner/myproducts/update/${product._id}`}
-                          className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-                        >
-                          <Edit2 size={16} />
-                          Chỉnh sửa
-                        </Link>
-                        <button
-                          onClick={() => handleDeleteClick(product)}
-                          className="flex items-center justify-center gap-2 bg-red-50 text-red-600 px-4 py-2.5 rounded-lg font-semibold hover:bg-red-100 transition-colors"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                            </td>
+                            <td className="px-3 py-2">
+                              <div className="text-sm font-medium text-gray-900 truncate">
+                                {product.Title}
+                              </div>
+                              <div className="text-xs text-gray-500 line-clamp-2">
+                                {product.ShortDescription}
+                              </div>
+                            </td>
+                            <td className="px-3 py-2">
+                              <div className="text-sm text-gray-900 flex items-center gap-1">
+                                <span className="font-medium">
+                                  {product.Category?.name || "Chưa phân loại"}
+                                </span>
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {getConditionName(product)}
+                              </div>
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              <div className="text-sm font-medium text-gray-900">
+                                {formatPrice(
+                                  product.BasePrice,
+                                  product.Currency
+                                )}
+                                <span className="text-gray-500 text-xs">
+                                  /{getPriceUnitName(product)}
+                                </span>
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                Đặt cọc:{" "}
+                                {formatPrice(
+                                  product.DepositAmount,
+                                  product.Currency
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <MapPin
+                                  size={14}
+                                  className="text-gray-400 mr-1 flex-shrink-0"
+                                />
+                                <span className="text-xs text-gray-900 truncate">
+                                  {product.District}, {product.City}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
+                              <div className="flex flex-col gap-1">
+                                <span className="flex items-center gap-1">
+                                  <Eye size={12} />
+                                  {product.ViewCount}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Bookmark size={12} />
+                                  {product.FavoriteCount}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Package size={12} />
+                                  {product.RentCount}
+                                </span>
+                                <span className="text-xs">
+                                  {product.AvailableQuantity}/{product.Quantity}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusInfo.color}`}
+                              >
+                                <StatusIcon size={10} className="mr-1" />
+                                {statusInfo.label}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-right text-xs">
+                              <div className="flex items-center gap-1 justify-end">
+                                <Link
+                                  href={`/owner/myproducts/${product._id}`}
+                                  className="text-blue-600 hover:text-blue-900 p-0.5"
+                                  title="Xem chi tiết"
+                                >
+                                  <Eye size={14} />
+                                </Link>
+                                <Link
+                                  href={`/owner/myproducts/update/${product._id}`}
+                                  className="text-blue-600 hover:text-blue-900 p-0.5"
+                                  title="Chỉnh sửa"
+                                >
+                                  <Edit2 size={14} />
+                                </Link>
+                                <button
+                                  onClick={() => handleDeleteClick(product)}
+                                  className="text-red-600 hover:text-red-900 p-0.5"
+                                  title="Xóa"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <Pagination />
+              </div>
+            </>
           )}
 
           {/* Delete Modal */}
@@ -509,6 +649,12 @@ export default function OwnerPanel() {
         }
         .animate-scale-in {
           animation: scale-in 0.2s ease-out;
+        }
+        .line-clamp-2 {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
         }
       `}</style>
     </>

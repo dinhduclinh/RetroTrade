@@ -84,12 +84,10 @@ export function ChangePasswordModal({ open, onOpenChange }: ChangePasswordModalP
         newPassword: formData.newPassword,
       };
       
-      const response = await changePassword(payload);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await changePassword(payload);
       
-      const result = await response.json();
       if (result.code === 200) {
-        toast.success("Đổi mật khẩu thành công!");
+        toast.success(result.message || "Đổi mật khẩu thành công!");
         onOpenChange(false);
         
         // Reset form

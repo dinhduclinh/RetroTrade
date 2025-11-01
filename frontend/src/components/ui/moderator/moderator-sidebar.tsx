@@ -89,42 +89,51 @@ export function ModeratorSidebar({
     },
   ];
 
-  const productSubmenuItems = [
+  const productSubmenuItems: {
+    id: "products" | "categories" | "highlights";
+    label: string;
+    description: string;
+  }[] = [
     {
-      id: "products" as const,
+      id: "products",
       label: "Quản lý sản phẩm",
       description: "Duyệt và phê duyệt sản phẩm",
     },
     {
-      id: "categories" as const,
+      id: "categories",
       label: "Quản lý danh mục",
       description: "Quản lý danh mục sản phẩm",
     },
+
     {
-      id: "highlights" as const,
-      label: "Quản lý nổi bật",
-      description: "Chọn sản phẩm nổi bật",
+      id: "highlights",
+      label: "Top sản phẩm nổi bật",
+      description: "Đánh dấu sản phẩm nổi bật",
     },
   ];
 
-  const blogSubmenuItems = [
+  const blogSubmenuItems: {
+    id: "posts" | "categories" | "comments" | "tags";
+    label: string;
+    description: string;
+  }[] = [
     {
-      id: "posts" as const,
+      id: "posts",
       label: "Quản lý bài viết",
       description: "Tạo, sửa, xóa bài viết",
     },
     {
-      id: "categories" as const,
+      id: "categories",
       label: "Quản lý danh mục",
       description: "Quản lý các danh mục bài viết",
     },
     {
-      id: "comments" as const,
+      id: "comments",
       label: "Quản lý bình luận",
       description: "Kiểm duyệt bình luận",
     },
     {
-      id: "tags" as const,
+      id: "tags",
       label: "Quản lý thẻ",
       description: "Kiểm duyệt thẻ",
     },
@@ -139,45 +148,25 @@ export function ModeratorSidebar({
       | "productManagement"
       | "blog"
   ) => {
-    console.log("Sidebar handleTabChange called with:", tab);
     if (onTabChange) {
-      console.log("Calling onTabChange with:", tab);
       onTabChange(tab);
-    } else {
-      console.log("onTabChange is not provided!");
     }
 
-    if (tab !== "blog") {
-      setIsBlogDropdownOpen(false);
-    }
-    if (tab !== "productManagement") {
-      setIsProductDropdownOpen(false);
-    }
+    if (tab !== "blog") setIsBlogDropdownOpen(false);
+    if (tab !== "productManagement") setIsProductDropdownOpen(false);
 
     setIsMobileMenuOpen(false);
   };
 
-  const handleProductTabChange = (tab: "products" | "categories" | "highlights") => {
-    console.log("Sidebar handleProductTabChange called with:", tab);
-    if (onProductTabChange) {
-      console.log("Calling onProductTabChange with:", tab);
-      onProductTabChange(tab);
-    } else {
-      console.log("onProductTabChange is not provided!");
-    }
+  const handleProductTabChange = (tab: "products" | "categories") => {
+    if (onProductTabChange) onProductTabChange(tab);
     setIsMobileMenuOpen(false);
   };
 
   const handleBlogTabChange = (
     tab: "posts" | "categories" | "comments" | "tags"
   ) => {
-    console.log("Sidebar handleBlogTabChange called with:", tab);
-    if (onBlogTabChange) {
-      console.log("Calling onBlogTabChange with:", tab);
-      onBlogTabChange(tab);
-    } else {
-      console.log("onBlogTabChange is not provided!");
-    }
+    if (onBlogTabChange) onBlogTabChange(tab);
     setIsMobileMenuOpen(false);
   };
 
@@ -185,32 +174,29 @@ export function ModeratorSidebar({
     item: (typeof menuItems)[number],
     submenuItems: typeof productSubmenuItems | typeof blogSubmenuItems,
     isDropdownOpen: boolean,
+    dropdownKey: "product" | "blog",
     activeSubTab?: string,
-    onSubTabChange?: (tab: string) => void,
-    dropdownKey: "product" | "blog"
+    onSubTabChange?: (tab: any) => void
   ) => {
     if (!item.hasSubmenu || !isDropdownOpen) return null;
 
-    const isProduct = dropdownKey === "product";
-    const activeTabKey = isProduct ? activeProductTab : activeBlogTab;
+    const activeTabKey =
+      dropdownKey === "product" ? activeProductTab : activeBlogTab;
 
     return (
       <div className="ml-8 mt-2 space-y-2 animate-slide-in-left">
         {submenuItems.map((subItem) => {
           const isSubActive =
-            activeTab === item.id && activeSubTab === subItem.id;
+            activeTab === item.id && activeTabKey === subItem.id;
           return (
             <Button
               key={subItem.id}
               variant="ghost"
-              className={`
-                w-full justify-start h-12 px-4 text-sm transition-all duration-200
-                ${
-                  isSubActive
-                    ? "bg-white/15 text-white border border-white/20"
-                    : "text-white/60 hover:text-white hover:bg-white/5"
-                }
-              `}
+              className={`w-full justify-start h-12 px-4 text-sm transition-all duration-200 ${
+                isSubActive
+                  ? "bg-white/15 text-white border border-white/20"
+                  : "text-white/60 hover:text-white hover:bg-white/5"
+              }`}
               onClick={() => onSubTabChange?.(subItem.id)}
             >
               <div className="text-left">
@@ -226,7 +212,6 @@ export function ModeratorSidebar({
 
   return (
     <>
-      {/* Mobile menu button */}
       <Button
         variant="ghost"
         size="icon"
@@ -240,17 +225,13 @@ export function ModeratorSidebar({
         )}
       </Button>
 
-      {/* Sidebar */}
       <div
-        className={`
-        fixed left-0 top-0 h-full w-72 bg-white/10 backdrop-blur-md border-r border-white/20 z-20
-        transform transition-transform duration-300 ease-in-out
-        ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
-        lg:translate-x-0
-      `}
+        className={`fixed left-0 top-0 h-full w-72 bg-white/10 backdrop-blur-md border-r border-white/20 z-20
+          transform transition-transform duration-300 ease-in-out
+          ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
+          lg:translate-x-0`}
       >
         <div className="p-6 h-full flex flex-col">
-          {/* Header */}
           <div className="flex items-center gap-3 mb-8">
             <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg">
               <Shield className="w-7 h-7 text-white" />
@@ -261,13 +242,11 @@ export function ModeratorSidebar({
             </div>
           </div>
 
-          {/* Navigation */}
           <nav className="space-y-3 flex-1">
             {menuItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
-              const isProductActive = activeTab === "productManagement";
-              const isBlogActive = activeTab === "blog";
+
               const isProduct = item.id === "productManagement";
               const isBlog = item.id === "blog";
 
@@ -275,21 +254,16 @@ export function ModeratorSidebar({
                 <div key={item.id}>
                   <Button
                     variant="ghost"
-                    className={`
-                      w-full justify-start h-14 px-4 group transition-all duration-200
-                      ${
-                        isActive
-                          ? "bg-white/20 text-white border border-white/30 shadow-lg scale-105"
-                          : "text-white/70 hover:text-white hover:bg-white/10 hover:scale-105"
-                      }
-                    `}
+                    className={`w-full justify-start h-14 px-4 group transition-all duration-200 ${
+                      isActive
+                        ? "bg-white/20 text-white border border-white/30 shadow-lg scale-105"
+                        : "text-white/70 hover:text-white hover:bg-white/10 hover:scale-105"
+                    }`}
                     onClick={() => {
                       if (item.hasSubmenu) {
-                        if (isProduct) {
+                        if (isProduct)
                           setIsProductDropdownOpen(!isProductDropdownOpen);
-                        } else if (isBlog) {
-                          setIsBlogDropdownOpen(!isBlogDropdownOpen);
-                        }
+                        if (isBlog) setIsBlogDropdownOpen(!isBlogDropdownOpen);
                         handleTabChange(item.id);
                       } else {
                         handleTabChange(item.id);
@@ -298,14 +272,11 @@ export function ModeratorSidebar({
                   >
                     <div className="flex items-center gap-3 w-full">
                       <div
-                        className={`
-                        p-2 rounded-lg transition-all duration-200
-                        ${
+                        className={`p-2 rounded-lg transition-all duration-200 ${
                           isActive
                             ? "bg-white/20"
                             : "bg-white/5 group-hover:bg-white/15"
-                        }
-                      `}
+                        }`}
                       >
                         <Icon className="w-5 h-5" />
                       </div>
@@ -331,38 +302,34 @@ export function ModeratorSidebar({
                     </div>
                   </Button>
 
-                  {/* Product submenu */}
                   {isProduct &&
                     renderSubmenu(
                       item,
                       productSubmenuItems,
                       isProductDropdownOpen,
+                      "product",
                       activeProductTab,
-                      handleProductTabChange,
-                      "product"
+                      handleProductTabChange
                     )}
 
-                  {/* Blog submenu */}
                   {isBlog &&
                     renderSubmenu(
                       item,
                       blogSubmenuItems,
                       isBlogDropdownOpen,
+                      "blog",
                       activeBlogTab,
-                      handleBlogTabChange,
-                      "blog"
+                      handleBlogTabChange
                     )}
                 </div>
               );
             })}
           </nav>
 
-          {/* Logout button */}
           <div className="mt-auto"></div>
         </div>
       </div>
 
-      {/* Mobile overlay */}
       {isMobileMenuOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-10 lg:hidden"

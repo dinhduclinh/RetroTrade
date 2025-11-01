@@ -7,11 +7,11 @@ import { RootState } from "@/store/redux_store";
 import { jwtDecode } from "jwt-decode";
 import { toast } from "sonner";
 import { ModeratorSidebar } from "@/components/ui/moderator/moderator-sidebar";
+import { ChatButton } from "@/components/common/chatbutton";
 import { ModeratorHeader } from "@/components/ui/moderator/moderator-header";
 import { ModeratorStats } from "@/components/ui/moderator/moderator-stats";
-import { UserManagementTable } from "@/components/ui/admin/user-management-table";
-import { RequestManagementTable } from "@/components/ui/moderator/request-management-table";
 import { VerificationQueue } from "@/components/ui/moderator/verification-queue";
+import { OwnerRequestManagement } from "@/components/ui/moderator/owner-request-management";
 import { BlogManagementTable } from "@/components/ui/moderator/blog/blog-management-table";
 import { CommentManagementTable } from "@/components/ui/moderator/blog/comment-management-table";
 import { TagManagementTable } from "@/components/ui/moderator/blog/tag-management";
@@ -56,12 +56,7 @@ export default function ModeratorDashboard() {
   const searchParams = useSearchParams();
   const { accessToken } = useSelector((state: RootState) => state.auth);
   const [activeTab, setActiveTab] = useState<
-    | "dashboard"
-    | "users"
-    | "requests"
-    | "verification"
-    | "blog"
-    | "productManagement"
+    "dashboard" | "requests" | "verification" | "blog" | "productManagement"
   >("dashboard");
   const [activeBlogTab, setActiveBlogTab] = useState<
     "posts" | "categories" | "comments" | "tags"
@@ -75,7 +70,6 @@ export default function ModeratorDashboard() {
   const handleTabChange = (
     tab:
       | "dashboard"
-      | "users"
       | "requests"
       | "verification"
       | "blog"
@@ -86,7 +80,9 @@ export default function ModeratorDashboard() {
     console.log("State updated: activeTab=", tab);
   };
 
-  const handleProductTabChange = (tab: "products" | "categories" | "highlights") => {
+  const handleProductTabChange = (
+    tab: "products" | "categories" | "highlights"
+  ) => {
     console.log("Moderator handleProductTabChange called with:", tab);
     setActiveProductTab(tab);
     setActiveTab("productManagement");
@@ -121,7 +117,6 @@ export default function ModeratorDashboard() {
       tab &&
       [
         "dashboard",
-        "users",
         "requests",
         "verification",
         "blog",
@@ -132,7 +127,6 @@ export default function ModeratorDashboard() {
       setActiveTab(
         tab as
           | "dashboard"
-          | "users"
           | "requests"
           | "verification"
           | "blog"
@@ -229,10 +223,8 @@ export default function ModeratorDashboard() {
     switch (activeTab) {
       case "dashboard":
         return <DashboardOverview />;
-      case "users":
-        return <UserManagementTable />;
       case "requests":
-        return <RequestManagementTable />;
+        return <OwnerRequestManagement />;
       case "verification":
         return <VerificationQueue />;
       default:
@@ -270,8 +262,6 @@ export default function ModeratorDashboard() {
     switch (activeTab) {
       case "dashboard":
         return "Dashboard Tổng quan";
-      case "users":
-        return "Quản lý người dùng";
       case "requests":
         return "Yêu cầu kiểm duyệt";
       case "verification":
@@ -311,8 +301,6 @@ export default function ModeratorDashboard() {
     switch (activeTab) {
       case "dashboard":
         return "Tổng quan về hoạt động và thống kê hệ thống";
-      case "users":
-        return "Theo dõi và quản lý tài khoản người dùng trong hệ thống";
       case "requests":
         return "Duyệt và phê duyệt các yêu cầu từ người dùng";
       case "verification":
@@ -357,6 +345,8 @@ export default function ModeratorDashboard() {
           </main>
         </div>
       </div>
+      {/* Floating chat button visible for logged-in users */}
+      <ChatButton />
     </div>
   );
 }

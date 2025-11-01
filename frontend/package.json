@@ -20,6 +20,8 @@
     "axios": "^1.12.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "firebase": "^10.14.1",
     "jwt-decode": "^4.0.0",
     "lucide-react": "^0.544.0",
     "next": "15.5.3",
@@ -28,11 +30,13 @@
     "react-hook-form": "^7.65.0",
     "react-icons": "^5.5.0",
     "react-redux": "^9.2.0",
+    "react-router-dom": "^7.9.4",
+    "react-signature-canvas": "^1.1.0-alpha.2",
     "redux-persist": "^6.0.0",
+    "socket.io-client": "^4.8.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.1",
-    "three": "^0.180.0",
-    "firebase": "^10.14.1"
+    "three": "^0.180.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

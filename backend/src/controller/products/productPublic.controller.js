@@ -816,4 +816,137 @@ const getProductsByOwnerIdWithHighViewCount = async (req, res) => {
   }
 };
 
-module.exports = { listAllItems, getProductByProductId, searchProduct, viewFeatureProduct, listSearchTags, getProductsByOwnerIdWithHighViewCount, getPublicStoreByUserGuid, getProductsByCategoryId };
+// Get highlighted products with images and addresses
+const getHighlightedProducts = async (req, res) => {
+  try {
+    const products = await Item.aggregate([
+      { 
+        $match: { 
+          StatusId: 2, // Only approved products
+          IsDeleted: false,
+          IsHighlighted: true // Only highlighted products
+        } 
+      },
+      { 
+        $sort: { 
+          ViewCount: -1, // Sort by view count in descending order
+          CreatedAt: -1 
+        } 
+      },
+      { 
+        $limit: 10 // Limit to 10 products
+      },
+      {
+        $lookup: {
+          from: "itemimages",
+          localField: "_id",
+          foreignField: "ItemId",
+          as: "images",
+          pipeline: [
+            { $match: { IsDeleted: false } },
+            { $sort: { Ordinal: 1 } },
+            { $limit: 1 } // Only get the first image as thumbnail
+          ]
+        }
+      },
+      {
+        $lookup: {
+          from: "categories",
+          localField: "CategoryId",
+          foreignField: "_id",
+          as: "category"
+        }
+      },
+      {
+        $lookup: {
+          from: "itemconditions",
+          localField: "ConditionId",
+          foreignField: "ConditionId",
+          as: "condition"
+        }
+      },
+      {
+        $lookup: {
+          from: "priceunits",
+          localField: "PriceUnitId",
+          foreignField: "PriceUnitId",
+          as: "priceUnit"
+        }
+      },
+      {
+        $lookup: {
+          from: "itemtags",
+          localField: "_id",
+          foreignField: "ItemId",
+          as: "itemTags"
+        }
+      },
+      {
+        $lookup: {
+          from: "tags",
+          localField: "itemTags.TagId",
+          foreignField: "_id",
+          as: "tags"
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          Title: 1,
+          Description: 1,
+          BasePrice: 1,
+          DepositAmount: 1,
+          Currency: 1,
+          ViewCount: 1,
+          FavoriteCount: 1,
+          RentCount: 1,
+          IsHighlighted: 1,
+          Address: 1,
+          District: 1,
+          City: 1,
+          thumbnail: { $arrayElemAt: ["$images.Url", 0] },
+          category: { $arrayElemAt: ["$category", 0] },
+          condition: { $arrayElemAt: ["$condition", 0] },
+          priceUnit: { $arrayElemAt: ["$priceUnit", 0] },
+          tags: {
+            $map: {
+              input: "$tags",
+              as: "tag",
+              in: {
+                _id: "$$tag._id",
+                name: "$$tag.name"
+              }
+            }
+          },
+          availableQuantity: "$AvailableQuantity",
+          quantity: "$Quantity",
+          createdAt: "$CreatedAt"
+        }
+      }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: products,
+      message: 'Lấy danh sách sản phẩm nổi bật thành công'
+    });
+  } catch (error) {
+    console.error("Error in getHighlightedProducts:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Lỗi khi lấy danh sách sản phẩm nổi bật" 
+    });
+  }
+};
+
+module.exports = { 
+  listAllItems, 
+  getProductByProductId, 
+  searchProduct, 
+  viewFeatureProduct, 
+  listSearchTags, 
+  getProductsByOwnerIdWithHighViewCount, 
+  getPublicStoreByUserGuid, 
+  getProductsByCategoryId,
+  getHighlightedProducts 
+};

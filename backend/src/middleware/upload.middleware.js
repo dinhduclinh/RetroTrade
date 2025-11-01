@@ -1,6 +1,5 @@
 const multer = require("multer");
 const cloudinary = require("cloudinary").v2;
-const fs = require("fs");
 const path = require("path");
 
 cloudinary.config({
@@ -9,20 +8,8 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const uploadDir = path.join(__dirname, "../../uploads");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-  console.log("Đã tạo thư mục upload tại:", uploadDir);
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
-  },
-});
+// Use memory storage instead of disk storage
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,
@@ -42,20 +29,28 @@ const upload = multer({
 });
 
 const uploadToCloudinary = async (files, folder = "retrotrade/") => {
-  const uploadPromises = files.map((file) =>
-    cloudinary.uploader.upload(file.path, {
-      folder: folder, // Use the provided folder
-      resource_type: "image",
-    })
-  );
-
-  const results = await Promise.all(uploadPromises);
-
-  files.forEach((file) => {
-    fs.unlink(file.path, (err) => {
-      if (err) console.error("Lỗi xóa file tạm:", file.path);
+  const uploadPromises = files.map((file) => {
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: folder,
+          resource_type: "image",
+        },
+        (error, result) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve(result);
+          }
+        }
+      );
+      
+      // Upload from buffer instead of file path
+      uploadStream.end(file.buffer);
     });
   });
+
+  const results = await Promise.all(uploadPromises);
 
   return results.map((result, index) => ({
     Url: result.secure_url,

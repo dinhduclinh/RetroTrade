@@ -51,6 +51,8 @@ export function CategoryManagementTable() {
   const [currentCategory, setCurrentCategory] = useState<Category | null>(null);
   const [formData, setFormData] = useState({ name: "", description: "" });
   const [search, setSearch] = useState<string>("");
+  const [openDelete, setOpenDelete] = useState<boolean>(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCategories();
@@ -60,6 +62,8 @@ export function CategoryManagementTable() {
     try {
       const res = await getAllCategories();
       setCategories(res.data || res);
+      console.log("✅ CategoryManagementTable rendered");
+
     } catch (error) {
       console.error("Lỗi khi tải danh mục:", error);
     }
@@ -137,18 +141,20 @@ const handleEditCategory = async (e: any) => {
   }
 };
 
-const handleDelete = async (id : string) => {
-  if (!confirm("Bạn có chắc muốn xóa danh mục này?")) return;
-
+const confirmDelete = async () => {
+  if (!deleteId) return;
   try {
-    await deleteCategory(id);
-    await fetchCategories();
+    await deleteCategory(deleteId);
     toast.success("Xóa danh mục thành công!");
+    setOpenDelete(false);
+    setDeleteId(null);
+    fetchCategories();
   } catch (error) {
-    toast.error("Không thể xóa danh mục. Vui lòng thử lại.");
-    console.error("Lỗi khi xóa danh mục:", error);
+    toast.error("Không thể xóa danh mục!");
+    console.error(error);
   }
 };
+
 
 
   const openEditDialog = (category: Category) => {
@@ -237,7 +243,10 @@ const handleDelete = async (id : string) => {
                         size="sm"
                         variant="ghost"
                         className="text-red-400 hover:bg-red-500/10"
-                        onClick={() => handleDelete(category._id)}
+                        onClick={() => {
+                          setDeleteId(category._id);
+                          setOpenDelete(true);
+                        }}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -353,6 +362,45 @@ const handleDelete = async (id : string) => {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+     
+      <Dialog open={openDelete} onOpenChange={setOpenDelete}>
+        <DialogContent className="bg-white/10 backdrop-blur-md border-white/20 text-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-center text-lg font-bold">
+              Xóa danh mục?
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex flex-col items-center space-y-3 py-3">
+            <img
+              src="https://cdn-icons-png.flaticon.com/512/463/463612.png"
+              alt="warning"
+              className="w-20 opacity-90"
+            />
+            <p className="text-center text-white/80">
+              Hành động này sẽ{" "}
+              <span className="text-red-400 font-semibold">xóa vĩnh viễn</span>{" "}
+              danh mục.
+            </p>
+          </div>
+
+          <DialogFooter className="justify-center gap-3">
+            <Button
+              variant="ghost"
+              className="text-gray-300 hover:bg-white/10"
+              onClick={() => setOpenDelete(false)}
+            >
+              Hủy
+            </Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={confirmDelete}
+            >
+              Xóa
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </Card>

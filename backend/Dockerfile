@@ -1,6 +1,20 @@
 # syntax=docker/dockerfile:1
 ARG NODE_VERSION=22.13.1
 FROM node:${NODE_VERSION}-slim AS base
+
+# Install build dependencies for TensorFlow.js and Canvas
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    build-essential \
+    libcairo2-dev \
+    libpango1.0-dev \
+    libjpeg-dev \
+    libgif-dev \
+    librsvg2-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Install dependencies separately to leverage layer caching
