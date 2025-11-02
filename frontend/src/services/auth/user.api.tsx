@@ -90,8 +90,23 @@ export const changePassword = async (payload: ChangePasswordRequest): Promise<Ap
 };
 
 // User Management APIs
-export const getAllUsers = async (page: number = 1, limit: number = 10): Promise<ApiResponse<{ items: UserProfile[], totalPages: number, totalItems: number }>> => {
-    const response = await api.get(`/user?page=${page}&limit=${limit}`);
+export const getAllUsers = async (
+    page: number = 1, 
+    limit: number = 10, 
+    onlyBanned: boolean = false,
+    search: string = '',
+    role: string = '',
+    status: string = ''
+): Promise<ApiResponse<{ items: UserProfile[], totalPages: number, totalItems: number }>> => {
+    const queryParams = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+        ...(onlyBanned && { onlyBanned: "true" }),
+        ...(search && { search }),
+        ...(role && role !== 'all' && { role }),
+        ...(status && status !== 'all' && { status })
+    });
+    const response = await api.get(`/user?${queryParams}`);
     return await parseResponse(response);
 };
 
@@ -117,6 +132,18 @@ export const deleteUser = async (id: string): Promise<ApiResponse<UserProfile>> 
 
 export const updateUserRole = async (id: string, role: string): Promise<ApiResponse<UserProfile>> => {
     const response = await api.put("/user/role/update", { id, role });
+    return await parseResponse(response);
+};
+
+// Ban user (soft delete) - admin only
+export const banUser = async (id: string, reason: string): Promise<ApiResponse<UserProfile>> => {
+    const response = await api.post(`/user/${id}/ban`, { reason });
+    return await parseResponse(response);
+};
+
+// Unban user (restore) - admin only
+export const unbanUser = async (id: string): Promise<ApiResponse<UserProfile>> => {
+    const response = await api.post(`/user/${id}/unban`);
     return await parseResponse(response);
 };
 

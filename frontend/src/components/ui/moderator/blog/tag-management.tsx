@@ -103,25 +103,25 @@ export function TagManagementTable() {
 
   return (
     <>
-      <Card className="bg-white/10 backdrop-blur-md border-white/20">
+      <Card className="bg-white border border-gray-200 shadow-sm">
         <CardHeader>
           <div className="flex items-center justify-between gap-4">
-            <CardTitle className="text-white">Quản lý Tag</CardTitle>
+            <CardTitle className="text-gray-900">Quản lý Tag</CardTitle>
             <div className="flex items-center gap-2">
               <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/60" />
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder="Tìm tag..."
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  className="pl-9 bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                  className="pl-9 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400"
                 />
               </div>
               <Input
                 placeholder="Thêm tag mới..."
                 value={newTag}
                 onChange={(e) => setNewTag(e.target.value)}
-                className="bg-white/10 border-white/20 text-white placeholder:text-white/50 w-50"
+                className="bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 w-50"
               />
               <Button
                 onClick={handleAddTag}
@@ -136,13 +136,13 @@ export function TagManagementTable() {
 
         <CardContent>
           {loading ? (
-            <p className="text-white/70 text-center py-4">
+            <p className="text-gray-600 text-center py-4">
               Đang tải dữ liệu...
             </p>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-white/10">
+            <div className="overflow-x-auto rounded-lg border border-gray-200">
               <table className="min-w-full text-sm">
-                <thead className="bg-white/5 text-white/70">
+                <thead className="bg-gray-50 text-gray-600">
                   <tr>
                     <th className="px-4 py-3 text-left font-medium">Tên</th>
                     <th className="px-4 py-3 text-left font-medium">Tạo lúc</th>
@@ -151,11 +151,11 @@ export function TagManagementTable() {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/10">
+                <tbody className="divide-y divide-gray-200">
                   {filtered.map((tag) => (
-                    <tr key={tag._id} className="hover:bg-white/5">
-                      <td className="px-4 py-3 text-white">{tag.name}</td>
-                      <td className="px-4 py-3 text-white/70">
+                    <tr key={tag._id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-gray-900">{tag.name}</td>
+                      <td className="px-4 py-3 text-gray-600">
                         {new Date(tag.createdAt).toLocaleString("vi-VN")}
                       </td>
                       <td className="px-4 py-3">
@@ -163,14 +163,14 @@ export function TagManagementTable() {
                           <Button
                             variant="ghost"
                             onClick={() => handleEdit(tag)}
-                            className="text-emerald-400 hover:bg-white/10"
+                            className="text-emerald-600 hover:bg-emerald-50"
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
                           <Button
                             variant="ghost"
                             onClick={() => askDelete(tag._id)}
-                            className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                            className="text-red-600 hover:bg-red-50"
                           >
                             <Trash className="w-4 h-4" />
                           </Button>
@@ -182,7 +182,7 @@ export function TagManagementTable() {
                     <tr>
                       <td
                         colSpan={3}
-                        className="px-4 py-3 text-center text-white/60 italic"
+                        className="px-4 py-3 text-center text-gray-600 italic"
                       >
                         Không có tag nào
                       </td>
@@ -197,12 +197,12 @@ export function TagManagementTable() {
 
       
       {showDelete && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-gray-900 border border-white/10 rounded-xl p-6 w-96">
-            <div className="flex flex-col items-center text-white text-center">
-              <Trash className="w-10 h-10 text-red-500 mb-3" />
+        <div className="fixed inset-0 bg-gray-900/50 flex items-center justify-center z-50">
+          <div className="bg-white border border-gray-200 rounded-xl p-6 w-96 shadow-lg">
+            <div className="flex flex-col items-center text-gray-900 text-center">
+              <Trash className="w-10 h-10 text-red-600 mb-3" />
               <h3 className="text-lg font-semibold mb-2">Xóa Tag?</h3>
-              <p className="text-white/70 mb-6 text-sm">
+              <p className="text-gray-600 mb-6 text-sm">
                 Hành động này sẽ xóa vĩnh viễn tag đã chọn và không thể hoàn
                 tác.
               </p>
@@ -210,7 +210,7 @@ export function TagManagementTable() {
             <div className="flex justify-end gap-3">
               <Button
                 onClick={() => setShowDelete(false)}
-                className="bg-white/10 text-white hover:bg-white/20"
+                className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
               >
                 Hủy
               </Button>
@@ -227,23 +227,23 @@ export function TagManagementTable() {
 
      
       {editTag && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-          <div className="bg-gray-900 border border-white/10 rounded-xl p-6 w-96">
-            <div className="flex flex-col items-center text-white text-center">
-              <TagIcon className="w-10 h-10 text-emerald-400 mb-3" />
+        <div className="fixed inset-0 bg-gray-900/50 flex items-center justify-center z-50">
+          <div className="bg-white border border-gray-200 rounded-xl p-6 w-96 shadow-lg">
+            <div className="flex flex-col items-center text-gray-900 text-center">
+              <TagIcon className="w-10 h-10 text-emerald-600 mb-3" />
               <h3 className="text-lg font-semibold mb-2">Chỉnh sửa tên tag</h3>
             </div>
 
             <Input
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
-              className="bg-white/10 border-white/20 text-white mt-4"
+              className="bg-gray-50 border-gray-200 text-gray-900 mt-4"
             />
 
             <div className="flex justify-end gap-3 mt-6">
               <Button
                 onClick={() => setEditTag(null)}
-                className="bg-white/10 text-white hover:bg-white/20"
+                className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
               >
                 Hủy
               </Button>

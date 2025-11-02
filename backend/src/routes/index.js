@@ -18,6 +18,8 @@ const notificationRouter = require("./community/notification.routes");
 const ownerRequestUserRouter = require("./user/ownerRequest/ownerRequest.user.router");
 const ownerRequestModeratorRouter = require("./user/ownerRequest/ownerRequest.moderator.routes");
 const orderRouter = require("./order/order.routes");
+const taxRouter = require("./tax/tax.routes");
+const auditRouter = require("./audit/audit.routes");
 module.exports = (app) => {
     const api = "/api/v1";
     app.use(api + "/auth", userAuthRouter);
@@ -38,4 +40,6 @@ module.exports = (app) => {
     app.use(api + "/owner-requests-user", ownerRequestUserRouter);
     app.use(api + "/owner-requests-moderator", ownerRequestModeratorRouter);
     app.use(api + "/order", orderRouter);
+    app.use(api + "/tax", taxRouter);
+    app.use(api + "/audit", auditRouter);
 }

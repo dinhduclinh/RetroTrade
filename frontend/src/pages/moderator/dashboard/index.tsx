@@ -6,7 +6,7 @@ import { ModeratorHeader } from "@/components/ui/moderator/moderator-header";
 import { ModeratorStats } from "@/components/ui/moderator/moderator-stats";
 import { UserManagementTable } from "@/components/ui/moderator/user-management-table";
 import { RequestManagementTable } from "@/components/ui/moderator/request-management-table";
-import { VerificationQueue } from "@/components/ui/moderator/verification-queue";
+import { VerificationQueue } from "@/components/ui/moderator/verify/verification-queue";
 import { BlogManagementTable } from "@/components/ui/moderator/blog/blog-management-table";
 import { CategoryManagementTable } from "@/components/ui/moderator/blog/category-management-table";
 import { CommentManagementTable } from "@/components/ui/moderator/blog/comment-management-table";

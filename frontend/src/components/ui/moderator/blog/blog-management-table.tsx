@@ -81,18 +81,18 @@ export  function BlogManagementTable() {
 
   return (
     <>
-      <Card className="bg-white/10 backdrop-blur-md border-white/20">
+      <Card className="bg-white border border-gray-200 shadow-sm">
         <CardHeader>
           <div className="flex items-center justify-between gap-4">
-            <CardTitle className="text-white">Quản lý bài viết</CardTitle>
+            <CardTitle className="text-gray-900">Quản lý bài viết</CardTitle>
             <div className="flex items-center gap-2">
               <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/60" />
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder="Tìm theo tiêu đề..."
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  className="pl-9 bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                  className="pl-9 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400"
                 />
               </div>
 
@@ -107,9 +107,9 @@ export  function BlogManagementTable() {
         </CardHeader>
 
         <CardContent>
-          <div className="overflow-x-auto rounded-lg border border-white/10">
+          <div className="overflow-x-auto rounded-lg border border-gray-200">
             <table className="min-w-full text-sm">
-              <thead className="bg-white/5 text-white/70">
+              <thead className="bg-gray-50 text-gray-600">
                 <tr>
                   <th className="px-4 py-3 text-left font-medium">Tiêu đề</th>
 
@@ -128,38 +128,38 @@ export  function BlogManagementTable() {
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-white/10">
+              <tbody className="divide-y divide-gray-200">
                 {loading ? (
                   <tr>
                     <td
                       colSpan={8}
-                      className="px-4 py-3 text-center text-white/60"
+                      className="px-4 py-3 text-center text-gray-600"
                     >
                       Đang tải dữ liệu...
                     </td>
                   </tr>
                 ) : filtered.length > 0 ? (
                   filtered.map((post) => (
-                    <tr key={post._id} className="hover:bg-white/5">
-                      <td className="px-4 py-3 text-white font-medium max-w-xs truncate">
+                    <tr key={post._id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-gray-900 font-medium max-w-xs truncate">
                         {post.title}
                       </td>
 
-                      <td className="px-4 py-3 text-white/70">
+                      <td className="px-4 py-3 text-gray-600">
                         {post.categoryId?.name || "—"}
                       </td>
-                      <td className="px-4 py-3 text-white/70">
+                      <td className="px-4 py-3 text-gray-600">
                         {post.tags?.length
                           ? post.tags.map((tag: any) => tag.name).join(", ")
                           : "—"}
                       </td>
-                      <td className="px-4 py-3 text-center text-white/70">
+                      <td className="px-4 py-3 text-center text-gray-600">
                         {post.isFeatured ? "⭐ Có" : "Không"}
                       </td>
-                      <td className="px-4 py-3 text-center text-white/70">
+                      <td className="px-4 py-3 text-center text-gray-600">
                         {post.isActive ? "Hoạt động" : "Ẩn"}
                       </td>
-                      <td className="px-4 py-3 text-center text-white/70">
+                      <td className="px-4 py-3 text-center text-gray-600">
                         {new Date(post.createdAt).toLocaleDateString("vi-VN")}
                       </td>
 
@@ -171,7 +171,7 @@ export  function BlogManagementTable() {
                               setSelectedBlogId(post._id);
                               setIsDetailOpen(true);
                             }}
-                            className="text-blue-400 hover:bg-white/10"
+                            className="text-blue-600 hover:bg-blue-50"
                           >
                             <Eye className="w-4 h-4" />
                           </Button>
@@ -179,7 +179,7 @@ export  function BlogManagementTable() {
                           <Button
                             variant="ghost"
                             onClick={() => handleEditClick(post._id)}
-                            className="text-emerald-400 hover:bg-white/10"
+                            className="text-emerald-600 hover:bg-emerald-50"
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
@@ -190,7 +190,7 @@ export  function BlogManagementTable() {
                               setDeleteBlog(post);
                               setOpenDelete(true);
                             }}
-                            className="text-red-400 hover:bg-red-500/10"
+                            className="text-red-600 hover:bg-red-50"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -202,7 +202,7 @@ export  function BlogManagementTable() {
                   <tr>
                     <td
                       colSpan={8}
-                      className="px-4 py-3 text-center text-white/60 italic"
+                      className="px-4 py-3 text-center text-gray-600 italic"
                     >
                       {query
                         ? `Không tìm thấy bài viết nào khớp với "${query}"`
@@ -244,7 +244,7 @@ export  function BlogManagementTable() {
       )}
       {openDelete && deleteBlog && (
         <Dialog open={openDelete} onOpenChange={setOpenDelete}>
-          <DialogContent className="bg-white/10 border-white/20 text-white">
+          <DialogContent className="bg-white border border-gray-200 text-gray-900">
             <DialogHeader>
               <DialogTitle className="text-lg font-bold">
                 Xóa bài viết
@@ -253,7 +253,7 @@ export  function BlogManagementTable() {
 
             <p>
               Bạn có chắc muốn xoá bài viết:{" "}
-              <span className="font-semibold text-red-400">
+              <span className="font-semibold text-red-600">
                 {deleteBlog.title}
               </span>
               ?

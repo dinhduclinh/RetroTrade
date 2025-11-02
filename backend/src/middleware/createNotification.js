@@ -1,5 +1,6 @@
 const Notification = require("../models/Notification.model");
 const User = require("../models/User.model");
+const { sendNotification, sendUnreadCount } = require("../utils/sseManager");
 
 /**
  * Utility function to create notifications easily
@@ -32,6 +33,32 @@ const createNotification = async (userId, notificationType, title, body, metadat
       metaData: metadata ? JSON.stringify(metadata) : null,
       isRead: false,
     });
+
+    // Push notification qua SSE realtime
+    const notificationData = {
+      _id: notification._id,
+      user: String(userId),
+      notificationType: notification.notificationType,
+      title: notification.title,
+      body: notification.body,
+      metaData: notification.metaData,
+      isRead: notification.isRead,
+      CreatedAt: notification.CreatedAt
+    };
+    
+    sendNotification(userId, notificationData);
+    
+    // Cập nhật unread count qua SSE
+    try {
+      const unreadCount = await Notification.countDocuments({
+        user: userId,
+        isRead: false
+      });
+      sendUnreadCount(userId, unreadCount);
+    } catch (error) {
+      console.error("Error sending unread count update:", error);
+    }
+
     return notification;
   } catch (error) {
     console.error("Error creating notification:", error);

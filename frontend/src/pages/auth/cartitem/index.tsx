@@ -4,14 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/common/card";
 import { Button } from "@/components/ui/common/button";
-import { Separator } from "@/components/ui/common/separator";
 import {
   Empty,
   EmptyContent,
@@ -26,7 +19,6 @@ import {
   Plus,
   Minus,
   ArrowLeft,
-  Zap,
   Loader2,
   ChevronRight,
   Home,
@@ -34,16 +26,21 @@ import {
   Edit3,
   Check,
   X,
+  Package,
+  CreditCard,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { RootState, AppDispatch } from "@/store/redux_store";
 import {
   fetchCartItems,
   updateCartItemAction,
   removeItemFromCartAction,
+  clearCartAction,
 } from "@/store/cart/cartActions";
 import { setCartItems } from "@/store/cart/cartReducer";
 import PopupModal from "@/components/ui/common/PopupModal";
-import Image from "next/image";
+import { getCurrentTax } from "@/services/tax/tax.api";
 
 
 export default function CartPage() {
@@ -63,6 +60,14 @@ export default function CartPage() {
     message: "",
   });
 
+  // Confirm modal state
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+  });
+
   // Edit rental dates state
   const [editingDates, setEditingDates] = useState<{
     [cartItemId: string]: {
@@ -77,9 +82,28 @@ export default function CartPage() {
   // Selected items state for checkout
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
+  // Tax rate state
+  const [taxRate, setTaxRate] = useState<number>(3); // Default 3%
+
   useEffect(() => {
     dispatch(fetchCartItems());
   }, [dispatch]);
+
+  // Fetch tax rate
+  useEffect(() => {
+    const fetchTaxRate = async () => {
+      try {
+        const response = await getCurrentTax();
+        if (response.success && response.data) {
+          setTaxRate(response.data.taxRate);
+        }
+      } catch (error) {
+        console.error("Error fetching tax rate:", error);
+        // Keep default 3% if error
+      }
+    };
+    fetchTaxRate();
+  }, []);
 
   // Initialize all items as selected when cart items change
   useEffect(() => {
@@ -132,6 +156,30 @@ export default function CartPage() {
     setPopupModal((prev) => ({ ...prev, isOpen: false }));
   }, []);
 
+  // Show confirm modal
+  const showConfirmModal = useCallback(
+    (title: string, message: string, onConfirm: () => void) => {
+      setConfirmModal({
+        isOpen: true,
+        title,
+        message,
+        onConfirm,
+      });
+    },
+    []
+  );
+
+  // Close confirm modal
+  const closeConfirmModal = useCallback(() => {
+    setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+  }, []);
+
+  // Handle confirm
+  const handleConfirm = useCallback(() => {
+    confirmModal.onConfirm();
+    closeConfirmModal();
+  }, [confirmModal, closeConfirmModal]);
+
   // Remove item function
   const removeItem = useCallback(
     async (cartItemId: string) => {
@@ -144,6 +192,28 @@ export default function CartPage() {
     },
     [dispatch, showPopup]
   );
+
+  // Remove all items function
+  const handleRemoveAllClick = useCallback(() => {
+    if (cartItems.length === 0) {
+      showPopup("info", "Thông báo", "Giỏ hàng của bạn đang trống");
+      return;
+    }
+
+    showConfirmModal(
+      "Xác nhận xóa tất cả",
+      `Bạn có chắc chắn muốn xóa tất cả ${cartItems.length} sản phẩm khỏi giỏ hàng?`,
+      async () => {
+        try {
+          await dispatch(clearCartAction());
+          setSelectedItems(new Set());
+          showPopup("success", "Thành công", "Đã xóa tất cả sản phẩm khỏi giỏ hàng");
+        } catch {
+          showPopup("error", "Lỗi", "Có lỗi xảy ra khi xóa tất cả sản phẩm");
+        }
+      }
+    );
+  }, [cartItems.length, showConfirmModal, showPopup, dispatch]);
 
   // Update rental dates function
   const updateRentalDates = useCallback(
@@ -524,7 +594,7 @@ const handleCheckout = () => {
     return sum;
   }, 0);
 
-  const tax = subtotal * 0.03;
+  const tax = (subtotal * taxRate) / 100;
   const total = subtotal + tax + totalDeposit;
 
   // Format price helper
@@ -644,8 +714,8 @@ const handleCheckout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
-      <main className="container mx-auto px-4 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50">
+      <main className="max-w-7xl mx-auto px-6 py-10">
         {/* Header */}
         <nav className="mb-6">
           <div className="flex items-center space-x-2 text-sm">
@@ -682,22 +752,21 @@ const handleCheckout = () => {
           </div>
         </nav>
 
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-2 flex items-center gap-3">
-            <ShoppingCart className="w-8 h-8 text-purple-600" />
+        <div className="text-center mb-10">
+          <h1 className="text-4xl md:text-5xl font-bold text-gray-800 flex items-center justify-center gap-4">
+            <ShoppingCart className="w-12 h-12 text-emerald-600" />
             Giỏ hàng thuê của bạn
           </h1>
-          <p className="text-slate-600">
+          <p className="text-lg text-gray-600 mt-3">
             Bạn có {cartItems.length} sản phẩm trong giỏ hàng
           </p>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Cart Items */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="lg:col-span-2 space-y-6">
             {/* Select All Header */}
-            <Card className="border-purple-200/50 bg-white/80 backdrop-blur-sm">
-              <CardContent className="p-4">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <input
@@ -709,18 +778,30 @@ const handleCheckout = () => {
                       onChange={toggleSelectAll}
                       className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer transition-all"
                     />
-                    <span className="text-sm font-medium text-slate-700">
+                    <span className="text-base font-medium text-gray-700">
                       Chọn tất cả ({selectedItems.size}/{cartItems.length})
                     </span>
                   </div>
-                  {selectedItems.size > 0 && (
-                    <span className="text-sm text-blue-600 font-semibold">
-                      Đã chọn {selectedItems.size} sản phẩm
-                    </span>
-                  )}
+                  <div className="flex items-center gap-4">
+                    {selectedItems.size > 0 && (
+                      <span className="text-base text-emerald-600 font-semibold">
+                        Đã chọn {selectedItems.size} sản phẩm
+                      </span>
+                    )}
+                    {cartItems.length > 0 && (
+                      <Button
+                        variant="outline"
+                        onClick={handleRemoveAllClick}
+                        className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 hover:border-red-300"
+                        disabled={loading}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        <span>Xóa tất cả</span>
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
+            </div>
 
             {cartItems.map((item, index) => {
               const rentalDuration = calculateRentalDuration(
@@ -732,76 +813,81 @@ const handleCheckout = () => {
               const displayKey = getDisplayKey(item);
 
               return (
-                <Card
+                <div
                   key={item._id}
-                  className={`border-purple-200/50 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300 overflow-hidden ${
+                  className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-8 transition-all duration-300 ${
                     updatingItems.has(item._id)
-                      ? "ring-2 ring-blue-200 shadow-lg"
-                      : ""
+                      ? "ring-2 ring-emerald-200 shadow-lg"
+                      : "hover:shadow-md"
                   } ${!selectedItems.has(displayKey) ? "opacity-60" : ""}`}
                   style={{ animationDelay: `${index * 100}ms` }}
                 >
-                  <CardContent className="p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div className="flex gap-6">
                       {/* Checkbox */}
-                      <div className="md:col-span-4 flex items-center gap-3 pb-2 border-b border-purple-200/50">
+                      <div className="flex items-start gap-4 pt-1">
                         <input
                           type="checkbox"
                           checked={selectedItems.has(displayKey)}
                           onChange={() => toggleItemSelection(displayKey)}
-                          className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer transition-all"
+                          className="w-6 h-6 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500 focus:ring-2 cursor-pointer transition-all mt-1"
                         />
-                        <span className="text-sm font-medium text-slate-700">
-                          Chọn sản phẩm này để thanh toán
-                        </span>
                       </div>
 
                       {/* Product Image */}
-                      <div className="relative w-full h-40 rounded-xl overflow-hidden flex-shrink-0 bg-gradient-to-br from-purple-100 to-blue-100 shadow-md">
-                        <Image
-                          src={item.primaryImage || "/placeholder.svg"}
-                          alt={item.title}
-                          fill
-                          className="object-cover hover:scale-110 transition-transform duration-300"
-                        />
-                        <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-semibold text-purple-600">
-                          {item.condition || "Chưa xác định"}
-                        </div>
+                      <div className="bg-gray-200 border-2 border-dashed rounded-xl w-32 h-32 flex-shrink-0 overflow-hidden">
+                        {item.primaryImage ? (
+                          <img
+                            src={item.primaryImage}
+                            alt={item.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400">
+                            <Package className="w-14 h-14" />
+                          </div>
+                        )}
                       </div>
 
                       {/* Product Details */}
-                      <div className="md:col-span-2 space-y-3">
-                        <div>
-                          <h3 className="text-lg font-bold text-slate-800">
-                            {item.title}
-                          </h3>
-                          <p className="text-sm text-slate-500 mt-1">
-                            Còn lại {item.availableQuantity} sản phẩm
-                          </p>
+                      <div className="flex-1 space-y-3">
+                        <h3 className="text-xl font-semibold text-gray-800 line-clamp-2">
+                          {item.title}
+                        </h3>
+                        <p className="text-base text-gray-600 line-clamp-1">
+                          {item.shortDescription || `Còn lại ${item.availableQuantity} sản phẩm`}
+                        </p>
+                        <div className="flex flex-wrap gap-3 text-base">
+                          <span className="bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full font-medium">
+                            {item.quantity} cái
+                          </span>
+                          {item.rentalStartDate && item.rentalEndDate && (
+                            <span className="bg-purple-100 text-purple-700 px-2.5 py-1 rounded-full font-medium">
+                              {getRentalDurationText(rentalDuration, item.priceUnit)}
+                            </span>
+                          )}
                         </div>
 
-                        {/* Rental Period */}
                         <div
-                          className={`bg-blue-50 px-3 py-2 rounded-lg transition-all duration-300 ${
+                          className={`bg-gray-50 px-4 py-3 rounded-lg transition-all duration-300 ${
                             updatingItems.has(item._id)
-                              ? "opacity-75 bg-blue-100"
+                              ? "opacity-75 bg-gray-100"
                               : ""
                           }`}
                         >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-3">
                               <Calendar
-                                className={`w-4 h-4 text-blue-600 ${
+                                className={`w-5 h-5 text-emerald-600 ${
                                   updatingItems.has(item._id)
                                     ? "animate-pulse"
                                     : ""
                                 }`}
                               />
-                              <span className="text-sm font-medium text-blue-700">
+                              <span className="text-base font-medium text-gray-700">
                                 Thời gian thuê:
                               </span>
                               {updatingItems.has(item._id) && (
-                                <Loader2 className="w-3 h-3 text-blue-600 animate-spin" />
+                                <Loader2 className="w-4 h-4 text-emerald-600 animate-spin" />
                               )}
                             </div>
                             {!editingDates[item._id] &&
@@ -816,7 +902,7 @@ const handleCheckout = () => {
                                       item.rentalEndDate
                                     )
                                   }
-                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-100 h-6 px-2 transition-all duration-200"
+                                  className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 h-6 px-2 transition-all duration-200"
                                 >
                                   <Edit3 className="w-3 h-3 mr-1" />
                                   <span className="text-xs">Chỉnh sửa</span>
@@ -844,7 +930,7 @@ const handleCheckout = () => {
                                         e.target.value
                                       )
                                     }
-                                    className="w-full px-2 py-1 text-xs border border-blue-300 rounded focus:outline-none focus:border-blue-500 text-center"
+                                    className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 text-center"
                                     min={(() => {
                                       const now = new Date();
                                       const bufferTime = 5 * 60 * 1000; // 5 minutes buffer
@@ -873,7 +959,7 @@ const handleCheckout = () => {
                                         e.target.value
                                       )
                                     }
-                                    className="w-full px-2 py-1 text-xs border border-blue-300 rounded focus:outline-none focus:border-blue-500 text-center"
+                                    className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 text-center"
                                     min={
                                       editingDates[item._id]
                                         .rentalStartDateTime ||
@@ -902,7 +988,7 @@ const handleCheckout = () => {
                                       editingDates[item._id].rentalEndDateTime
                                     )
                                   }
-                                  className="bg-blue-600 hover:bg-blue-700 text-white h-6 px-3 text-xs transition-all duration-200"
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white h-6 px-3 text-xs transition-all duration-200"
                                   disabled={updatingItems.has(item._id)}
                                 >
                                   {updatingItems.has(item._id) ? (
@@ -940,7 +1026,7 @@ const handleCheckout = () => {
                             >
                               {item.rentalStartDate && item.rentalEndDate ? (
                                 <>
-                                  <div className="text-sm text-blue-600 mb-1">
+                                  <div className="text-sm text-gray-700 mb-1">
                                     {(() => {
                                       const startDate = new Date(
                                         item.rentalStartDate
@@ -973,13 +1059,6 @@ const handleCheckout = () => {
                                       }
                                     })()}
                                   </div>
-                                  <div className="text-sm text-blue-600 font-medium">
-                                    Tổng cộng:{" "}
-                                    {getRentalDurationText(
-                                      rentalDuration,
-                                      item.priceUnit
-                                    )}
-                                  </div>
                                 </>
                               ) : (
                                 <div className="text-sm text-gray-500 italic">
@@ -990,40 +1069,18 @@ const handleCheckout = () => {
                           )}
                         </div>
 
-                        {/* Owner Info */}
-                        {item.owner && (
-                          <div className="flex items-center gap-3 bg-purple-50 px-3 py-2 rounded-lg">
-                            <Image
-                              src={item.owner.avatarUrl || "/placeholder.svg"}
-                              alt={item.owner.fullName}
-                              width={32}
-                              height={32}
-                              className="w-8 h-8 rounded-full object-cover"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-slate-800">
-                                {item.owner.fullName}
-                              </p>
-                              <p className="text-xs text-slate-500 truncate">
-                                {item.owner.email}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
                         {/* Pricing */}
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                          <div className="bg-orange-50 px-3 py-2 rounded-lg">
-                            <p className="text-xs text-slate-600">Giá thuê</p>
-                            <p className="font-bold text-orange-600">
-                              {formatPrice(item.basePrice, item.currency)}/
-                              {item.priceUnit || "ngày"}
+                        <div className="flex flex-col gap-2 pt-4 border-t border-gray-200">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600">Giá thuê:</span>
+                            <p className="text-2xl font-bold text-emerald-600">
+                              {formatPrice(itemTotal, item.currency)}
                             </p>
                           </div>
-                          <div className="bg-red-50 px-3 py-2 rounded-lg">
-                            <p className="text-xs text-slate-600">Cọc</p>
-                            <p className="font-bold text-red-600">
-                              {formatPrice(item.depositAmount, item.currency)}
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600">Tiền cọc:</span>
+                            <p className="text-lg font-semibold text-amber-600">
+                              {formatPrice(item.depositAmount * item.quantity, item.currency)}
                             </p>
                           </div>
                         </div>
@@ -1032,19 +1089,19 @@ const handleCheckout = () => {
                       {/* Actions */}
                       <div className="flex flex-col justify-between items-end gap-4">
                         {/* Quantity Controls */}
-                        <div className="flex items-center gap-2 bg-gradient-to-r from-purple-100 to-blue-100 rounded-lg p-2 border border-purple-200">
+                        <div className="flex items-center gap-3 bg-gray-100 rounded-lg p-3 border border-gray-200">
                           <Button
                             variant="ghost"
                             size="icon"
                             onClick={() =>
                               handleQuantityChange(item._id, item.quantity - 1)
                             }
-                            className="text-purple-600 hover:text-purple-700 hover:bg-white h-8 w-8"
+                            className="text-gray-700 hover:text-emerald-600 hover:bg-white h-8 w-8"
                             disabled={loading}
                           >
                             <Minus className="w-4 h-4" />
                           </Button>
-                          <span className="text-slate-800 font-bold w-8 text-center">
+                          <span className="text-gray-800 font-bold w-10 text-center text-lg">
                             {item.quantity}
                           </span>
                           <Button
@@ -1053,145 +1110,88 @@ const handleCheckout = () => {
                             onClick={() =>
                               handleQuantityChange(item._id, item.quantity + 1)
                             }
-                            className="text-purple-600 hover:text-purple-700 hover:bg-white h-8 w-8"
+                            className="text-gray-700 hover:text-emerald-600 hover:bg-white h-8 w-8"
                             disabled={loading}
                           >
                             <Plus className="w-4 h-4" />
                           </Button>
                         </div>
 
-                        {/* Price */}
-                        <div className="text-right">
-                          <p className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                            {formatPrice(itemTotal, item.currency)}
-                          </p>
-                          <p className="text-xs text-slate-500 mt-1">
-                            {formatPrice(item.basePrice, item.currency)} ×{" "}
-                            {item.quantity} ×{" "}
-                            {getRentalDurationText(
-                              rentalDuration,
-                              item.priceUnit
-                            )}
-                          </p>
-                        </div>
-
                         {/* Delete Button */}
                         <Button
                           variant="ghost"
                           onClick={() => removeItem(item._id)}
-                          className="text-slate-600 hover:text-red-800 hover:bg-red-50 flex justify-end items-center ml-auto pr-6 py-4 backdrop-grayscale bg-gradient-to-r from-red-100 via-orange-50 to-red-50"
+                          className="text-gray-600 hover:text-red-600 hover:bg-red-50 flex items-center gap-2"
                         >
-                          <Trash2 className="w-7 h-7 mr-3" />
-                          <span className="text-lg">Xóa</span>
+                          <Trash2 className="w-4 h-4" />
+                          <span>Xóa</span>
                         </Button>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                </div>
               );
             })}
           </div>
 
           {/* Order Summary */}
           <div className="lg:col-span-1">
-            <Card className="border-purple-200/50 bg-white/80 backdrop-blur-sm sticky top-24 shadow-xl">
-              <CardHeader className="bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-t-xl">
-                <CardTitle className="flex items-center gap-2">
-                  <Zap className="w-5 h-5" />
-                  Tóm tắt đơn hàng
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 pt-6">
+            <div className="bg-gradient-to-b from-emerald-600 to-emerald-700 text-white rounded-2xl shadow-xl p-8 sticky top-24">
+              <h2 className="font-bold text-2xl mb-6 flex items-center gap-3">
+                <CreditCard className="w-8 h-8" />
+                Tóm tắt đơn hàng
+              </h2>
+              <div className="space-y-4 text-base">
                 {/* Warning when no items selected */}
                 {selectedItems.size === 0 && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
-                    <p className="text-sm text-amber-700 font-medium">
+                  <div className="bg-white/20 border border-white/30 rounded-lg p-3 text-center">
+                    <p className="text-sm font-medium">
                       ⚠️ Vui lòng chọn ít nhất một sản phẩm để thanh toán
                     </p>
                   </div>
                 )}
 
-                {/* Subtotal */}
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-700">Tạm tính:</span>
-                  <span className="text-slate-800 font-semibold">
-                    {subtotal.toLocaleString("vi-VN")}đ
-                  </span>
+                <div className="flex justify-between">
+                  <span>Tiền thuê</span>
+                  <span>{subtotal.toLocaleString("vi-VN")}₫</span>
                 </div>
-
-                <Separator className="bg-purple-200/50" />
-
-                {/* Tax */}
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-700">Thuế (3%):</span>
-                  <span className="text-slate-800 font-semibold">
-                    {tax.toLocaleString("vi-VN")}đ
-                  </span>
+                <div className="flex justify-between text-yellow-200">
+                  <span>Phí dịch vụ ({taxRate}%)</span>
+                  <span>{tax.toLocaleString("vi-VN")}₫</span>
                 </div>
-
-                <Separator className="bg-purple-200/50" />
-
-                {/* Deposit */}
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-700">Tiền đặt cọc:</span>
-                  <span className="text-slate-800 font-semibold">
-                    {totalDeposit.toLocaleString("vi-VN")}đ
-                  </span>
+                <div className="flex justify-between text-amber-200">
+                  <span>Tiền cọc</span>
+                  <span>{totalDeposit.toLocaleString("vi-VN")}₫</span>
                 </div>
-
-                <Separator className="bg-purple-200/50" />
-
-                {/* Total */}
-                <div className="flex justify-between items-center pt-2 bg-gradient-to-r from-purple-50 to-blue-50 px-4 py-3 rounded-lg">
-                  <span className="text-lg font-bold text-slate-800">
-                    Tổng cộng:
-                  </span>
-                  <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                    {total.toLocaleString("vi-VN")}đ
-                  </span>
+                <div className="flex justify-between text-yellow-200 text-xs">
+                  <span>(Hoàn lại tiền cọc sau khi trả đồ)</span>
                 </div>
-
-                {/* Checkout Button */}
-                <Button
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                  disabled={selectedItems.size === 0}
-                  onClick={handleCheckout}
-                >
-                  Thanh toán
-                </Button>
-
-                {/* Continue Shopping */}
-                <Link href="/products">
-                  <Button
-                    variant="outline"
-                    className="w-full border-purple-200 text-purple-600 hover:bg-purple-50 bg-transparent"
-                  >
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Tiếp tục mua sắm
-                  </Button>
-                </Link>
-
-                {/* Promo Code */}
-                <div className="pt-4 border-t border-purple-200/50">
-                  <p className="text-xs text-slate-600 mb-3 font-semibold">
-                    Có mã khuyến mãi?
-                  </p>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Nhập mã"
-                      className="flex-1 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg px-3 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-200 transition-all duration-300"
-                    />
-                    <Button
-                      variant="outline"
-                      className="border-purple-200 text-purple-600 hover:bg-purple-50 bg-transparent"
-                    >
-                      Áp dụng
-                    </Button>
+                <div className="border-t border-emerald-400 pt-3">
+                  <div className="flex justify-between text-lg font-bold">
+                    <span>Tổng cộng</span>
+                    <span className="text-2xl">
+                      {total.toLocaleString("vi-VN")}₫
+                    </span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+              <Button
+                className="mt-6 w-full bg-white text-emerald-700 font-bold py-4 rounded-xl hover:bg-emerald-50 transition transform hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
+                disabled={selectedItems.size === 0}
+                onClick={handleCheckout}
+              >
+                <CheckCircle2 className="w-6 h-6" />
+                Thanh toán
+              </Button>
+              <Link href="/products">
+                <Button
+                  variant="outline"
+                  className="mt-3 w-full border-white/30 text-white hover:bg-white/10 bg-transparent"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Tiếp tục mua sắm
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </main>
@@ -1204,6 +1204,55 @@ const handleCheckout = () => {
         title={popupModal.title}
         message={popupModal.message}
       />
+
+      {/* Confirm Modal */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={closeConfirmModal}
+          />
+
+          {/* Modal */}
+          <div className="relative w-full max-w-md mx-auto bg-white rounded-2xl shadow-2xl border-2 border-red-200 transform transition-all duration-300 scale-100 opacity-100">
+            {/* Content */}
+            <div className="p-8 text-center">
+              {/* Icon */}
+              <div className="flex justify-center mb-6">
+                <AlertCircle className="w-16 h-16 text-red-500" />
+              </div>
+
+              {/* Title */}
+              <h3 className="text-2xl font-bold mb-4 text-red-900">
+                {confirmModal.title}
+              </h3>
+
+              {/* Message */}
+              <p className="text-lg mb-8 leading-relaxed text-red-700">
+                {confirmModal.message}
+              </p>
+
+              {/* Buttons */}
+              <div className="flex gap-4">
+                <Button
+                  variant="outline"
+                  onClick={closeConfirmModal}
+                  className="flex-1 py-3 px-6 text-lg font-semibold rounded-lg transition-all duration-200 hover:scale-105 border-gray-300 text-gray-700 hover:bg-gray-50"
+                >
+                  Hủy
+                </Button>
+                <Button
+                  onClick={handleConfirm}
+                  className="flex-1 py-3 px-6 text-lg font-semibold rounded-lg transition-all duration-200 hover:scale-105 bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Xác nhận
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

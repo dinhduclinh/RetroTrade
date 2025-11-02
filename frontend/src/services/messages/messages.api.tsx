@@ -65,6 +65,12 @@ export interface StaffMember {
 }
 
 // REST API methods
+
+/**
+ * Send a text message
+ * @param params - Conversation ID and message content
+ * @returns Response object
+ */
 export const sendMessage = async ({ conversationId, content }: SendMessageParams) => {
   return api.post(`/messages/send`, { conversationId, content });
 };
@@ -75,6 +81,11 @@ export interface SendMediaParams {
   file: File;
 }
 
+/**
+ * Send a message with media attachment
+ * @param params - Conversation ID, optional content, and file
+ * @returns Response object
+ */
 export const sendMessageWithMedia = async ({ conversationId, content, file }: SendMediaParams) => {
   const formData = new FormData();
   formData.append('media', file);
@@ -87,35 +98,109 @@ export const sendMessageWithMedia = async ({ conversationId, content, file }: Se
   return api.post(`/messages/send-media`, formData);
 };
 
+/**
+ * Get all messages for a conversation
+ * @param conversationId - Conversation ID
+ * @returns Response object
+ */
 export const getMessages = async (conversationId: string) => {
   return api.get(`/messages/${conversationId}`);
 };
 
-export const getConversations = async () => {
-  return api.get(`/messages/conversations`);
+export interface GetConversationsResponse {
+  ok: boolean;
+  json: () => Promise<{
+    code?: number;
+    success?: boolean;
+    data?: Conversation[];
+    message?: string;
+  }>;
+}
+
+/**
+ * Get all conversations for the current user
+ * @returns Response object with conversations data (fetch-like response)
+ */
+export const getConversations = async (): Promise<GetConversationsResponse> => {
+  try {
+    const response = await api.get(`/messages/conversations`);
+    
+    // Response from customizeAPI is a Response object
+    return {
+      ok: response.ok ?? response.status === 200,
+      json: async () => {
+        try {
+          return await response.json();
+        } catch (error) {
+          console.error("Error parsing conversations response:", error);
+          return { code: 500, success: false, data: [], message: "Failed to parse response" };
+        }
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching conversations:", error);
+    return {
+      ok: false,
+      json: async () => ({ 
+        code: 500, 
+        success: false, 
+        data: [], 
+        message: error instanceof Error ? error.message : "Failed to fetch conversations" 
+      }),
+    };
+  }
 };
 
+/**
+ * Get a specific conversation by ID
+ * @param conversationId - Conversation ID
+ * @returns Response object
+ */
 export const getConversation = async (conversationId: string) => {
   return api.get(`/messages/conversations/${conversationId}`);
 };
 
+/**
+ * Create a new conversation with a target user
+ * @param targetUserId - User ID to start conversation with
+ * @returns Response object
+ */
 export const createConversation = async (targetUserId: string) => {
   return api.post(`/messages/conversations`, { targetUserId });
 };
 
+/**
+ * Update an existing message
+ * @param messageId - Message ID
+ * @param content - New message content
+ * @returns Response object
+ */
 export const updateMessage = async (messageId: string, content: string) => {
   return api.put(`/messages/message/${messageId}`, { content });
 };
 
+/**
+ * Delete a message
+ * @param messageId - Message ID
+ * @returns Response object
+ */
 export const deleteMessage = async (messageId: string) => {
   return api.delete(`/messages/message/${messageId}`);
 };
 
+/**
+ * Get list of staff members (admin/moderator)
+ * @returns Response object
+ */
 export const getStaff = async () => {
   return api.get(`/messages/staff`);
 };
 
-// Mark conversation as read
+/**
+ * Mark a conversation as read
+ * @param conversationId - Conversation ID
+ * @returns Response object
+ */
 export const markAsRead = async (conversationId: string) => {
   return api.put(`/messages/conversations/${conversationId}/mark-read`);
 };
@@ -124,16 +209,59 @@ export const markAsRead = async (conversationId: string) => {
 // Socket.IO connection management
 let socket: Socket | null = null;
 
-export const connectSocket = (tokenFromRedux?: string): Socket => {
-  if (socket?.connected) return socket;
+// Socket configuration constants
+const SOCKET_CONFIG = {
+  RECONNECTION_ATTEMPTS: 5,
+  RECONNECTION_DELAY: 1000,
+  TRANSPORTS: ['websocket', 'polling'] as const,
+} as const;
 
-  // Extract base URL from API URL (remove /api/v1 if present)
+/**
+ * Get socket URL from environment or default
+ */
+const getSocketUrl = (): string => {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:9999/api/v1';
   const baseUrl = apiUrl.replace(/\/api\/v1$/, '');
-  const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || baseUrl || 'http://localhost:9999';
+  return process.env.NEXT_PUBLIC_SOCKET_URL || baseUrl || 'http://localhost:9999';
+};
+
+/**
+ * Extract and clean auth token
+ */
+const getAuthToken = (tokenFromRedux?: string): string | undefined => {
+  const rawToken = 
+    tokenFromRedux || 
+    (typeof window !== 'undefined' 
+      ? (localStorage.getItem('token') || localStorage.getItem('accessToken')) 
+      : undefined);
   
-  const rawToken = tokenFromRedux || ((typeof window !== 'undefined' && (localStorage.getItem('token') || localStorage.getItem('accessToken'))) || undefined);
-  const authToken = typeof rawToken === 'string' ? rawToken.replace(/^Bearer\s+/i, '') : rawToken;
+  if (!rawToken || typeof rawToken !== 'string') {
+    return undefined;
+  }
+
+  // Remove 'Bearer' prefix if present
+  return rawToken.replace(/^Bearer\s+/i, '');
+};
+
+/**
+ * Connect to Socket.IO server
+ * @param tokenFromRedux - Optional token from Redux store
+ * @returns Socket instance
+ */
+export const connectSocket = (tokenFromRedux?: string): Socket => {
+  // Return existing connected socket
+  if (socket?.connected) {
+    return socket;
+  }
+
+  // Disconnect existing socket if not connected
+  if (socket && !socket.connected) {
+    socket.disconnect();
+    socket = null;
+  }
+
+  const SOCKET_URL = getSocketUrl();
+  const authToken = getAuthToken(tokenFromRedux);
 
   if (typeof window !== 'undefined') {
     console.log('[socket] connecting to', SOCKET_URL);
@@ -141,49 +269,74 @@ export const connectSocket = (tokenFromRedux?: string): Socket => {
 
   socket = io(SOCKET_URL, {
     auth: {
-      token: authToken
+      token: authToken,
     },
-    transports: ['websocket', 'polling'],
+    transports: SOCKET_CONFIG.TRANSPORTS,
     reconnection: true,
-    reconnectionAttempts: 5,
-    reconnectionDelay: 1000,
-    autoConnect: true
+    reconnectionAttempts: SOCKET_CONFIG.RECONNECTION_ATTEMPTS,
+    reconnectionDelay: SOCKET_CONFIG.RECONNECTION_DELAY,
+    autoConnect: true,
   });
 
+  // Set up socket event handlers
   socket.on('connect', () => {
-    console.log('✅ Socket connected:', socket?.id);
+    if (typeof window !== 'undefined') {
+      console.log('✅ Socket connected:', socket?.id);
+    }
     // Request current online users after connect
     socket?.emit('get_online_users');
   });
 
-  socket.on('disconnect', () => {
-    console.log('❌ Socket disconnected');
+  socket.on('disconnect', (reason) => {
+    if (typeof window !== 'undefined') {
+      console.log('❌ Socket disconnected:', reason);
+    }
   });
 
   socket.on('connect_error', (err) => {
-    console.error('[socket] connect_error:', err?.message || err);
+    if (typeof window !== 'undefined') {
+      console.error('[socket] connect_error:', err?.message || err);
+    }
   });
 
   socket.on('error', (error) => {
-    console.error('Socket error:', error);
+    if (typeof window !== 'undefined') {
+      console.error('Socket error:', error);
+    }
   });
 
-  socket.on('reconnect_attempt', (n) => {
-    console.log('[socket] reconnect_attempt', n);
+  socket.on('reconnect_attempt', (attemptNumber) => {
+    if (typeof window !== 'undefined') {
+      console.log('[socket] reconnect_attempt', attemptNumber);
+    }
+  });
+
+  socket.on('reconnect', (attemptNumber) => {
+    if (typeof window !== 'undefined') {
+      console.log('[socket] reconnected after', attemptNumber, 'attempts');
+    }
   });
 
   return socket;
 };
 
-export const disconnectSocket = () => {
+/**
+ * Disconnect from Socket.IO server and cleanup
+ */
+export const disconnectSocket = (): void => {
   if (socket) {
+    socket.removeAllListeners();
     socket.disconnect();
     socket = null;
   }
 };
 
+/**
+ * Get current socket instance
+ * @returns Socket instance or null if not connected
+ */
 export const getSocket = (): Socket | null => {
-  return socket;
+  return socket?.connected ? socket : null;
 };
 
 // Socket event handlers

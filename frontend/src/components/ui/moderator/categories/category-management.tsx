@@ -397,9 +397,9 @@ export default function ProductCategoryManager() {
     const isExpanded = expandedCategories.has(category._id);
 
     return (
-      <div className="border-b border-white/10 last:border-b-0">
+      <div className="border-b border-gray-200 last:border-b-0">
         <div
-          className={`flex justify-between items-center py-4 px-4 transition-colors hover:bg-white/5 ${
+          className={`flex justify-between items-center py-4 px-4 transition-colors hover:bg-gray-50 ${
             !category.isActive ? "opacity-60" : ""
           }`}
           style={{ paddingLeft: `${level * 24 + 16}px` }}
@@ -408,12 +408,12 @@ export default function ProductCategoryManager() {
             {hasChildren ? (
               <button
                 onClick={() => toggleExpand(category._id)}
-                className="p-1 hover:bg-white/10 rounded transition-all"
+                className="p-1 hover:bg-gray-50 rounded transition-all"
               >
                 {isExpanded ? (
-                  <ChevronDown size={16} className="text-white/70" />
+                  <ChevronDown size={16} className="text-gray-900/70" />
                 ) : (
-                  <ChevronRight size={16} className="text-white/70" />
+                  <ChevronRight size={16} className="text-gray-900/70" />
                 )}
               </button>
             ) : (
@@ -423,11 +423,11 @@ export default function ProductCategoryManager() {
             <FolderTree size={18} className="text-blue-400" />
 
             <div className="flex-1 min-w-0">
-              <div className="font-semibold text-white text-sm">
+              <div className="font-semibold text-gray-900 text-sm">
                 {category.name}
               </div>
-              <div className="flex items-center gap-2 text-xs text-white/70 mt-1">
-                <span className="font-mono bg-white/5 px-2 py-0.5 rounded text-white/70">
+              <div className="flex items-center gap-2 text-xs text-gray-900/70 mt-1">
+                <span className="font-mono bg-gray-50 px-2 py-0.5 rounded text-gray-900/70">
                   {category.slug}
                 </span>
                 {category.description && (
@@ -458,7 +458,7 @@ export default function ProductCategoryManager() {
             </span>
             <button
               onClick={() => openAddModal(category._id)}
-              className="p-2 text-emerald-400 hover:bg-white/10 rounded-lg transition-colors"
+              className="p-2 text-emerald-400 hover:bg-gray-50 rounded-lg transition-colors"
               title="Thêm danh mục con"
               disabled={!category.isActive || loading}
             >
@@ -466,7 +466,7 @@ export default function ProductCategoryManager() {
             </button>
             <button
               onClick={() => openEditModal(category)}
-              className="p-2 text-emerald-400 hover:bg-white/10 rounded-lg transition-colors"
+              className="p-2 text-emerald-400 hover:bg-gray-50 rounded-lg transition-colors"
               title="Chỉnh sửa"
               disabled={loading}
             >
@@ -488,7 +488,7 @@ export default function ProductCategoryManager() {
         </div>
 
         {hasChildren && isExpanded && (
-          <div className="bg-white/5">
+          <div className="bg-gray-50">
             {children.map((child) => (
               <CategoryItem
                 key={child._id}
@@ -511,12 +511,12 @@ export default function ProductCategoryManager() {
     const totalPages = Math.ceil(totalRootCategories / pagination.itemsPerPage);
 
     return (
-      <div className="flex items-center justify-between px-4 py-3 bg-white/5 border-t border-white/10 sm:px-6">
+      <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-200 sm:px-6">
         <div className="flex justify-between flex-1 sm:hidden">
           <button
             onClick={() => handlePageChange(pagination.currentPage - 1)}
             disabled={pagination.currentPage === 1}
-            className="relative inline-flex items-center px-4 py-2 border border-white/20 text-sm font-medium rounded-md text-white/70 bg-white/5 hover:bg-white/10 disabled:opacity-50"
+            className="relative inline-flex items-center px-4 py-2 border border-white/20 text-sm font-medium rounded-md text-gray-900/70 bg-gray-50 hover:bg-gray-50 disabled:opacity-50"
           >
             Trước
           </button>
@@ -525,29 +525,29 @@ export default function ProductCategoryManager() {
             disabled={
               pagination.currentPage === totalPages || totalRootCategories === 0
             }
-            className="relative ml-3 inline-flex items-center px-4 py-2 border border-white/20 text-sm font-medium rounded-md text-white/70 bg-white/5 hover:bg-white/10 disabled:opacity-50"
+            className="relative ml-3 inline-flex items-center px-4 py-2 border border-white/20 text-sm font-medium rounded-md text-gray-900/70 bg-gray-50 hover:bg-gray-50 disabled:opacity-50"
           >
             Sau
           </button>
         </div>
         <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm text-white/70">
+            <p className="text-sm text-gray-900/70">
               Hiển thị{" "}
-              <span className="font-medium text-white">
+              <span className="font-medium text-gray-900">
                 {totalRootCategories === 0
                   ? 0
                   : (pagination.currentPage - 1) * pagination.itemsPerPage + 1}
               </span>{" "}
               đến{" "}
-              <span className="font-medium text-white">
+              <span className="font-medium text-gray-900">
                 {Math.min(
                   pagination.currentPage * pagination.itemsPerPage,
                   totalRootCategories
                 )}
               </span>{" "}
               của{" "}
-              <span className="font-medium text-white">
+              <span className="font-medium text-gray-900">
                 {totalRootCategories}
               </span>{" "}
               kết quả
@@ -559,7 +559,7 @@ export default function ProductCategoryManager() {
               onChange={(e) =>
                 handleItemsPerPageChange(parseInt(e.target.value))
               }
-              className="px-2 py-1 border border-white/20 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white/5 text-white"
+              className="px-2 py-1 border border-white/20 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 bg-gray-50 text-gray-900"
             >
               <option
                 value={5}
@@ -593,7 +593,7 @@ export default function ProductCategoryManager() {
               <button
                 onClick={() => handlePageChange(pagination.currentPage - 1)}
                 disabled={pagination.currentPage === 1}
-                className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-white/20 bg-white/5 text-sm font-medium text-white/70 hover:bg-white/10 disabled:opacity-50"
+                className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-white/20 bg-gray-50 text-sm font-medium text-gray-900/70 hover:bg-gray-50 disabled:opacity-50"
               >
                 Trước
               </button>
@@ -604,8 +604,8 @@ export default function ProductCategoryManager() {
                     onClick={() => handlePageChange(page)}
                     className={`relative inline-flex items-center px-4 py-2 border border-white/20 text-sm font-medium ${
                       pagination.currentPage === page
-                        ? "z-10 bg-white/10 border-blue-400 text-blue-400"
-                        : "bg-white/5 text-white/70 hover:bg-white/10"
+                        ? "z-10 bg-gray-50 border-blue-400 text-blue-400"
+                        : "bg-gray-50 text-gray-900/70 hover:bg-gray-50"
                     }`}
                   >
                     {page}
@@ -618,7 +618,7 @@ export default function ProductCategoryManager() {
                   pagination.currentPage === totalPages ||
                   totalRootCategories === 0
                 }
-                className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-white/20 bg-white/5 text-sm font-medium text-white/70 hover:bg-white/10 disabled:opacity-50"
+                className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-white/20 bg-gray-50 text-sm font-medium text-gray-900/70 hover:bg-gray-50 disabled:opacity-50"
               >
                 Sau
               </button>
@@ -631,16 +631,16 @@ export default function ProductCategoryManager() {
 
   return (
     <>
-      <div className="bg-white/10 backdrop-blur-md border-white/20 rounded-lg p-6">
+      <div className="bg-gray-50  border-white/20 rounded-lg p-6">
         {/* Header */}
         <div className="flex items-center justify-between gap-4 mb-6">
-          <h1 className="text-xl font-bold text-white">Danh sách danh mục</h1>
+          <h1 className="text-xl font-bold text-gray-900">Danh sách danh mục</h1>
           <div className="flex items-center gap-2">
             <div className="relative flex-1 max-w-xl">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/60" />
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-900/60" />
               <input
                 type="text"
-                className="w-full pl-9 pr-4 py-2.5 bg-white/10 border-white/20 text-white placeholder:text-white/50 rounded focus:border-blue-400 focus:outline-none transition-colors"
+                className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border-white/20 text-gray-900 placeholder:text-gray-900/50 rounded focus:border-blue-400 focus:outline-none transition-colors"
                 placeholder="Tìm theo tên, đường dẫn..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -650,7 +650,7 @@ export default function ProductCategoryManager() {
               <select
                 value={sort.field}
                 onChange={(e) => handleSort(e.target.value as SortField)}
-                className="px-3 py-2 bg-white/10 border-white/20 rounded text-white/70 focus:border-blue-400 focus:outline-none"
+                className="px-3 py-2 bg-gray-50 border-white/20 rounded text-gray-900/70 focus:border-blue-400 focus:outline-none"
               >
                 <option
                   value="name"
@@ -667,7 +667,7 @@ export default function ProductCategoryManager() {
               </select>
               <button
                 onClick={() => handleSort(sort.field)}
-                className="p-2 bg-white/10 border-white/20 rounded hover:bg-white/5 text-white/70 transition-colors"
+                className="p-2 bg-gray-50 border-white/20 rounded hover:bg-gray-50 text-gray-900/70 transition-colors"
               >
                 <ArrowUpDown
                   size={16}
@@ -677,7 +677,7 @@ export default function ProductCategoryManager() {
             </div>
             <button
               onClick={() => openAddModal()}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded font-semibold transition-colors"
+              className="bg-emerald-600 hover:bg-emerald-500 text-gray-900 px-4 py-2 rounded font-semibold transition-colors"
               disabled={loading}
             >
               + Thêm danh mục
@@ -686,7 +686,7 @@ export default function ProductCategoryManager() {
         </div>
 
         {/* Category List */}
-        <div className="overflow-x-auto rounded-lg border border-white/10 bg-white/10">
+        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-gray-50">
           {loading ? (
             <div className="flex justify-center items-center py-16">
               <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-400"></div>
@@ -700,7 +700,7 @@ export default function ProductCategoryManager() {
               <Pagination />
             </>
           ) : (
-            <div className="text-center py-16 text-white/60">
+            <div className="text-center py-16 text-gray-900/60">
               <FolderTree size={48} className="mx-auto mb-4 opacity-50" />
               <p>Không tìm thấy danh mục nào</p>
             </div>
@@ -711,29 +711,29 @@ export default function ProductCategoryManager() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 z-50 p-4 flex items-center justify-center">
-          <div className="bg-white/10 backdrop-blur-md border-white/20 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white/10 border-b border-white/20 px-6 py-4 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-white">
+          <div className="bg-gray-50  border-white/20 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-gray-50 border-b border-white/20 px-6 py-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-900">
                 {modalMode === "add"
                   ? "Thêm danh mục sản phẩm mới"
                   : "Chỉnh sửa danh mục sản phẩm"}
               </h2>
               <button
                 onClick={() => setShowModal(false)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-50 rounded-lg transition-colors"
               >
-                <X size={20} className="text-white/70" />
+                <X size={20} className="text-gray-900/70" />
               </button>
             </div>
 
             <div className="p-6 space-y-5">
               <div>
-                <label className="block text-sm font-semibold text-white/70 mb-2">
+                <label className="block text-sm font-semibold text-gray-900/70 mb-2">
                   Tên danh mục *
                 </label>
                 <input
                   type="text"
-                  className="w-full px-4 py-2.5 bg-white/10 border-white/20 rounded focus:border-blue-400 focus:outline-none transition-colors text-white"
+                  className="w-full px-4 py-2.5 bg-gray-50 border-white/20 rounded focus:border-blue-400 focus:outline-none transition-colors text-gray-900"
                   placeholder="Nhập tên danh mục"
                   value={formData.name}
                   onChange={handleNameChange}
@@ -741,24 +741,24 @@ export default function ProductCategoryManager() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-white/70 mb-2">
+                <label className="block text-sm font-semibold text-gray-900/70 mb-2">
                   Đường dẫn
                 </label>
                 <input
                   type="text"
                   readOnly
-                  className="w-full px-4 py-2.5 bg-white/10 border-white/20 rounded focus:border-blue-400 focus:outline-none transition-colors font-mono text-white cursor-not-allowed"
+                  className="w-full px-4 py-2.5 bg-gray-50 border-white/20 rounded focus:border-blue-400 focus:outline-none transition-colors font-mono text-gray-900 cursor-not-allowed"
                   placeholder="duong-dan-danh-muc"
                   value={formData.slug}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-white/70 mb-2">
+                <label className="block text-sm font-semibold text-gray-900/70 mb-2">
                   Mô tả
                 </label>
                 <textarea
-                  className="w-full px-4 py-2.5 bg-white/10 border-white/20 rounded focus:border-blue-400 focus:outline-none transition-colors resize-none text-white"
+                  className="w-full px-4 py-2.5 bg-gray-50 border-white/20 rounded focus:border-blue-400 focus:outline-none transition-colors resize-none text-gray-900"
                   placeholder="Nhập mô tả cho danh mục"
                   rows={3}
                   value={formData.description}
@@ -769,11 +769,11 @@ export default function ProductCategoryManager() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-white/70 mb-2">
+                <label className="block text-sm font-semibold text-gray-900/70 mb-2">
                   Danh mục cha
                 </label>
                 <select
-                  className="w-full px-4 py-2.5 bg-white/10 border-white/20 rounded focus:border-blue-400 focus:outline-none transition-colors text-white"
+                  className="w-full px-4 py-2.5 bg-gray-50 border-white/20 rounded focus:border-blue-400 focus:outline-none transition-colors text-gray-900"
                   value={formData.parentCategoryId || ""}
                   onChange={(e) =>
                     setFormData({
@@ -806,7 +806,7 @@ export default function ProductCategoryManager() {
                 <input
                   type="checkbox"
                   id="isActive"
-                  className="w-4 h-4 rounded border-white/20 text-blue-400 focus:ring-blue-400 bg-white/10"
+                  className="w-4 h-4 rounded border-white/20 text-blue-400 focus:ring-blue-400 bg-gray-50"
                   checked={formData.isActive}
                   onChange={(e) =>
                     setFormData({ ...formData, isActive: e.target.checked })
@@ -814,17 +814,17 @@ export default function ProductCategoryManager() {
                 />
                 <label
                   htmlFor="isActive"
-                  className="text-sm font-medium text-white/70"
+                  className="text-sm font-medium text-gray-900/70"
                 >
                   Kích hoạt danh mục
                 </label>
               </div>
             </div>
 
-            <div className="sticky bottom-0 bg-white/5 border-t border-white/20 px-6 py-4 flex justify-end gap-3">
+            <div className="sticky bottom-0 bg-gray-50 border-t border-white/20 px-6 py-4 flex justify-end gap-3">
               <button
                 onClick={() => setShowModal(false)}
-                className="px-5 py-2.5 bg-white/10 border-white/20 text-white/70 rounded font-semibold hover:bg-white/5 transition-colors"
+                className="px-5 py-2.5 bg-gray-50 border-white/20 text-gray-900/70 rounded font-semibold hover:bg-gray-50 transition-colors"
                 disabled={loading}
               >
                 <X size={16} className="inline mr-2" />
@@ -833,7 +833,7 @@ export default function ProductCategoryManager() {
               <button
                 onClick={handleSubmit}
                 disabled={loading}
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-semibold transition-all disabled:opacity-50"
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-gray-900 rounded font-semibold transition-all disabled:opacity-50"
               >
                 <Check size={16} className="inline mr-2" />
                 {loading
@@ -850,25 +850,25 @@ export default function ProductCategoryManager() {
       {/* Confirm Modal */}
       {showConfirm && (
         <div className="fixed inset-0 bg-black/50 z-50 p-4 flex items-center justify-center">
-          <div className="bg-white/10 backdrop-blur-md border-white/20 rounded-lg w-full max-w-md">
-            <div className="sticky top-0 bg-white/10 border-b border-white/20 px-6 py-4 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-white">{confirmTitle}</h2>
+          <div className="bg-gray-50  border-white/20 rounded-lg w-full max-w-md">
+            <div className="sticky top-0 bg-gray-50 border-b border-white/20 px-6 py-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-900">{confirmTitle}</h2>
               <button
                 onClick={() => setShowConfirm(false)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-50 rounded-lg transition-colors"
               >
-                <X size={20} className="text-white/70" />
+                <X size={20} className="text-gray-900/70" />
               </button>
             </div>
 
             <div className="p-6">
-              <p className="text-white/70 text-sm">{confirmMessage}</p>
+              <p className="text-gray-900/70 text-sm">{confirmMessage}</p>
             </div>
 
-            <div className="sticky bottom-0 bg-white/5 border-t border-white/20 px-6 py-4 flex justify-end gap-3">
+            <div className="sticky bottom-0 bg-gray-50 border-t border-white/20 px-6 py-4 flex justify-end gap-3">
               <button
                 onClick={() => setShowConfirm(false)}
-                className="px-5 py-2.5 bg-white/10 border-white/20 text-white/70 rounded font-semibold hover:bg-white/5 transition-colors"
+                className="px-5 py-2.5 bg-gray-50 border-white/20 text-gray-900/70 rounded font-semibold hover:bg-gray-50 transition-colors"
                 disabled={loading}
               >
                 Hủy
@@ -876,7 +876,7 @@ export default function ProductCategoryManager() {
               <button
                 onClick={() => confirmOnYes()}
                 disabled={loading}
-                className="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded font-semibold transition-all disabled:opacity-50"
+                className="px-5 py-2.5 bg-red-600 hover:bg-red-500 text-gray-900 rounded font-semibold transition-all disabled:opacity-50"
               >
                 {loading ? "Đang xử lý..." : "Xác nhận"}
               </button>

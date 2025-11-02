@@ -3,6 +3,7 @@ const router = express.Router()
 
 const userAuthController = require("../../controller/auth/auth.controller")
 const verifyController = require("../../controller/auth/verify.controller")
+const complaintController = require("../../controller/auth/complaint.controller")
 const profileRouter = require("./profile.router")
 const { upload } = require("../../middleware/upload.middleware")
 const { authenticateToken } = require("../../middleware/auth")
@@ -17,6 +18,9 @@ router.post('/forgot-password', userAuthController.forgotPassword);
 router.post('/refresh-token', userAuthController.refreshToken);
 router.post('/login-with-google', userAuthController.loginWithGoogle);
 router.post('/login-with-facebook', userAuthController.loginWithFacebook);
+
+// Complaint route (public - for banned users)
+router.post('/complaint', complaintController.submitComplaint);
 
 // Phone verification via Firebase ID token (client performs Firebase Phone Auth)
 router.post('/phone/confirm-firebase', authenticateToken, verifyController.confirmPhoneWithFirebaseIdToken);

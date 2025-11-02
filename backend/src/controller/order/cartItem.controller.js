@@ -22,7 +22,7 @@ const getCartItems = async (req, res) => {
           { 
             path: 'OwnerId', 
             model: 'User', 
-            select: 'fullName email avatarUrl' 
+            select: 'fullName email avatarUrl userGuid' 
           }
         ]
       })

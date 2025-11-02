@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import OwnerLayout from "../layout";
 import {
-  listOrders,
+  listOrdersByOwner,
   confirmOrder,
   cancelOrder,
   startOrder,
-  ownerComplete
+  ownerComplete,
 } from "@/services/auth/order.api";
 import type { Order } from "@/services/auth/order.api";
 import {
@@ -30,16 +30,23 @@ import {
 } from "@/components/ui/common/dialog";
 
 export default function OwnerRenterRequests() {
+  return (
+    <OwnerLayout>
+      <RenterRequestsContent />
+    </OwnerLayout>
+  );
+}
+
+function RenterRequestsContent() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [openRejectModal, setOpenRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
-  const [selectedStatus, setSelectedStatus] = useState("pending");
-
-  const router = useRouter();
+  const [selectedStatus, setSelectedStatus] = useState("all");
 
   const tabs = [
+    { key: "all", label: "Tất cả" },
     { key: "pending", label: "Yêu cầu đơn hàng" },
     { key: "confirmed", label: "Đã xác nhận" },
     { key: "progress", label: "Đang thuê" },
@@ -49,28 +56,34 @@ export default function OwnerRenterRequests() {
     { key: "disputed", label: "Tranh chấp" },
   ];
 
+  const statusLabel: Record<string, string> = {
+    pending: "Đang chờ xác nhận",
+    confirmed: "Đã xác nhận",
+    progress: "Đang thuê",
+    returned: "Chờ xác nhận trả hàng",
+    completed: "Hoàn tất",
+    cancelled: "Đã hủy",
+    disputed: "Tranh chấp",
+  };
+
   useEffect(() => {
     const fetchOrders = async () => {
       setLoading(true);
-      const res = await listOrders();
+      const res = await listOrdersByOwner();
       if (res.code === 200 && Array.isArray(res.data)) {
-        const filtered = res.data.filter(
-          (o) => o.orderStatus === selectedStatus
-        );
-        setOrders(filtered);
+        setOrders(res.data);
       }
       setLoading(false);
     };
     fetchOrders();
-  }, [selectedStatus]);
+  }, []);
+
+  const filteredOrders =
+    selectedStatus === "all"
+      ? orders
+      : orders.filter((o) => o.orderStatus === selectedStatus);
 
   const formatDate = (date: string) => format(new Date(date), "dd/MM/yyyy");
-
-  const handleOpenRejectModal = (orderId: string) => {
-    setSelectedOrderId(orderId);
-    setRejectReason("");
-    setOpenRejectModal(true);
-  };
 
   const statusColor: Record<string, string> = {
     pending: "bg-yellow-500",
@@ -87,62 +100,47 @@ export default function OwnerRenterRequests() {
     if (res.code === 200) {
       toast.success("✅ Đã xác nhận đơn hàng");
       setOrders((prev) => prev.filter((o) => o._id !== orderId));
-    } else {
-      toast.error("Lỗi khi xác nhận đơn hàng");
-    }
+    } else toast.error("Lỗi khi xác nhận đơn hàng");
+  };
+
+  const handleOpenRejectModal = (orderId: string) => {
+    setSelectedOrderId(orderId);
+    setRejectReason("");
+    setOpenRejectModal(true);
   };
 
   const handleConfirmReject = async () => {
-    if (!rejectReason.trim()) {
-      toast.error("Vui lòng nhập lý do từ chối.");
-      return;
-    }
-
+    if (!rejectReason.trim())
+      return toast.error("Vui lòng nhập lý do từ chối.");
     if (!selectedOrderId) return;
 
     const res = await cancelOrder(selectedOrderId, rejectReason);
     if (res.code === 200) {
       toast.success("❌ Đã từ chối đơn hàng");
       setOrders((prev) => prev.filter((o) => o._id !== selectedOrderId));
-    } else {
-      toast.error("Lỗi khi từ chối đơn hàng");
-    }
+    } else toast.error("Lỗi khi từ chối đơn hàng");
 
     setOpenRejectModal(false);
   };
+
   const handleStartOrder = async (orderId: string) => {
-    try {
-      const res = await startOrder(orderId);
-      if (res.code === 200) {
-        toast.success("Đơn hàng đã bắt đầu thuê");
-        setOrders((prev) => prev.filter((o) => o._id !== orderId));
-      } else {
-        toast.error(res.message || "Không thể bắt đầu thuê");
-      }
-    } catch (err) {
-      toast.error("Lỗi khi bắt đầu thuê");
-    }
+    const res = await startOrder(orderId);
+    if (res.code === 200) {
+      toast.success("🚀 Đơn hàng đã bắt đầu thuê");
+      setOrders((prev) => prev.filter((o) => o._id !== orderId));
+    } else toast.error(res.message || "Không thể bắt đầu thuê");
   };
- const handleConfirmReturn = async (orderId: string) => {
-   try {
-     const res = await ownerComplete(orderId, {
-       conditionStatus: "Good",
-       ownerNotes: "Hàng đã kiểm tra, không hư hại.",
-     });
 
-     if (res.code === 200) {
-       toast.success(" Đã xác nhận trả hàng");
-       setOrders((prev) => prev.filter((o) => o._id !== orderId));
-     } else {
-       toast.error(res.message || "Lỗi khi xác nhận trả hàng");
-     }
-   } catch (err) {
-     toast.error("Không thể xác nhận trả hàng");
-   }
- };
-
-
-
+  const handleConfirmReturn = async (orderId: string) => {
+    const res = await ownerComplete(orderId, {
+      conditionStatus: "Good",
+      ownerNotes: "Hàng đã kiểm tra, không hư hại.",
+    });
+    if (res.code === 200) {
+      toast.success("✅ Đã xác nhận trả hàng");
+      setOrders((prev) => prev.filter((o) => o._id !== orderId));
+    } else toast.error(res.message || "Lỗi khi xác nhận trả hàng");
+  };
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
@@ -167,13 +165,13 @@ export default function OwnerRenterRequests() {
 
       {loading ? (
         <p className="text-center py-10 font-medium">Đang tải dữ liệu...</p>
-      ) : orders.length === 0 ? (
+      ) : filteredOrders.length === 0 ? (
         <p className="text-center py-10 text-gray-500">
           Không có đơn hàng trong trạng thái này.
         </p>
       ) : (
         <div className="space-y-4">
-          {orders.map((order) => (
+          {filteredOrders.map((order) => (
             <Card key={order._id} className="transition hover:shadow-lg">
               <div className="bg-gradient-to-r from-blue-50 to-blue-100 px-4 py-2 border-b border-blue-200">
                 <div className="flex items-center gap-2 text-sm font-medium text-blue-800">
@@ -207,7 +205,7 @@ export default function OwnerRenterRequests() {
                   </div>
                   <div className="mt-1">
                     <Badge className={statusColor[order.orderStatus]}>
-                      {order.orderStatus}
+                      {statusLabel[order.orderStatus] || order.orderStatus}
                     </Badge>
                   </div>
                 </div>
@@ -250,7 +248,7 @@ export default function OwnerRenterRequests() {
                 {order.orderStatus === "returned" && (
                   <Button
                     size="sm"
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm"
+                    className="bg-green-600 hover:bg-green-700 text-white font-medium shadow-sm"
                     onClick={() => handleConfirmReturn(order._id)}
                   >
                     Xác nhận trả hàng

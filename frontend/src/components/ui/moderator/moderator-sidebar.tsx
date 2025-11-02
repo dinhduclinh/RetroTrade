@@ -50,6 +50,7 @@ export function ModeratorSidebar({
   const [isBlogDropdownOpen, setIsBlogDropdownOpen] = useState(false);
   const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
   // Load collapsed state from localStorage on mount and update CSS variable
   useEffect(() => {
@@ -62,7 +63,28 @@ export function ModeratorSidebar({
     // Update CSS variable for sidebar width immediately
     const width = collapsed ? "80px" : "288px";
     document.documentElement.style.setProperty("--moderator-sidebar-width", width);
+    setIsMounted(true);
   }, []);
+
+  // Close mobile menu when navigating - prevent auto-opening
+  useEffect(() => {
+    // Always close mobile menu when tab changes or on mount
+    setIsMobileMenuOpen(false);
+  }, [activeTab]);
+
+  // Close dropdowns when navigating away from their tabs
+  // Don't auto-open dropdowns on initial load
+  useEffect(() => {
+    if (!isMounted) return; // Don't run until mounted
+    
+    if (activeTab !== "blog") {
+      setIsBlogDropdownOpen(false);
+    }
+    
+    if (activeTab !== "productManagement") {
+      setIsProductDropdownOpen(false);
+    }
+  }, [activeTab, isMounted]);
 
   // Save collapsed state to localStorage and update CSS variable
   const toggleCollapse = () => {
@@ -233,8 +255,8 @@ export function ModeratorSidebar({
               variant="ghost"
               className={`w-full justify-start h-12 px-4 text-sm transition-all duration-200 ${
                 isSubActive
-                  ? "bg-white/15 text-white border border-white/20"
-                  : "text-white/60 hover:text-white hover:bg-white/5"
+                  ? "bg-indigo-50 text-indigo-600 border border-indigo-200"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
               }`}
               onClick={() => onSubTabChange?.(subItem.id)}
             >
@@ -254,7 +276,7 @@ export function ModeratorSidebar({
       <Button
         variant="ghost"
         size="icon"
-        className="fixed top-4 left-4 z-30 lg:hidden bg-white/10 backdrop-blur-md text-white hover:bg-white/20"
+        className="fixed top-4 left-4 z-30 lg:hidden bg-white border border-gray-200 text-gray-900 hover:bg-gray-50"
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
       >
         {isMobileMenuOpen ? (
@@ -265,8 +287,8 @@ export function ModeratorSidebar({
       </Button>
 
       <div
-        className={`fixed left-0 top-0 h-full bg-white/10 backdrop-blur-md border-r border-white/20 z-20
-          transform transition-all duration-300 ease-in-out
+        className={`fixed left-0 top-0 h-full bg-white border-r border-gray-200 shadow-sm z-20
+          ${isMounted ? "transform transition-all duration-300 ease-in-out" : ""}
           ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
           lg:translate-x-0
           ${isCollapsed ? "w-20" : "w-72"}
@@ -285,14 +307,14 @@ export function ModeratorSidebar({
             </div>
             {!isCollapsed && (
               <div className="flex-1 min-w-0">
-                <h2 className="text-xl font-bold text-white">Moderator</h2>
-                <p className="text-sm text-white/70">Control Panel</p>
+                <h2 className="text-xl font-bold text-gray-900">Moderator</h2>
+                <p className="text-sm text-gray-600">Control Panel</p>
               </div>
             )}
             {/* Collapse Toggle Button */}
             <button
               onClick={toggleCollapse}
-              className={`hidden lg:flex flex-col items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-all duration-200 flex-shrink-0 ${
+              className={`hidden lg:flex flex-col items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-900 transition-all duration-200 flex-shrink-0 ${
                 isCollapsed 
                   ? "w-6 h-6 gap-0.5 mt-1" 
                   : "w-8 h-8 gap-1 ml-auto"
@@ -322,15 +344,24 @@ export function ModeratorSidebar({
                       isCollapsed ? "justify-center px-2" : "justify-start px-4"
                     } ${
                       isActive
-                        ? "bg-white/20 text-white border border-white/30 shadow-lg scale-105"
-                        : "text-white/70 hover:text-white hover:bg-white/10 hover:scale-105"
+                        ? "bg-indigo-50 text-indigo-600 border border-indigo-200 shadow-sm scale-105"
+                        : "text-gray-700 hover:text-gray-900 hover:bg-gray-50 hover:scale-105"
                     }`}
                     onClick={() => {
                       if (item.hasSubmenu && !isCollapsed) {
-                        if (isProduct)
+                        // Only toggle dropdown if clicking the same tab
+                        if (isProduct && activeTab === "productManagement") {
                           setIsProductDropdownOpen(!isProductDropdownOpen);
-                        if (isBlog) setIsBlogDropdownOpen(!isBlogDropdownOpen);
-                        handleTabChange(item.id);
+                        } else if (isProduct) {
+                          setIsProductDropdownOpen(true);
+                          handleTabChange(item.id);
+                        }
+                        if (isBlog && activeTab === "blog") {
+                          setIsBlogDropdownOpen(!isBlogDropdownOpen);
+                        } else if (isBlog) {
+                          setIsBlogDropdownOpen(true);
+                          handleTabChange(item.id);
+                        }
                       } else {
                         handleTabChange(item.id);
                       }
@@ -341,8 +372,8 @@ export function ModeratorSidebar({
                       <div
                         className={`p-2 rounded-lg transition-all duration-200 flex-shrink-0 ${
                           isActive
-                            ? "bg-white/20"
-                            : "bg-white/5 group-hover:bg-white/15"
+                            ? "bg-indigo-100"
+                            : "bg-gray-100 group-hover:bg-gray-200"
                         }`}
                       >
                         <Icon className="w-5 h-5" />
@@ -403,7 +434,7 @@ export function ModeratorSidebar({
 
       {isMobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-10 lg:hidden"
+          className="fixed inset-0 bg-gray-900/50 z-10 lg:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
