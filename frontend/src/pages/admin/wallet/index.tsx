@@ -1,5 +1,3 @@
-
-
 import React from "react";
 import { Card, CardContent } from "@/components/ui/common/card";
 import { Button } from "@/components/ui/common/button";
@@ -35,7 +33,7 @@ export default function WalletDashboard() {
   ];
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="space-y-8">
       {/* Header */}
       <div className="flex items-center gap-3">
         <Wallet className="w-7 h-7 text-blue-600" />

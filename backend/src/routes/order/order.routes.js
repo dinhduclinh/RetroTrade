@@ -1,11 +1,13 @@
 const express = require("express");
 const router = express.Router();
-const { authenticateToken, authorizeRoles } = require("../../middleware/auth");
+const { authenticateToken } = require("../../middleware/auth");
 const OrderController = require("../../controller/order/order.controller");
 
-router.get("/:id",authenticateToken,OrderController.getOrder);
-router.get("/", authenticateToken,OrderController.listOrders);
-router.post("/", authenticateToken, authorizeRoles("renter", "owner"),OrderController.createOrder);
+
+router.get("/", authenticateToken, OrderController.listOrders);
+router.get("/owner/", authenticateToken, OrderController.listOrdersByOnwer);
+router.post("/", authenticateToken, OrderController.createOrder);
+router.get("/:id", authenticateToken, OrderController.getOrder);
 router.post("/:id/confirm", authenticateToken,OrderController.confirmOrder);
 router.post("/:id/start", authenticateToken,OrderController.startOrder);
 router.post("/:id/return", authenticateToken,OrderController.renterReturn);

@@ -60,8 +60,19 @@ app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
+const { autoUpdateTaxStatus } = require("./src/controller/tax/taxAutoUpdate.controller");
+
 // cập nhật lúc 0h mỗi ngày
 cron.schedule('0 0 * * *', updateTrendingItems);
+
+// Tự động cập nhật trạng thái tax mỗi giờ
+cron.schedule('0 * * * *', async () => {
+  try {
+    await autoUpdateTaxStatus();
+  } catch (error) {
+    console.error("Lỗi cron job cập nhật tax:", error);
+  }
+});
 
 // Test CORS route
 app.get('/api/v1/test-cors', (req, res) => {

@@ -313,40 +313,40 @@ export default function PendingProductsManager() {
   const Pagination = () => {
     const totalPages = Math.ceil(total / pagination.itemsPerPage);
     return (
-      <div className="flex items-center justify-between px-4 py-3 bg-white/5 border-t border-white/10 sm:px-6">
+      <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-200 sm:px-6">
         <div className="flex justify-between flex-1 sm:hidden">
           <button
             onClick={() => handlePageChange(pagination.currentPage - 1)}
             disabled={pagination.currentPage === 1}
-            className="relative inline-flex items-center px-4 py-2 border border-white/20 text-sm font-medium rounded-md text-white/70 bg-white/5 hover:bg-white/10 disabled:opacity-50"
+            className="relative inline-flex items-center px-4 py-2 border border-gray-200 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
           >
             Trước
           </button>
           <button
             onClick={() => handlePageChange(pagination.currentPage + 1)}
             disabled={pagination.currentPage === totalPages || total === 0}
-            className="relative ml-3 inline-flex items-center px-4 py-2 border border-white/20 text-sm font-medium rounded-md text-white/70 bg-white/5 hover:bg-white/10 disabled:opacity-50"
+            className="relative ml-3 inline-flex items-center px-4 py-2 border border-gray-200 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
           >
             Sau
           </button>
         </div>
         <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm text-white/70">
+            <p className="text-sm text-gray-600">
               Hiển thị{" "}
-              <span className="font-medium text-white">
+              <span className="font-medium text-gray-900">
                 {total === 0
                   ? 0
                   : (pagination.currentPage - 1) * pagination.itemsPerPage + 1}
               </span>{" "}
               đến{" "}
-              <span className="font-medium text-white">
+              <span className="font-medium text-gray-900">
                 {Math.min(
                   pagination.currentPage * pagination.itemsPerPage,
                   total
                 )}
               </span>{" "}
-              của <span className="font-medium text-white">{total}</span> kết
+              của <span className="font-medium text-gray-900">{total}</span> kết
               quả
             </p>
           </div>
@@ -356,29 +356,29 @@ export default function PendingProductsManager() {
               onChange={(e) =>
                 handleItemsPerPageChange(parseInt(e.target.value))
               }
-              className="px-2 py-1 border border-white/20 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white/5 text-white"
+              className="px-2 py-1 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white text-gray-900"
             >
               <option
                 value={5}
-                style={{ backgroundColor: "#111827", color: "white" }}
+                style={{ backgroundColor: "white", color: "#111827" }}
               >
                 5
               </option>
               <option
                 value={10}
-                style={{ backgroundColor: "#111827", color: "white" }}
+                style={{ backgroundColor: "white", color: "#111827" }}
               >
                 10
               </option>
               <option
                 value={20}
-                style={{ backgroundColor: "#111827", color: "white" }}
+                style={{ backgroundColor: "white", color: "#111827" }}
               >
                 20
               </option>
               <option
                 value={50}
-                style={{ backgroundColor: "#111827", color: "white" }}
+                style={{ backgroundColor: "white", color: "#111827" }}
               >
                 50
               </option>
@@ -390,7 +390,7 @@ export default function PendingProductsManager() {
               <button
                 onClick={() => handlePageChange(pagination.currentPage - 1)}
                 disabled={pagination.currentPage === 1}
-                className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-white/20 bg-white/5 text-sm font-medium text-white/70 hover:bg-white/10 disabled:opacity-50"
+                className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
                 Trước
               </button>
@@ -399,10 +399,10 @@ export default function PendingProductsManager() {
                   <button
                     key={page}
                     onClick={() => handlePageChange(page)}
-                    className={`relative inline-flex items-center px-4 py-2 border border-white/20 text-sm font-medium ${
+                    className={`relative inline-flex items-center px-4 py-2 border border-gray-200 text-sm font-medium ${
                       pagination.currentPage === page
-                        ? "z-10 bg-white/10 border-blue-400 text-blue-400"
-                        : "bg-white/5 text-white/70 hover:bg-white/10"
+                        ? "z-10 bg-indigo-50 border-indigo-500 text-indigo-600"
+                        : "bg-white text-gray-700 hover:bg-gray-50"
                     }`}
                   >
                     {page}
@@ -412,7 +412,7 @@ export default function PendingProductsManager() {
               <button
                 onClick={() => handlePageChange(pagination.currentPage + 1)}
                 disabled={pagination.currentPage === totalPages || total === 0}
-                className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-white/20 bg-white/5 text-sm font-medium text-white/70 hover:bg-white/10 disabled:opacity-50"
+                className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
                 Sau
               </button>
@@ -425,16 +425,16 @@ export default function PendingProductsManager() {
 
   return (
     <>
-      <div className="bg-white/10 backdrop-blur-md border-white/20 rounded-lg p-6">
+      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
         {/* Header */}
         <div className="flex items-center justify-between gap-4 mb-6">
-          <h1 className="text-xl font-bold text-white">Sản phẩm chờ duyệt</h1>
+          <h1 className="text-xl font-bold text-gray-900">Sản phẩm chờ duyệt</h1>
           <div className="flex items-center gap-2">
             <div className="relative flex-1 max-w-xl">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-white/60" />
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
               <input
                 type="text"
-                className="w-full pl-9 pr-4 py-2.5 bg-white/10 border-white/20 text-white placeholder:text-white/50 rounded focus:border-blue-400 focus:outline-none transition-colors"
+                className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 rounded focus:border-blue-400 focus:outline-none transition-colors"
                 placeholder="Tìm theo tiêu đề, chủ sở hữu, danh mục..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -444,30 +444,30 @@ export default function PendingProductsManager() {
               <select
                 value={sort.field}
                 onChange={(e) => handleSort(e.target.value as SortField)}
-                className="px-3 py-2 bg-white/10 border-white/20 rounded text-white/70 focus:border-blue-400 focus:outline-none"
+                className="px-3 py-2 bg-gray-50 border-gray-200 rounded text-gray-700 focus:border-blue-400 focus:outline-none"
               >
                 <option
                   value="title"
-                  style={{ backgroundColor: "#111827", color: "white" }}
+                  style={{ backgroundColor: "white", color: "#111827" }}
                 >
                   Tiêu đề
                 </option>
                 <option
                   value="createdAt"
-                  style={{ backgroundColor: "#111827", color: "white" }}
+                  style={{ backgroundColor: "white", color: "#111827" }}
                 >
                   Ngày tạo
                 </option>
                 <option
                   value="basePrice"
-                  style={{ backgroundColor: "#111827", color: "white" }}
+                  style={{ backgroundColor: "white", color: "#111827" }}
                 >
                   Giá cơ bản
                 </option>
               </select>
               <button
                 onClick={() => handleSort(sort.field)}
-                className="p-2 bg-white/10 border-white/20 rounded hover:bg-white/5 text-white/70 transition-colors"
+                className="p-2 bg-gray-50 border-gray-200 rounded hover:bg-gray-100 text-gray-700 transition-colors"
               >
                 <ArrowUpDown
                   size={16}
@@ -479,43 +479,43 @@ export default function PendingProductsManager() {
         </div>
 
         {/* Product Table */}
-        <div className="overflow-x-auto rounded-lg border border-white/10 bg-white/10">
+        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
           {loading ? (
             <div className="flex justify-center items-center py-16">
-              <Loader2 className="animate-spin h-8 w-8 text-blue-400" />
+              <Loader2 className="animate-spin h-8 w-8 text-blue-600" />
             </div>
           ) : filteredProducts.length > 0 ? (
-            <table className="min-w-full divide-y divide-white/10">
-              <thead className="bg-white/5">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                     Hình ảnh
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                     Tiêu đề
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                     Chủ sở hữu
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                     Giá
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                     Ngày tạo
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                     Trạng thái
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-white/70 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
                     Hành động
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white/5 divide-y divide-white/10">
+              <tbody className="bg-white divide-y divide-gray-200">
                 {filteredProducts.map((product) => (
                   <tr
                     key={product.id}
-                    className="hover:bg-white/5 transition-colors"
+                    className="hover:bg-gray-50 transition-colors"
                   >
                     <td className="px-4 py-4 whitespace-nowrap">
                       <div className="relative">
@@ -527,7 +527,7 @@ export default function PendingProductsManager() {
                             alt={product.title || "Product thumbnail"}
                             width={48}
                             height={48}
-                            className="h-12 w-12 object-cover rounded border border-white/20"
+                            className="h-12 w-12 object-cover rounded border border-gray-200"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
                               const sibling =
@@ -540,7 +540,7 @@ export default function PendingProductsManager() {
                           />
                         ) : null}
                         <div
-                          className={`h-12 w-12 bg-white/10 rounded border border-white/20 flex items-center justify-center transition-all ${
+                          className={`h-12 w-12 bg-gray-100 rounded border border-gray-200 flex items-center justify-center transition-all ${
                             product.thumbnailUrl
                               ? "absolute inset-0 opacity-0"
                               : ""
@@ -549,34 +549,34 @@ export default function PendingProductsManager() {
                             display: product.thumbnailUrl ? "none" : "flex",
                           }}
                         >
-                          <Package size={16} className="text-white/50" />
+                          <Package size={16} className="text-gray-400" />
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap max-w-48">
-                      <div className="text-sm font-medium text-white truncate">
+                      <div className="text-sm font-medium text-gray-900 truncate">
                         {product.title}
                       </div>
-                      <div className="text-xs text-white/70 truncate">
+                      <div className="text-xs text-gray-600 truncate">
                         {product.categoryName}
                       </div>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap max-w-32">
-                      <div className="text-sm text-white truncate">
+                      <div className="text-sm text-gray-900 truncate">
                         {product.ownerName || product.ownerId}
                       </div>
                     </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-sm text-white">
+                    <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                       {product.basePrice.toLocaleString()} {product.currency}/
                       {product.priceUnitName}
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap max-w-32">
-                      <div className="text-sm text-white/70 truncate">
+                      <div className="text-sm text-gray-600 truncate">
                         {product.createdAt}
                       </div>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
-                      <span className="text-xs font-semibold px-3 py-1 rounded-full bg-yellow-900/20 text-yellow-400 border border-yellow-400/30">
+                      <span className="text-xs font-semibold px-3 py-1 rounded-full bg-yellow-100 text-yellow-800 border border-yellow-300">
                         Chờ duyệt
                       </span>
                     </td>
@@ -584,7 +584,7 @@ export default function PendingProductsManager() {
                       <div className="flex justify-end items-center gap-2">
                         <button
                           onClick={() => viewDetails(product.id)}
-                          className="p-2 text-blue-400 hover:bg-white/10 rounded-lg transition-colors"
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                           title="Xem chi tiết"
                           disabled={loading || detailsLoading}
                         >
@@ -592,7 +592,7 @@ export default function PendingProductsManager() {
                         </button>
                         <button
                           onClick={() => handleApprove(product)}
-                          className="p-2 text-emerald-400 hover:bg-white/10 rounded-lg transition-colors"
+                          className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                           title="Duyệt"
                           disabled={loading}
                         >
@@ -600,7 +600,7 @@ export default function PendingProductsManager() {
                         </button>
                         <button
                           onClick={() => handleReject(product)}
-                          className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           title="Từ chối"
                           disabled={loading}
                         >
@@ -613,7 +613,7 @@ export default function PendingProductsManager() {
               </tbody>
             </table>
           ) : (
-            <div className="text-center py-16 text-white/60">
+            <div className="text-center py-16 text-gray-600">
               <Package size={48} className="mx-auto mb-4 opacity-50" />
               <p>Không tìm thấy sản phẩm chờ duyệt nào</p>
             </div>
@@ -632,25 +632,25 @@ export default function PendingProductsManager() {
 
       {/* Reject Modal*/}
       {showRejectModal && selectedProduct && (
-        <div className="fixed inset-0 bg-black/50 z-50 p-4 flex items-center justify-center">
-          <div className="bg-white/10 backdrop-blur-md border-white/20 rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white/10 border-b border-white/20 px-6 py-4 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-white">Từ chối sản phẩm</h2>
+        <div className="fixed inset-0 bg-gray-900/50 z-50 p-4 flex items-center justify-center">
+          <div className="bg-white border border-gray-200 rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto shadow-lg">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-900">Từ chối sản phẩm</h2>
               <button
                 onClick={() => setShowRejectModal(false)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <X size={20} className="text-white/70" />
+                <X size={20} className="text-gray-600" />
               </button>
             </div>
             <div className="p-6 space-y-5">
-              <p className="text-white/70">Sản phẩm: {selectedProduct.title}</p>
+              <p className="text-gray-600">Sản phẩm: {selectedProduct.title}</p>
               <div>
-                <label className="block text-sm font-semibold text-white/70 mb-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Lý do từ chối *
                 </label>
                 <textarea
-                  className="w-full px-4 py-2.5 bg-white/10 border-white/20 rounded focus:border-red-400 focus:outline-none transition-colors resize-none text-white"
+                  className="w-full px-4 py-2.5 bg-gray-50 border-gray-200 rounded focus:border-red-400 focus:outline-none transition-colors resize-none text-gray-900"
                   placeholder="Nhập lý do từ chối..."
                   rows={4}
                   value={formData.reason}
@@ -660,10 +660,10 @@ export default function PendingProductsManager() {
                 />
               </div>
             </div>
-            <div className="sticky bottom-0 bg-white/5 border-t border-white/20 px-6 py-4 flex justify-end gap-3">
+            <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-end gap-3">
               <button
                 onClick={() => setShowRejectModal(false)}
-                className="px-5 py-2.5 bg-white/10 border-white/20 text-white/70 rounded font-semibold hover:bg-white/5 transition-colors"
+                className="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded font-semibold hover:bg-gray-50 transition-colors"
                 disabled={loading}
               >
                 <X size={16} className="inline mr-2" /> Hủy
@@ -683,24 +683,24 @@ export default function PendingProductsManager() {
 
       {/* Confirm Approve Modal*/}
       {showConfirmApprove && (
-        <div className="fixed inset-0 bg-black/50 z-50 p-4 flex items-center justify-center">
-          <div className="bg-white/10 backdrop-blur-md border-white/20 rounded-lg w-full max-w-md">
-            <div className="sticky top-0 bg-white/10 border-b border-white/20 px-6 py-4 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-white">{confirmTitle}</h2>
+        <div className="fixed inset-0 bg-gray-900/50 z-50 p-4 flex items-center justify-center">
+          <div className="bg-white border border-gray-200 rounded-lg w-full max-w-md shadow-lg">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-900">{confirmTitle}</h2>
               <button
                 onClick={() => setShowConfirmApprove(false)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <X size={20} className="text-white/70" />
+                <X size={20} className="text-gray-600" />
               </button>
             </div>
             <div className="p-6">
-              <p className="text-white/70 text-sm">{confirmMessage}</p>
+              <p className="text-gray-600 text-sm">{confirmMessage}</p>
             </div>
-            <div className="sticky bottom-0 bg-white/5 border-t border-white/20 px-6 py-4 flex justify-end gap-3">
+            <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-end gap-3">
               <button
                 onClick={() => setShowConfirmApprove(false)}
-                className="px-5 py-2.5 bg-white/10 border-white/20 text-white/70 rounded font-semibold hover:bg-white/5 transition-colors"
+                className="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded font-semibold hover:bg-gray-50 transition-colors"
                 disabled={loading}
               >
                 Hủy

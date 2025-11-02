@@ -86,6 +86,8 @@ export interface UserProfile {
   reputationScore: number;
   points: number;
   role: string;
+  isDeleted?: boolean;
+  isActive?: boolean;
   wallet?: {
     currency: string;
     balance: number;

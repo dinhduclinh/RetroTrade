@@ -34,6 +34,15 @@ module.exports.login = async (req, res) => {
         //     });
         // }
 
+        // Check if account is locked
+        if (user.isDeleted || !user.isActive) {
+            return res.json({
+                code: 403,
+                message: "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên để được hỗ trợ.",
+                isBanned: true
+            });
+        }
+
         if (!user.isEmailConfirmed) {
             return res.json({
                 code: 400,
@@ -82,7 +91,7 @@ module.exports.login = async (req, res) => {
 module.exports.loginWithGoogle = async (req, res) => {
     try {
         const { email, avatarUrl, fullName } = req.body;
-        const existingUser = await User.findOne({ email: email });
+        let existingUser = await User.findOne({ email: email });
         if (!existingUser) {
             const newUser = await User.create({
                 email: email,
@@ -96,6 +105,16 @@ module.exports.loginWithGoogle = async (req, res) => {
             existingUser = newUser.toObject();
             delete existingUser.passwordHash;
             delete existingUser.passwordSalt;
+        }
+
+        // Check if account is locked
+        const user = await User.findById(existingUser._id);
+        if (user && (user.isDeleted || !user.isActive)) {
+            return res.json({
+                code: 403,
+                message: "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên để được hỗ trợ.",
+                isBanned: true
+            });
         }
         const dataToken = {
             _id: existingUser._id,
@@ -138,6 +157,16 @@ module.exports.loginWithFacebook = async (req, res) => {
             existingUser = newUser.toObject();
             delete existingUser.passwordHash;
             delete existingUser.passwordSalt;
+        }
+
+        // Check if account is locked
+        const user = await User.findById(existingUser._id);
+        if (user && (user.isDeleted || !user.isActive)) {
+            return res.json({
+                code: 403,
+                message: "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên để được hỗ trợ.",
+                isBanned: true
+            });
         }
         const dataToken = {
             _id: existingUser._id,

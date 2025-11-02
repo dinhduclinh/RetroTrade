@@ -81,9 +81,9 @@ export function ModeratorStats() {
         {stats.map((stat, index) => {
           const Icon = stat.icon;
           return (
-            <Card key={index} className="bg-white/10 backdrop-blur-md border-white/20">
+            <Card key={index} className="bg-white border border-gray-200 shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-white/70">
+                <CardTitle className="text-sm font-medium text-gray-600">
                   {stat.title}
                 </CardTitle>
                 <div className={`p-2 rounded-lg ${stat.bgColor}`}>
@@ -91,10 +91,10 @@ export function ModeratorStats() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-white">{stat.value}</div>
+                <div className="text-2xl font-bold text-gray-900">{stat.value}</div>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-green-500">{stat.change}</span>
-                  <span className="text-xs text-white/50">{stat.description}</span>
+                  <span className="text-xs text-green-600">{stat.change}</span>
+                  <span className="text-xs text-gray-500">{stat.description}</span>
                 </div>
               </CardContent>
             </Card>
@@ -103,32 +103,32 @@ export function ModeratorStats() {
       </div>
 
       {/* Recent Activities */}
-      <Card className="bg-white/10 backdrop-blur-md border-white/20">
+      <Card className="bg-white border border-gray-200 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-white">Hoạt động gần đây</CardTitle>
+          <CardTitle className="text-gray-900">Hoạt động gần đây</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {activities.map((activity, index) => (
               <div
                 key={index}
-                className="flex items-start gap-4 p-3 rounded-lg hover:bg-white/5 transition-colors"
+                className="flex items-start gap-4 p-3 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <div className="mt-0.5">
                   {activity.type === "approved" && (
-                    <CheckCircle className="h-5 w-5 text-green-500" />
+                    <CheckCircle className="h-5 w-5 text-green-600" />
                   )}
                   {activity.type === "rejected" && (
-                    <AlertCircle className="h-5 w-5 text-red-500" />
+                    <AlertCircle className="h-5 w-5 text-red-600" />
                   )}
                   {activity.type === "pending" && (
-                    <Clock className="h-5 w-5 text-yellow-500" />
+                    <Clock className="h-5 w-5 text-yellow-600" />
                   )}
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-white">{activity.title}</p>
-                  <p className="text-xs text-white/70">{activity.description}</p>
-                  <p className="text-xs text-white/50 mt-1">{activity.time}</p>
+                  <p className="text-sm font-medium text-gray-900">{activity.title}</p>
+                  <p className="text-xs text-gray-600">{activity.description}</p>
+                  <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
                 </div>
               </div>
             ))}

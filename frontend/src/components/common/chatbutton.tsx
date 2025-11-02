@@ -1,23 +1,12 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store/redux_store";
-import { jwtDecode } from "jwt-decode";
 import Image from "next/image";
 import ChatBox from "./chat/ChatBox";
 import { Conversation, getConversations } from "@/services/messages/messages.api";
-
-interface DecodedToken {
-  email: string;
-  userGuid?: string;
-  avatarUrl?: string;
-  fullName?: string;
-  _id?: string;
-  role?: string;
-  exp: number;
-  iat: number;
-}
+import { decodeToken, getUserInitial } from "@/utils/jwtHelper";
 
 type ChatButtonProps = {
   badgeCount?: number;
@@ -28,45 +17,100 @@ const ChatFloatingButton: React.FC<ChatButtonProps> = ({ badgeCount = 0 }) => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [initialConversations, setInitialConversations] = useState<Conversation[]>([]);
 
-  // Decode user from token
-  const decodedUser = useMemo(() => {
-    if (typeof accessToken === "string" && accessToken.trim()) {
-      try {
-        const decoded = jwtDecode<DecodedToken>(accessToken);
-        return decoded;
-      } catch (error) {
-        console.error("Invalid token:", error);
-        return null;
-      }
-    }
-    return null;
-  }, [accessToken]);
+  // Decode user from token with memoization
+  const decodedUser = useMemo(() => decodeToken(accessToken), [accessToken]);
 
-  const handleToggleChat = () => {
-    setIsChatOpen(!isChatOpen);
-  };
+  // Calculate total unread messages count from all conversations
+  const totalUnreadCount = useMemo(() => {
+    const total = initialConversations.reduce((sum, conversation) => {
+      return sum + (conversation.unreadCount || 0);
+    }, 0);
+    return total;
+  }, [initialConversations]);
+
+  // Use computed unread count or fallback to badgeCount prop
+  const displayBadgeCount = totalUnreadCount > 0 ? totalUnreadCount : badgeCount;
+
+  const handleToggleChat = useCallback(() => {
+    setIsChatOpen((prev) => !prev);
+  }, []);
+
+  const handleCloseChat = useCallback(() => {
+    setIsChatOpen(false);
+  }, []);
+
+  // Load conversations function
+  const loadConversations = useCallback(async () => {
+    if (!decodedUser) return;
+
+    try {
+      const res = await getConversations();
+      
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.data) {
+          setInitialConversations(Array.isArray(data.data) ? data.data : []);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load conversations:", error);
+      setInitialConversations([]);
+    }
+  }, [decodedUser]);
 
   // Prefetch recent conversations so history is ready when opening the chat
   useEffect(() => {
+    if (!decodedUser) return;
+
     let mounted = true;
+    let abortController: AbortController | null = null;
+    let refreshInterval: NodeJS.Timeout | null = null;
+
     const loadRecent = async () => {
-      if (!decodedUser) return;
+      if (!decodedUser || isChatOpen) return; // Don't load if chat is already open
+      
       try {
-        const res = await getConversations();
-        if (!mounted) return;
-        if (res.ok) {
-          const data = await res.json();
-          setInitialConversations(data.data || []);
+        abortController = new AbortController();
+        await loadConversations();
+      } catch (error) {
+        if (mounted) {
+          console.error("Failed to load conversations:", error);
         }
-      } catch {
-        // ignore
       }
     };
-    loadRecent();
+
+    // Load initially when chat is closed
+    if (!isChatOpen) {
+      loadRecent();
+      
+      // Refresh conversations every 30 seconds to update unread count
+      refreshInterval = setInterval(() => {
+        if (mounted && !isChatOpen) {
+          loadRecent();
+        }
+      }, 30000); // 30 seconds
+    }
+
     return () => {
       mounted = false;
+      abortController?.abort();
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
     };
-  }, [decodedUser]);
+  }, [decodedUser, isChatOpen, loadConversations]);
+
+  // Refresh conversations when chat closes to update unread count
+  useEffect(() => {
+    if (!isChatOpen && decodedUser) {
+      // Small delay to ensure chat is fully closed
+      const timeoutId = setTimeout(() => {
+        loadConversations();
+      }, 500);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isChatOpen, decodedUser, loadConversations]);
 
   // Don't show button if user not logged in
   if (!decodedUser) {
@@ -108,18 +152,19 @@ const ChatFloatingButton: React.FC<ChatButtonProps> = ({ badgeCount = 0 }) => {
                   height={32}
                   className="rounded-full"
                   style={{ objectFit: 'cover' }}
+                  priority={false}
                 />
               ) : (
                 <span className="text-white text-sm font-semibold">
-                  {decodedUser?.fullName?.charAt(0).toUpperCase() || decodedUser?.email?.charAt(0).toUpperCase() || "U"}
+                  {getUserInitial(decodedUser)}
                 </span>
               )}
             </div>
 
-            {/* Badge */}
-            {badgeCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-gray-800">
-                {badgeCount > 9 ? "9+" : badgeCount}
+            {/* Badge - Show unread message count */}
+            {displayBadgeCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 px-1 flex items-center justify-center border-2 border-gray-800 animate-pulse">
+                {displayBadgeCount > 99 ? "99+" : displayBadgeCount > 9 ? "9+" : displayBadgeCount}
               </span>
             )}
           </button>
@@ -127,7 +172,11 @@ const ChatFloatingButton: React.FC<ChatButtonProps> = ({ badgeCount = 0 }) => {
       )}
 
       {/* Chat Popup */}
-      <ChatBox isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} initialConversations={initialConversations} />
+      <ChatBox 
+        isOpen={isChatOpen} 
+        onClose={handleCloseChat} 
+        initialConversations={initialConversations} 
+      />
     </>
   );
 };
