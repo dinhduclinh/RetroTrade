@@ -12,10 +12,9 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@payos/node": "^2.0.0",
-    "@tensorflow/tfjs-node": "^4.15.0",
     "bcrypt": "^6.0.0",
-    "canvas": "^2.11.2",
     "body-parser": "^2.2.0",
+    "canvas": "^2.11.2",
     "cloudinary": "^1.41.3",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
