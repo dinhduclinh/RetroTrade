@@ -49,25 +49,31 @@ export default function AddToCartButton({
     })
   }
 
-  // Close popup modal
+  // Close popup modal with a small delay to allow animations to complete
   const closePopup = () => {
     setPopupModal(prev => ({ ...prev, isOpen: false }))
+    // Clear the message after animation completes to prevent it from reappearing
+    setTimeout(() => {
+      setPopupModal(prev => ({
+        ...prev,
+        title: "",
+        message: ""
+      }));
+    }, 300);
   }
 
   const handleAddToCart = async () => {
+    // Reset any previous error states
+    setPopupModal(prev => ({ ...prev, isOpen: false }));
+    
     if (!accessToken) {
-      showPopup("error", "Lỗi", "Vui lòng đăng nhập để thêm vào giỏ hàng")
-      return
+      showPopup("error", "Lỗi", "Vui lòng đăng nhập để thêm vào giỏ hàng");
+      return;
     }
 
-    if (availableQuantity === 0) {
-      showPopup("error", "Sản phẩm không khả dụng", "Sản phẩm hiện tại không khả dụng")
-      return
-    }
-
-    if (availableQuantity < 1) {
-      showPopup("error", "Số lượng không đủ", `Hiện tại chỉ có ${availableQuantity} sản phẩm`)
-      return
+    if (availableQuantity <= 0) {
+      showPopup("error", "Sản phẩm không khả dụng", "Sản phẩm hiện tại đã hết hàng");
+      return;
     }
 
     try {
@@ -125,13 +131,8 @@ export default function AddToCartButton({
     }
   }
 
-  // Don't show button if user is not logged in
-  if (!accessToken) {
-    return null
-  }
-
-  // Don't show button if item is not available
-  if (availableQuantity === 0) {
+  // Show disabled button if not logged in or item is not available
+  if (!accessToken || availableQuantity === 0) {
     return (
       <Button
         size={size}
