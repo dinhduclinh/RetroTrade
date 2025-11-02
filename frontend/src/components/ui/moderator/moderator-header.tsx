@@ -5,6 +5,7 @@ import { Bell, Search, User, LogOut, Settings, Activity, Home } from "lucide-rea
 import { Button } from "@/components/ui/common/button"
 import { Input } from "@/components/ui/common/input"
 import { Badge } from "@/components/ui/common/badge"
+import { NotificationIcon } from "@/components/ui/common/notification-icon"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,7 +35,6 @@ export function ModeratorHeader() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userInfo, setUserInfo] = useState<DecodedToken | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [notifications] = useState(3); // Mock notification count
   const router = useRouter();
   const dispatch = useDispatch();
 
@@ -97,26 +97,26 @@ export function ModeratorHeader() {
   };
 
   return (
-    <header className="bg-white/10 backdrop-blur-md border-b border-white/20 px-4 lg:px-8 py-4 sticky top-0 z-10">
+    <header className="bg-white border-b border-gray-200 px-4 lg:px-8 py-4 sticky top-0 z-10 shadow-sm">
       <div className="flex items-center justify-between">
         {/* Left side - Title and breadcrumb */}
         <div className="flex items-center gap-4">
           <div className="hidden lg:block">
-            <h1 className="text-2xl font-bold text-white">Dashboard Moderator</h1>
-            <p className="text-white/70 text-sm">Quản lý và kiểm duyệt nội dung</p>
+            <h1 className="text-2xl font-bold text-gray-900">Dashboard Moderator</h1>
+            <p className="text-gray-600 text-sm">Quản lý và kiểm duyệt nội dung</p>
           </div>
           <div className="lg:hidden">
-            <h1 className="text-lg font-bold text-white">Moderator</h1>
+            <h1 className="text-lg font-bold text-gray-900">Moderator</h1>
           </div>
         </div>
 
         {/* Center - Search */}
         <div className="flex-1 max-w-md mx-4">
           <form onSubmit={handleSearch} className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/50 w-4 h-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input
               placeholder="Tìm kiếm người dùng, nội dung..."
-              className="pl-10 pr-4 bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:bg-white/15 focus:border-white/30 transition-all duration-200"
+              className="pl-10 pr-4 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 focus:bg-white focus:border-indigo-300 transition-all duration-200"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -126,27 +126,15 @@ export function ModeratorHeader() {
         {/* Right side - Actions and user menu */}
         <div className="flex items-center gap-3">
           {/* Activity indicator */}
-          <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-white/10 rounded-lg">
-            <Activity className="w-4 h-4 text-green-400" />
-            <span className="text-sm text-white/70">Online</span>
+          <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg border border-gray-200">
+            <Activity className="w-4 h-4 text-green-600" />
+            <span className="text-sm text-gray-700">Online</span>
           </div>
 
           {/* Notifications */}
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="relative text-white hover:bg-white/10 transition-all duration-200 hover:scale-105"
-          >
-            <Bell className="w-5 h-5" />
-            {notifications > 0 && (
-              <Badge 
-                variant="destructive" 
-                className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
-              >
-                {notifications}
-              </Badge>
-            )}
-          </Button>
+          <div className="text-gray-700">
+            <NotificationIcon className="text-gray-700 hover:text-gray-900" />
+          </div>
 
           {/* User menu */}
           {isLoggedIn && userInfo ? (
@@ -156,9 +144,9 @@ export function ModeratorHeader() {
                   variant="ghost"
                   className="relative h-10 w-10 rounded-full hover:scale-105 transition-all duration-200"
                 >
-                  <Avatar className="h-10 w-10 ring-2 ring-white/20 hover:ring-white/40 transition-all duration-200">
+                  <Avatar className="h-10 w-10 ring-2 ring-gray-200 hover:ring-gray-300 transition-all duration-200">
                     <AvatarImage src={userInfo.avatarUrl ?? ""} alt={userInfo.email} />
-                    <AvatarFallback className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-semibold">
+                    <AvatarFallback className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-semibold">
                       {(userInfo.fullName?.charAt(0).toUpperCase() || userInfo.email?.charAt(0).toUpperCase()) ?? ""}
                     </AvatarFallback>
                   </Avatar>
@@ -214,10 +202,10 @@ export function ModeratorHeader() {
             </DropdownMenu>
           ) : (
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full flex items-center justify-center">
                 <User className="w-4 h-4 text-white" />
               </div>
-              <span className="text-white font-medium hidden sm:block">Moderator</span>
+              <span className="text-gray-900 font-medium hidden sm:block">Moderator</span>
             </div>
           )}
         </div>

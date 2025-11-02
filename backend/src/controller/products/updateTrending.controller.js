@@ -1,5 +1,5 @@
 const Item = require("../../models/Product/Item.model"); 
-const Order = require("../../models/Order.model");
+const Order = require("../../models/Order/Order.model");
 const Favorites = require("../../models/Product/Favorites.model"); 
 
 const updateTrendingItems = async () => {

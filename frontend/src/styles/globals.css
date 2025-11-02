@@ -37,6 +37,35 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --moderator-sidebar-width: 288px;
+}
+
+/* Moderator sidebar content area */
+.moderator-content-area {
+  margin-left: 0;
+  transition: margin-left 300ms ease-in-out;
+}
+
+/* Animation for scale-in effect */
+@keyframes scale-in {
+  from {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out;
+}
+
+@media (min-width: 1024px) {
+  .moderator-content-area {
+    margin-left: var(--moderator-sidebar-width, 288px) !important;
+  }
 }
 
 .dark {

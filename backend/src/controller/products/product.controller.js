@@ -1214,6 +1214,13 @@ const getProductById = async (req, res) => {
       Tags: fullTags,
     };
 
+    if (item.StatusId === 3) {
+      const reject = await ItemReject.findOne({ ItemId: id }).lean();
+      if (reject) {
+        productWithDetails.rejectReason = reject.RejectReason;
+      }
+    }
+
     success = true;
 
     res.status(200).json({

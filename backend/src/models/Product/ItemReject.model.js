@@ -20,6 +20,5 @@ const itemRejectSchema = new mongoose.Schema(
   }
 );
 
-itemRejectSchema.index({ ItemId: 1 });
 
 module.exports = mongoose.model("ItemReject", itemRejectSchema);

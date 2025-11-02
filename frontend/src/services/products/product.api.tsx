@@ -75,6 +75,33 @@ export const rejectProduct = async (id: string, reason?: string): Promise<Respon
   return await instance.put(`/products/pending/${id}/reject`, { reason });
 };
 
+// Types for top highlight products
+export interface TopHighlightProduct {
+  _id: string;
+  Title: string;
+  ownerName: string;
+  categoryName: string;
+  BasePrice: number;
+  Currency: string;
+  ViewCount: number;
+  FavoriteCount: number;
+  RentCount: number;
+  score: number;
+  IsHighlighted: boolean;
+  CreatedAt: string;
+  thumbnailUrl?: string;
+}
+
+export interface HighlightResponse {
+  success: boolean;
+  message?: string;
+  data: TopHighlightProduct[];
+}
+
+export const getHighlightedProducts = async (): Promise<Response> => {
+  return await instance.get("/products/products/public/highlighted");
+};
+
 export const getTopProductsForHighlight = async (): Promise<Response> => {
   return await instance.get("/products/top-for-highlight");
 };
@@ -85,6 +112,21 @@ export const toggleProductHighlight = async (id: string, isHighlighted?: boolean
 };
 
 //product public
+
+export const addToFavorites = async (productId: string): Promise<Response> => {
+  return await instance.post(`/products/${productId}/favorite`);
+};
+
+export const removeFromFavorites = async (
+  productId: string
+): Promise<Response> => {
+  return await instance.delete(`/products/${productId}/favorite`);
+};
+
+export const getFavorites = async (): Promise<Response> => {
+  return await instance.get("/products/favorites");
+};
+
 export const getTopViewedItemsByOwner = async (ownerId: string, limit: number = 4) => {
   try {
     const res = await instance.get(`/products/owner/${ownerId}/top-viewed?limit=${limit}`);
@@ -164,5 +206,24 @@ export const getAllCategories = async () => {
     console.error("Error fetching all categories:", error);
     // Fallback to empty array if categories endpoint not ready
     return { data: [] };
+  }
+};
+export const getPublicStoreByUserGuid = async (
+  userGuid: string,
+  params?: { page?: number; limit?: number }
+) => {
+  try {
+    const query = new URLSearchParams();
+    if (params?.page) query.set("page", String(params.page));
+    if (params?.limit) query.set("limit", String(params.limit));
+    const qs = query.toString();
+    const res = await instance.get(`/products/store/${userGuid}${qs ? `?${qs}` : ""}`);
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    return await res.json();
+  } catch (error) {
+    console.error("Error fetching public store by userGuid:", error);
+    return { data: { owner: null, items: [], total: 0 } } as any;
   }
 };

@@ -20,6 +20,7 @@ export interface CartItem {
     fullName: string;
     email: string;
     avatarUrl?: string;
+    userGuid?: string;
   };
   condition: string;
   priceUnit: string;

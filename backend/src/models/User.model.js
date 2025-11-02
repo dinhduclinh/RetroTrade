@@ -8,9 +8,9 @@ const userSchema = new mongoose.Schema({
     },
     email: {
         type: String,
-        required: false, // Not required, but must be unique if provided
+        required: false, 
         unique: true,
-        sparse: true, // Allows multiple null values
+        sparse: true, 
         lowercase: true,
         trim: true
     },
@@ -46,13 +46,6 @@ const userSchema = new mongoose.Schema({
         submittedAt: { type: Date, default: Date.now },
         reviewedAt: Date,
         rejectionReason: String
-    }],
-    externalLogins: [{
-        provider: String,
-        providerKey: String,
-        email: String,
-        accessToken: String,
-        refreshToken: String
     }]
 }, {
     timestamps: true
@@ -60,7 +53,20 @@ const userSchema = new mongoose.Schema({
 
 userSchema.index({ reputationScore: -1 });
 
-// Add compound index to handle phone + email combinations better
+// Indexes for filtering
+userSchema.index({ isDeleted: 1, createdAt: -1 }); // For getAllUsers with pagination
+userSchema.index({ role: 1, isDeleted: 1, createdAt: -1 }); // For role filter
+userSchema.index({ isDeleted: 1, role: 1, createdAt: -1 }); // Alternative compound index
+userSchema.index({ email: 1 }); // For email search
+userSchema.index({ fullName: 1 }); // For name search
+userSchema.index({ isEmailConfirmed: 1, isPhoneConfirmed: 1, isIdVerified: 1 }); // For status filter
+
+// Text index for full-text search on email, fullName, displayName
+userSchema.index({ email: 'text', fullName: 'text', displayName: 'text' });
+
+// Compound index for common queries: isDeleted + role + createdAt
+userSchema.index({ isDeleted: 1, role: 1, createdAt: -1 });
+
 userSchema.index({ phone: 1, email: 1 }, { 
     unique: true, 
     sparse: true,
@@ -72,7 +78,7 @@ userSchema.index({ phone: 1, email: 1 }, {
     }
 });
 
-// Custom validation to ensure user has either email or phone
+
 userSchema.pre('save', function(next) {
     if (!this.email && !this.phone) {
         return next(new Error('User must have either email or phone number'));

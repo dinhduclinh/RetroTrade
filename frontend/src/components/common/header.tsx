@@ -4,7 +4,9 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { Button } from "@/components/ui/common/button";
-import { LogOut, User, Package, Settings, Shield, Crown, Moon, Sun, Wallet } from "lucide-react";
+import { LogOut, User, Package, Shield, Crown, Moon, Sun, Wallet, Bookmark, LayoutDashboard} from "lucide-react";
+import { NotificationIcon } from "@/components/ui/common/notification-icon";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -111,7 +113,7 @@ export function Header() {
   };
 
   const handleGoToOrders = () => {
-    router.push('/orders');
+    router.push('/order');
   };
 
   const handleGoToAdminPanel = () => {
@@ -123,8 +125,12 @@ export function Header() {
   };
 
   const handleGoToOwnerPanel = () => {
-    router.push('/owner/myproducts');
+    router.push('/owner');
   };
+
+    const handleGoToMyfavirite = () => {
+      router.push("/products/myfavorite");
+    };
 
   // Render menu items dựa trên role
   const renderRoleSpecificMenuItems = () => {
@@ -134,7 +140,7 @@ export function Header() {
     const items = [];
 
     switch (role) {
-      case 'admin':
+      case "admin":
         items.push(
           <DropdownMenuItem
             key="admin-panel"
@@ -146,7 +152,7 @@ export function Header() {
           </DropdownMenuItem>
         );
         break;
-      case 'moderator':
+      case "moderator":
         items.push(
           <DropdownMenuItem
             key="moderator-panel"
@@ -158,15 +164,15 @@ export function Header() {
           </DropdownMenuItem>
         );
         break;
-      case 'owner':
+      case "owner":
         items.push(
           <DropdownMenuItem
             key="owner-panel"
             className="cursor-pointer"
             onClick={handleGoToOwnerPanel}
           >
-            <Settings className="mr-2 h-4 w-4" />
-            <span>Sản phẩm của tôi</span>
+            <LayoutDashboard className="mr-2 h-4 w-4" />
+            <span>Trang quản lý</span>
           </DropdownMenuItem>
         );
         break;
@@ -176,7 +182,7 @@ export function Header() {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-100 dark:border-gray-800">
+    <header className="fixed top-0 left-0 right-0 z-[150] bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-100 dark:border-gray-800">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
@@ -217,28 +223,31 @@ export function Header() {
             </Link>
           </nav>
 
-          <div className="flex items-center gap-4">
-            {/* Giỏ hàng - chỉ hiển thị khi đã đăng nhập */}
+          <div className="flex items-center gap-4 z-[100]">
+           
             {isLoggedIn && (
-              <Button
-                onClick={() => router.push("/auth/cartitem")}
-                variant="ghost"
-                size="icon"
-                className="relative"
-              >
-                <Image
-                  src="/market.png"
-                  alt="Retro Trade Logo"
-                  width={25}
-                  height={25}
-                  className="rounded-lg"
-                />
-                {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                    {cartCount}
-                  </span>
-                )}
-              </Button>
+              <>
+                <Button
+                  onClick={() => router.push("/auth/cartitem")}
+                  variant="ghost"
+                  size="icon"
+                  className="relative"
+                >
+                  <Image
+                    src="/market.png"
+                    alt="Retro Trade Logo"
+                    width={25}
+                    height={25}
+                    className="rounded-lg"
+                  />
+                  {cartCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                      {cartCount}
+                    </span>
+                  )}
+                </Button>
+                <NotificationIcon />
+              </>
             )}
 
             {isLoggedIn && userInfo ? (
@@ -256,7 +265,7 @@ export function Header() {
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuContent className="w-56 z-[200]" align="end" forceMount>
                   <div className="flex flex-col space-y-1 p-2">
                     <p className="text-sm font-medium leading-none">
                       {userInfo.email ?? ""}
@@ -297,6 +306,14 @@ export function Header() {
                   >
                     <Package className="mr-2 h-4 w-4" />
                     <span>Đơn hàng của tôi</span>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    className="cursor-pointer"
+                    onClick={handleGoToMyfavirite}
+                  >
+                    <Bookmark className="mr-2 h-4 w-4" />
+                    <span>Danh sách yêu thích</span>
                   </DropdownMenuItem>
 
                   {(userInfo?.role === 'renter' || userInfo?.role === 'owner') && (

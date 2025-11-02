@@ -4,6 +4,7 @@ const { generateSalt, hashPasswordWithSalt, comparePasswordWithSalt } = require(
 const { sendEmail } = require("../../utils/sendEmail")
 const { generateOtp } = require("../../utils/generateOtp")
 const Otp = require("../../models/otp")
+const { createNotification } = require("../../middleware/createNotification")
 
 
 
@@ -33,6 +34,15 @@ module.exports.login = async (req, res) => {
         //     });
         // }
 
+        // Check if account is locked
+        if (user.isDeleted || !user.isActive) {
+            return res.json({
+                code: 403,
+                message: "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên để được hỗ trợ.",
+                isBanned: true
+            });
+        }
+
         if (!user.isEmailConfirmed) {
             return res.json({
                 code: 400,
@@ -51,14 +61,22 @@ module.exports.login = async (req, res) => {
         const accessToken = jwt.sign(dataToken, process.env.TOKEN_SECRET, { expiresIn: "7d" });
         const refreshToken = jwt.sign(dataToken, process.env.REFRESH_TOKEN_SECRET, { expiresIn: "7d" });
 
-        await User.findOneAndUpdate({ email: user.email }, { re_token: refreshToken }, { new: true });
+        // Update last login timestamp
+        await User.findOneAndUpdate(
+            { email: user.email }, 
+            { 
+                lastLoginAt: new Date(),
+                re_token: refreshToken 
+            }, 
+            { new: true }
+        );
 
         return res.json({
             code: 200,
             message: "Đăng nhập thành công",
             data: {
                 accessToken: accessToken,
-                refreshToken: refreshToken
+                refreshToken: refreshToken,
             }
         });
     } catch (error) {
@@ -73,7 +91,7 @@ module.exports.login = async (req, res) => {
 module.exports.loginWithGoogle = async (req, res) => {
     try {
         const { email, avatarUrl, fullName } = req.body;
-        const existingUser = await User.findOne({ email: email });
+        let existingUser = await User.findOne({ email: email });
         if (!existingUser) {
             const newUser = await User.create({
                 email: email,
@@ -88,6 +106,16 @@ module.exports.loginWithGoogle = async (req, res) => {
             delete existingUser.passwordHash;
             delete existingUser.passwordSalt;
         }
+
+        // Check if account is locked
+        const user = await User.findById(existingUser._id);
+        if (user && (user.isDeleted || !user.isActive)) {
+            return res.json({
+                code: 403,
+                message: "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên để được hỗ trợ.",
+                isBanned: true
+            });
+        }
         const dataToken = {
             _id: existingUser._id,
             email: existingUser.email,
@@ -98,7 +126,14 @@ module.exports.loginWithGoogle = async (req, res) => {
         }
         const accessToken = jwt.sign(dataToken, process.env.TOKEN_SECRET, { expiresIn: "7d" });
         const refreshToken = jwt.sign(dataToken, process.env.REFRESH_TOKEN_SECRET, { expiresIn: "7d" });
-        await User.findOneAndUpdate({ email: existingUser.email }, { re_token: refreshToken }, { new: true });
+        await User.findOneAndUpdate(
+            { email: existingUser.email }, 
+            { 
+                lastLoginAt: new Date(),
+                re_token: refreshToken 
+            }, 
+            { new: true }
+        );
         return res.json({ code: 200, message: "Đăng nhập bằng Google thành công", data: { accessToken: accessToken, refreshToken: refreshToken } });
     } catch (error) {
         return res.json({ code: 500, message: "Đăng nhập bằng Google thất bại", error: error.message });
@@ -123,6 +158,16 @@ module.exports.loginWithFacebook = async (req, res) => {
             delete existingUser.passwordHash;
             delete existingUser.passwordSalt;
         }
+
+        // Check if account is locked
+        const user = await User.findById(existingUser._id);
+        if (user && (user.isDeleted || !user.isActive)) {
+            return res.json({
+                code: 403,
+                message: "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên để được hỗ trợ.",
+                isBanned: true
+            });
+        }
         const dataToken = {
             _id: existingUser._id,
             email: existingUser.email,
@@ -133,7 +178,14 @@ module.exports.loginWithFacebook = async (req, res) => {
         }
         const accessToken = jwt.sign(dataToken, process.env.TOKEN_SECRET, { expiresIn: "7d" });
         const refreshToken = jwt.sign(dataToken, process.env.REFRESH_TOKEN_SECRET, { expiresIn: "7d" });
-        await User.findOneAndUpdate({ email: existingUser.email }, { re_token: refreshToken }, { new: true });
+        await User.findOneAndUpdate(
+            { email: existingUser.email }, 
+            { 
+                lastLoginAt: new Date(),
+                re_token: refreshToken 
+            }, 
+            { new: true }
+        );
         return res.json({ code: 200, message: "Đăng nhập bằng Facebook thành công", data: { accessToken: accessToken, refreshToken: refreshToken } });
     } catch (error) {
         return res.json({ code: 500, message: "Đăng nhập bằng Facebook thất bại", error: error.message });
@@ -215,6 +267,19 @@ module.exports.register = async (req, res) => {
 
         await sendEmail(email, subject, html);
 
+        // Create notification for successful registration
+        try {
+            await createNotification(
+                user._id,
+                "Registration Success",
+                "Chào mừng đến với RetroTrade!",
+                `Xin chào ${fullName}, cảm ơn bạn đã đăng ký tài khoản trên RetroTrade. Vui lòng xác minh email để tiếp tục sử dụng.`,
+                { registrationTime: new Date().toISOString(), email: email }
+            );
+        } catch (notificationError) {
+            console.error("Error creating registration notification:", notificationError);
+        }
+
         return res.json({
             code: 200,
             message: "Đăng ký thành công",
@@ -241,6 +306,20 @@ module.exports.verifyEmail = async (req, res) => {
             });
         }
         const user = await User.findOneAndUpdate({ email }, { isEmailConfirmed: true }, { new: true });
+
+        // Create notification for successful email verification
+        try {
+            await createNotification(
+                user._id,
+                "Email Verified",
+                "Email đã được xác minh",
+                `Xin chào ${user.fullName}, email của bạn đã được xác minh thành công. Bạn có thể sử dụng đầy đủ các tính năng của RetroTrade.`,
+                { verifiedAt: new Date().toISOString() }
+            );
+        } catch (notificationError) {
+            console.error("Error creating email verification notification:", notificationError);
+        }
+
         return res.json({
             code: 200,
             message: "Xác minh email tài khoản thành công",

@@ -1,340 +1,609 @@
-"use client"
+"use client";
 
-import { useEffect, useState, useCallback, useRef } from "react"
-import { useSelector, useDispatch } from "react-redux"
-import Link from "next/link"
-import { useRouter } from "next/router"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/common/card"
-import { Button } from "@/components/ui/common/button"
-import { Separator } from "@/components/ui/common/separator"
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/common/empty-state"
-import { ShoppingCart, Trash2, Plus, Minus, ArrowLeft, Zap, Loader2, ChevronRight, Home, Calendar, Edit3, Check, X } from "lucide-react"
-import { RootState, AppDispatch } from "@/store/redux_store"
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import Link from "next/link";
+import { useRouter } from "next/router";
+import { Button } from "@/components/ui/common/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/common/empty-state";
+import {
+  ShoppingCart,
+  Trash2,
+  Plus,
+  Minus,
+  ArrowLeft,
+  Loader2,
+  ChevronRight,
+  Home,
+  Calendar,
+  Edit3,
+  Check,
+  X,
+  Package,
+  CreditCard,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react";
+import { RootState, AppDispatch } from "@/store/redux_store";
 import {
   fetchCartItems,
   updateCartItemAction,
-  removeItemFromCartAction
-} from "@/store/cart/cartActions"
-import { setCartItems } from "@/store/cart/cartReducer"
-// CartItem type is imported from cartReducer but we use the one from API
-import PopupModal from "@/components/ui/common/PopupModal"
-import Image from "next/image"
+  removeItemFromCartAction,
+  clearCartAction,
+} from "@/store/cart/cartActions";
+import { setCartItems } from "@/store/cart/cartReducer";
+import PopupModal from "@/components/ui/common/PopupModal";
+import { getCurrentTax } from "@/services/tax/tax.api";
+
 
 export default function CartPage() {
-  const dispatch = useDispatch<AppDispatch>()
-  const router = useRouter()
-  const { items: cartItems, loading, error } = useSelector((state: RootState) => state.cart)
+  const dispatch = useDispatch<AppDispatch>();
+  const router = useRouter();
+  const {
+    items: cartItems,
+    loading,
+    error,
+  } = useSelector((state: RootState) => state.cart);
 
   // Popup modal state
   const [popupModal, setPopupModal] = useState({
     isOpen: false,
     type: "info" as "error" | "success" | "info",
     title: "",
-    message: ""
-  })
+    message: "",
+  });
+
+  // Confirm modal state
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+  });
 
   // Edit rental dates state
   const [editingDates, setEditingDates] = useState<{
     [cartItemId: string]: {
       rentalStartDateTime: string;
       rentalEndDateTime: string;
-    }
-  }>({})
+    };
+  }>({});
 
   // Loading state for individual items
-  const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set())
+  const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set());
+
+  // Selected items state for checkout
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+
+  // Tax rate state
+  const [taxRate, setTaxRate] = useState<number>(3); // Default 3%
 
   useEffect(() => {
-    dispatch(fetchCartItems())
-  }, [dispatch])
+    dispatch(fetchCartItems());
+  }, [dispatch]);
+
+  // Fetch tax rate
+  useEffect(() => {
+    const fetchTaxRate = async () => {
+      try {
+        const response = await getCurrentTax();
+        if (response.success && response.data) {
+          setTaxRate(response.data.taxRate);
+        }
+      } catch (error) {
+        console.error("Error fetching tax rate:", error);
+        // Keep default 3% if error
+      }
+    };
+    fetchTaxRate();
+  }, []);
+
+  // Initialize all items as selected when cart items change
+  useEffect(() => {
+    if (cartItems.length === 0) return;
+
+    const getDisplayKeyLocal = (item: (typeof cartItems)[0]) => {
+      if (item.rentalStartDate && item.rentalEndDate) {
+        return `${item.itemId}_${item.rentalStartDate}_${item.rentalEndDate}`;
+      }
+      return item._id;
+    };
+    const allItemKeys = new Set(
+      cartItems.map((item) => getDisplayKeyLocal(item))
+    );
+    setSelectedItems(allItemKeys);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartItems.length]); // Only depend on length to prevent unnecessary updates
 
   // Breadcrumb data
   const breadcrumbs = [
     { label: "Trang chủ", href: "/", icon: Home },
     { label: "Sản phẩm", href: "/products", icon: null },
-    { label: "Giỏ hàng", href: "/auth/cartitem", icon: ShoppingCart }
-  ]
+    { label: "Giỏ hàng", href: "/auth/cartitem", icon: ShoppingCart },
+  ];
 
   // Handle back navigation
   const handleGoBack = () => {
     if (window.history.length > 1) {
-      router.back()
+      router.back();
     } else {
-      router.push("/products")
+      router.push("/products");
     }
-  }
+  };
 
   // Show popup modal
-  const showPopup = useCallback((type: "error" | "success" | "info", title: string, message: string) => {
-    setPopupModal({
-      isOpen: true,
-      type,
-      title,
-      message
-    })
-  }, [])
+  const showPopup = useCallback(
+    (type: "error" | "success" | "info", title: string, message: string) => {
+      setPopupModal({
+        isOpen: true,
+        type,
+        title,
+        message,
+      });
+    },
+    []
+  );
 
   // Close popup modal
   const closePopup = useCallback(() => {
-    setPopupModal(prev => ({ ...prev, isOpen: false }))
-  }, [])
+    setPopupModal((prev) => ({ ...prev, isOpen: false }));
+  }, []);
+
+  // Show confirm modal
+  const showConfirmModal = useCallback(
+    (title: string, message: string, onConfirm: () => void) => {
+      setConfirmModal({
+        isOpen: true,
+        title,
+        message,
+        onConfirm,
+      });
+    },
+    []
+  );
+
+  // Close confirm modal
+  const closeConfirmModal = useCallback(() => {
+    setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+  }, []);
+
+  // Handle confirm
+  const handleConfirm = useCallback(() => {
+    confirmModal.onConfirm();
+    closeConfirmModal();
+  }, [confirmModal, closeConfirmModal]);
 
   // Remove item function
-  const removeItem = useCallback(async (cartItemId: string) => {
-    try {
-      await dispatch(removeItemFromCartAction(cartItemId))
-      showPopup("success", "Thành công", "Đã xóa sản phẩm khỏi giỏ hàng")
-    } catch {
-      showPopup("error", "Lỗi", "Có lỗi xảy ra khi xóa sản phẩm")
+  const removeItem = useCallback(
+    async (cartItemId: string) => {
+      try {
+        await dispatch(removeItemFromCartAction(cartItemId));
+        showPopup("success", "Thành công", "Đã xóa sản phẩm khỏi giỏ hàng");
+      } catch {
+        showPopup("error", "Lỗi", "Có lỗi xảy ra khi xóa sản phẩm");
+      }
+    },
+    [dispatch, showPopup]
+  );
+
+  // Remove all items function
+  const handleRemoveAllClick = useCallback(() => {
+    if (cartItems.length === 0) {
+      showPopup("info", "Thông báo", "Giỏ hàng của bạn đang trống");
+      return;
     }
-  }, [dispatch, showPopup])
+
+    showConfirmModal(
+      "Xác nhận xóa tất cả",
+      `Bạn có chắc chắn muốn xóa tất cả ${cartItems.length} sản phẩm khỏi giỏ hàng?`,
+      async () => {
+        try {
+          await dispatch(clearCartAction());
+          setSelectedItems(new Set());
+          showPopup("success", "Thành công", "Đã xóa tất cả sản phẩm khỏi giỏ hàng");
+        } catch {
+          showPopup("error", "Lỗi", "Có lỗi xảy ra khi xóa tất cả sản phẩm");
+        }
+      }
+    );
+  }, [cartItems.length, showConfirmModal, showPopup, dispatch]);
 
   // Update rental dates function
-  const updateRentalDates = useCallback(async (cartItemId: string, rentalStartDateTime: string, rentalEndDateTime: string) => {
-    // Validation
-    if (!rentalStartDateTime || !rentalEndDateTime) {
-      showPopup("error", "Lỗi", "Vui lòng chọn đầy đủ thời gian bắt đầu và kết thúc")
-      return
+  const updateRentalDates = useCallback(
+    async (
+      cartItemId: string,
+      rentalStartDateTime: string,
+      rentalEndDateTime: string
+    ) => {
+      // Validation
+      if (!rentalStartDateTime || !rentalEndDateTime) {
+        showPopup(
+          "error",
+          "Lỗi",
+          "Vui lòng chọn đầy đủ thời gian bắt đầu và kết thúc"
+        );
+        return;
+      }
+
+      const startDate = new Date(rentalStartDateTime);
+      const endDate = new Date(rentalEndDateTime);
+
+      const diffDays = Math.ceil(
+        (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      if (diffDays > 365) {
+        showPopup(
+          "error",
+          "Lỗi",
+          "Thời gian thuê không được vượt quá 365 ngày"
+        );
+        return;
+      }
+
+      try {
+        // Set loading state for this specific item
+        setUpdatingItems((prev) => new Set(prev).add(cartItemId));
+
+        await dispatch(
+          updateCartItemAction(cartItemId, {
+            rentalStartDate: rentalStartDateTime,
+            rentalEndDate: rentalEndDateTime,
+          })
+        );
+
+        showPopup(
+          "success",
+          "Thành công",
+          "Đã cập nhật thời gian thuê thành công"
+        );
+
+        // Clear editing state
+        setEditingDates((prev) => {
+          const newState = { ...prev };
+          delete newState[cartItemId];
+          return newState;
+        });
+      } catch {
+        showPopup("error", "Lỗi", "Có lỗi xảy ra khi cập nhật thời gian thuê");
+      } finally {
+        // Clear loading state
+        setUpdatingItems((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(cartItemId);
+          return newSet;
+        });
+      }
+    },
+    [dispatch, showPopup]
+  );
+
+  // Create unique display key for each cart item based on product + rental dates
+  // This allows same products with different rental dates to be treated as separate items
+  const getDisplayKey = useCallback((item: (typeof cartItems)[0]) => {
+    if (item.rentalStartDate && item.rentalEndDate) {
+      return `${item.itemId}_${item.rentalStartDate}_${item.rentalEndDate}`;
     }
+    return item._id;
+  }, []);
 
-    const startDate = new Date(rentalStartDateTime)
-    const endDate = new Date(rentalEndDateTime)
-    
-    const diffDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
-    if (diffDays > 365) {
-      showPopup("error", "Lỗi", "Thời gian thuê không được vượt quá 365 ngày")
-      return
+  // Toggle item selection
+  const toggleItemSelection = useCallback((displayKey: string) => {
+    setSelectedItems((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(displayKey)) {
+        newSet.delete(displayKey);
+      } else {
+        newSet.add(displayKey);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // Select/Deselect all items
+  const toggleSelectAll = useCallback(() => {
+    if (selectedItems.size === cartItems.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(cartItems.map((item) => getDisplayKey(item))));
     }
-
-    try {
-      // Set loading state for this specific item
-      setUpdatingItems(prev => new Set(prev).add(cartItemId))
-
-      await dispatch(updateCartItemAction(cartItemId, {
-        rentalStartDate: rentalStartDateTime,
-        rentalEndDate: rentalEndDateTime
-      }))
-
-      showPopup("success", "Thành công", "Đã cập nhật thời gian thuê thành công")
-
-      // Clear editing state
-      setEditingDates(prev => {
-        const newState = { ...prev }
-        delete newState[cartItemId]
-        return newState
-      })
-    } catch {
-      showPopup("error", "Lỗi", "Có lỗi xảy ra khi cập nhật thời gian thuê")
-    } finally {
-      // Clear loading state
-      setUpdatingItems(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(cartItemId)
-        return newSet
-      })
-    }
-  }, [dispatch, showPopup])
+  }, [selectedItems.size, cartItems, getDisplayKey]);
 
   // Helper functions for editing dates
-  const startEditingDates = useCallback((cartItemId: string, rentalStartDate?: string, rentalEndDate?: string) => {
-    // Convert existing date strings to datetime-local format
-    const startDateTime = rentalStartDate ? rentalStartDate.replace('T', 'T').substring(0, 16) : ''
-    const endDateTime = rentalEndDate ? rentalEndDate.replace('T', 'T').substring(0, 16) : ''
+  const startEditingDates = useCallback(
+    (cartItemId: string, rentalStartDate?: string, rentalEndDate?: string) => {
+      // Convert existing date strings to datetime-local format
+      const startDateTime = rentalStartDate
+        ? rentalStartDate.replace("T", "T").substring(0, 16)
+        : "";
+      const endDateTime = rentalEndDate
+        ? rentalEndDate.replace("T", "T").substring(0, 16)
+        : "";
 
-    setEditingDates(prev => ({
-      ...prev,
-      [cartItemId]: {
-        rentalStartDateTime: startDateTime,
-        rentalEndDateTime: endDateTime
-      }
-    }))
-  }, [])
+      setEditingDates((prev) => ({
+        ...prev,
+        [cartItemId]: {
+          rentalStartDateTime: startDateTime,
+          rentalEndDateTime: endDateTime,
+        },
+      }));
+    },
+    []
+  );
 
   const cancelEditingDates = useCallback((cartItemId: string) => {
-    setEditingDates(prev => {
-      const newState = { ...prev }
-      delete newState[cartItemId]
-      return newState
-    })
-  }, [])
+    setEditingDates((prev) => {
+      const newState = { ...prev };
+      delete newState[cartItemId];
+      return newState;
+    });
+  }, []);
 
-  const updateEditingDates = useCallback((cartItemId: string, field: 'rentalStartDateTime' | 'rentalEndDateTime', value: string) => {
-    setEditingDates(prev => ({
-      ...prev,
-      [cartItemId]: {
-        ...prev[cartItemId],
-        [field]: value
-      }
-    }))
-  }, [])
-
+  const updateEditingDates = useCallback(
+    (
+      cartItemId: string,
+      field: "rentalStartDateTime" | "rentalEndDateTime",
+      value: string
+    ) => {
+      setEditingDates((prev) => ({
+        ...prev,
+        [cartItemId]: {
+          ...prev[cartItemId],
+          [field]: value,
+        },
+      }));
+    },
+    []
+  );
 
   // Update quantity function
-  const updateQuantity = useCallback(async (cartItemId: string, newQuantity: number) => {
-    // Find the cart item to get available quantity
-    const cartItem = cartItems.find(item => item._id === cartItemId)
+  const updateQuantity = useCallback(
+    async (cartItemId: string, newQuantity: number) => {
+      // Find the cart item to get available quantity
+      const cartItem = cartItems.find((item) => item._id === cartItemId);
 
-    if (!cartItem) {
-      showPopup("error", "Lỗi", "Không tìm thấy sản phẩm trong giỏ hàng")
-      return
-    }
+      if (!cartItem) {
+        showPopup("error", "Lỗi", "Không tìm thấy sản phẩm trong giỏ hàng");
+        return;
+      }
 
-    // Validation checks
-    if (newQuantity <= 0) {
-      await removeItem(cartItemId)
-      return
-    }
+      // Validation checks
+      if (newQuantity <= 0) {
+        await removeItem(cartItemId);
+        return;
+      }
 
-    if (newQuantity > cartItem.availableQuantity) {
-      showPopup("error", "Số lượng không hợp lệ", `Hiện tại chỉ có ${cartItem.availableQuantity} sản phẩm`)
-      return
-    }
+      if (newQuantity > cartItem.availableQuantity) {
+        showPopup(
+          "error",
+          "Số lượng không hợp lệ",
+          `Hiện tại chỉ có ${cartItem.availableQuantity} sản phẩm`
+        );
+        return;
+      }
 
-    if (newQuantity > 99) {
-      showPopup("error", "Số lượng không hợp lệ", "Số lượng không được vượt quá 99 sản phẩm")
-      return
-    }
+      if (newQuantity > 99) {
+        showPopup(
+          "error",
+          "Số lượng không hợp lệ",
+          "Số lượng không được vượt quá 99 sản phẩm"
+        );
+        return;
+      }
 
-    if (!Number.isInteger(newQuantity)) {
-      showPopup("error", "Số lượng không hợp lệ", "Số lượng phải là số nguyên")
-      return
-    }
+      if (!Number.isInteger(newQuantity)) {
+        showPopup(
+          "error",
+          "Số lượng không hợp lệ",
+          "Số lượng phải là số nguyên"
+        );
+        return;
+      }
 
-    try {
-      // Make API call
-      await dispatch(updateCartItemAction(cartItemId, { quantity: newQuantity }))
-
-    } catch {
-      // If API fails, revert the optimistic update
-      dispatch(fetchCartItems())
-      showPopup("error", "Lỗi", "Có lỗi xảy ra khi cập nhật số lượng")
-    }
-  }, [cartItems, dispatch, showPopup, removeItem])
+      try {
+        // Make API call
+        await dispatch(
+          updateCartItemAction(cartItemId, { quantity: newQuantity })
+        );
+      } catch {
+        // If API fails, revert the optimistic update
+        dispatch(fetchCartItems());
+        showPopup("error", "Lỗi", "Có lỗi xảy ra khi cập nhật số lượng");
+      }
+    },
+    [cartItems, dispatch, showPopup, removeItem]
+  );
 
   // Debounced update function to prevent spam clicks
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const debouncedUpdate = useCallback(
     (cartItemId: string, newQuantity: number) => {
       if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
+        clearTimeout(timeoutRef.current);
       }
       timeoutRef.current = setTimeout(() => {
-        updateQuantity(cartItemId, newQuantity)
-      }, 300) // 300ms delay
+        updateQuantity(cartItemId, newQuantity);
+      }, 300); // 300ms delay
     },
     [updateQuantity]
-  )
+  );
 
   // Immediate UI update for better UX
   const handleQuantityChange = (cartItemId: string, newQuantity: number) => {
     // Find the cart item to get available quantity
-    const cartItem = cartItems.find(item => item._id === cartItemId)
+    const cartItem = cartItems.find((item) => item._id === cartItemId);
 
-    if (!cartItem) return
+    if (!cartItem) return;
     // Quick validation for immediate UI update
     if (newQuantity <= 0) {
-      return
+      return;
     }
 
     if (newQuantity > cartItem.availableQuantity) {
       // Don't update UI, show error
-      showPopup("error", "Số lượng không hợp lệ", `Hiện tại chỉ có ${cartItem.availableQuantity} sản phẩm`)
-      return
+      showPopup(
+        "error",
+        "Số lượng không hợp lệ",
+        `Hiện tại chỉ có ${cartItem.availableQuantity} sản phẩm`
+      );
+      return;
     }
 
     if (newQuantity > 99) {
       // Don't update UI, show error
-      showPopup("error", "Số lượng không hợp lệ", "Số lượng không được vượt quá 99 sản phẩm")
-      return
+      showPopup(
+        "error",
+        "Số lượng không hợp lệ",
+        "Số lượng không được vượt quá 99 sản phẩm"
+      );
+      return;
     }
 
     // Immediate UI update
-    const updatedCartItems = cartItems.map(item =>
-      item._id === cartItemId
-        ? { ...item, quantity: newQuantity }
-        : item
-    )
-    dispatch(setCartItems(updatedCartItems))
+    const updatedCartItems = cartItems.map((item) =>
+      item._id === cartItemId ? { ...item, quantity: newQuantity } : item
+    );
+    dispatch(setCartItems(updatedCartItems));
 
     // Debounced API call
-    debouncedUpdate(cartItemId, newQuantity)
-  }
+    debouncedUpdate(cartItemId, newQuantity);
+  };
 
+  
+  const calculateRentalDuration = (
+    startDate?: string,
+    endDate?: string,
+    priceUnit?: string
+  ) => {
+    if (!startDate || !endDate) return 1;
 
-  // Calculate rental duration based on price unit
-  const calculateRentalDuration = (startDate?: string, endDate?: string, priceUnit?: string) => {
-    if (!startDate || !endDate) return 1
-    
-    const start = new Date(startDate)
-    const end = new Date(endDate)
-    const diffTime = Math.abs(end.getTime() - start.getTime())
-    
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+
     // Calculate based on price unit
     switch (priceUnit?.toLowerCase()) {
-      case 'giờ':
-      case 'hour':
-      case 'hours':
-        return Math.ceil(diffTime / (1000 * 60 * 60)) || 1
-      case 'ngày':
-      case 'day':
-      case 'days':
-        return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1
-      case 'tuần':
-      case 'week':
-      case 'weeks':
-        return Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 7)) || 1
-      case 'tháng':
-      case 'month':
-      case 'months':
+      case "giờ":
+      case "hour":
+      case "hours":
+        return Math.ceil(diffTime / (1000 * 60 * 60)) || 1;
+      case "ngày":
+      case "day":
+      case "days":
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+      case "tuần":
+      case "week":
+      case "weeks":
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 7)) || 1;
+      case "tháng":
+      case "month":
+      case "months":
         // Approximate month calculation (30 days)
-        return Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 30)) || 1
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 30)) || 1;
       default:
         // Default to days if unit is not recognized
-        return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+    }
+  };
+
+
+const handleCheckout = () => {
+  // Lấy các sản phẩm được chọn
+  const selectedCartItems = cartItems.filter((item) =>
+    selectedItems.has(getDisplayKey(item))
+  );
+
+  if (selectedCartItems.length === 0) {
+    showPopup(
+      "error",
+      "Lỗi",
+      "Vui lòng chọn ít nhất một sản phẩm để thanh toán"
+    );
+    return;
+  }
+
+  // Kiểm tra tất cả có ngày thuê không
+  for (const item of selectedCartItems) {
+    if (!item.rentalStartDate || !item.rentalEndDate) {
+      showPopup(
+        "error",
+        "Thiếu thông tin",
+        `Sản phẩm "${item.title}" chưa có thời gian thuê`
+      );
+      return;
     }
   }
+
+
+  sessionStorage.setItem("checkoutItems", JSON.stringify(selectedCartItems));
+
+
+  router.push("/auth/order/");
+};
+
 
   // Get display text for rental duration
   const getRentalDurationText = (duration: number, priceUnit?: string) => {
     switch (priceUnit?.toLowerCase()) {
-      case 'giờ':
-      case 'hour':
-      case 'hours':
-        return `${duration} giờ`
-      case 'ngày':
-      case 'day':
-      case 'days':
-        return `${duration} ngày`
-      case 'tuần':
-      case 'week':
-      case 'weeks':
-        return `${duration} tuần`
-      case 'tháng':
-      case 'month':
-      case 'months':
-        return `${duration} tháng`
+      case "giờ":
+      case "hour":
+      case "hours":
+        return `${duration} giờ`;
+      case "ngày":
+      case "day":
+      case "days":
+        return `${duration} ngày`;
+      case "tuần":
+      case "week":
+      case "weeks":
+        return `${duration} tuần`;
+      case "tháng":
+      case "month":
+      case "months":
+        return `${duration} tháng`;
       default:
-        return `${duration} ngày`
+        return `${duration} ngày`;
     }
-  }
+  };
 
-  // Calculate totals
+  // Calculate totals for selected items only
   const subtotal = cartItems.reduce((sum, item) => {
-    const rentalDuration = calculateRentalDuration(item.rentalStartDate, item.rentalEndDate, item.priceUnit)
-    return sum + (item.basePrice * item.quantity * rentalDuration)
-  }, 0)
+    if (selectedItems.has(getDisplayKey(item))) {
+      const rentalDuration = calculateRentalDuration(
+        item.rentalStartDate,
+        item.rentalEndDate,
+        item.priceUnit
+      );
+      return sum + item.basePrice * item.quantity * rentalDuration;
+    }
+    return sum;
+  }, 0);
 
-  const tax = subtotal * 0.1
-  const total = subtotal + tax
+  // Calculate total deposit for selected items
+  const totalDeposit = cartItems.reduce((sum, item) => {
+    if (selectedItems.has(getDisplayKey(item))) {
+      return sum + item.depositAmount * item.quantity;
+    }
+    return sum;
+  }, 0);
+
+  const tax = (subtotal * taxRate) / 100;
+  const total = subtotal + tax + totalDeposit;
 
   // Format price helper
   const formatPrice = (price: number, currency: string) => {
     if (currency === "VND") {
-      return new Intl.NumberFormat("vi-VN").format(price) + "đ"
+      return new Intl.NumberFormat("vi-VN").format(price) + "đ";
     }
-    return `$${price}`
-  }
+    return `$${price}`;
+  };
 
   // Loading state
   if (loading) {
@@ -347,7 +616,7 @@ export default function CartPage() {
           </div>
         </main>
       </div>
-    )
+    );
   }
 
   // Error state
@@ -366,7 +635,7 @@ export default function CartPage() {
           </div>
         </main>
       </div>
-    )
+    );
   }
 
   // Empty cart state
@@ -378,11 +647,14 @@ export default function CartPage() {
           <nav className="mb-6">
             <div className="flex items-center space-x-2 text-sm">
               {breadcrumbs.map((breadcrumb, index) => {
-                const IconComponent = breadcrumb.icon
-                const isLast = index === breadcrumbs.length - 1
+                const IconComponent = breadcrumb.icon;
+                const isLast = index === breadcrumbs.length - 1;
 
                 return (
-                  <div key={breadcrumb.href} className="flex items-center space-x-2">
+                  <div
+                    key={breadcrumb.href}
+                    className="flex items-center space-x-2"
+                  >
                     {index > 0 && (
                       <ChevronRight className="w-4 h-4 text-gray-400" />
                     )}
@@ -402,7 +674,7 @@ export default function CartPage() {
                       </Link>
                     )}
                   </div>
-                )
+                );
               })}
             </div>
           </nav>
@@ -414,7 +686,8 @@ export default function CartPage() {
             <EmptyHeader>
               <EmptyTitle className="text-gray-900">Giỏ hàng trống</EmptyTitle>
               <EmptyDescription className="text-gray-600">
-                Bạn chưa có sản phẩm nào trong giỏ hàng. Hãy khám phá các sản phẩm của chúng tôi!
+                Bạn chưa có sản phẩm nào trong giỏ hàng. Hãy khám phá các sản
+                phẩm của chúng tôi!
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
@@ -437,21 +710,24 @@ export default function CartPage() {
           </Empty>
         </main>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
-      <main className="container mx-auto px-4 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50">
+      <main className="max-w-7xl mx-auto px-6 py-10">
         {/* Header */}
         <nav className="mb-6">
           <div className="flex items-center space-x-2 text-sm">
             {breadcrumbs.map((breadcrumb, index) => {
-              const IconComponent = breadcrumb.icon
-              const isLast = index === breadcrumbs.length - 1
+              const IconComponent = breadcrumb.icon;
+              const isLast = index === breadcrumbs.length - 1;
 
               return (
-                <div key={breadcrumb.href} className="flex items-center space-x-2">
+                <div
+                  key={breadcrumb.href}
+                  className="flex items-center space-x-2"
+                >
                   {index > 0 && (
                     <ChevronRight className="w-4 h-4 text-gray-400" />
                   )}
@@ -471,76 +747,167 @@ export default function CartPage() {
                     </Link>
                   )}
                 </div>
-              )
+              );
             })}
           </div>
         </nav>
 
-
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-2 flex items-center gap-3">
-            <ShoppingCart className="w-8 h-8 text-purple-600" />
-            Giỏ hàng của bạn
+        <div className="text-center mb-10">
+          <h1 className="text-4xl md:text-5xl font-bold text-gray-800 flex items-center justify-center gap-4">
+            <ShoppingCart className="w-12 h-12 text-emerald-600" />
+            Giỏ hàng thuê của bạn
           </h1>
-          <p className="text-slate-600">Bạn có {cartItems.length} sản phẩm trong giỏ hàng</p>
+          <p className="text-lg text-gray-600 mt-3">
+            Bạn có {cartItems.length} sản phẩm trong giỏ hàng
+          </p>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Cart Items */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="lg:col-span-2 space-y-6">
+            {/* Select All Header */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={
+                        selectedItems.size === cartItems.length &&
+                        cartItems.length > 0
+                      }
+                      onChange={toggleSelectAll}
+                      className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer transition-all"
+                    />
+                    <span className="text-base font-medium text-gray-700">
+                      Chọn tất cả ({selectedItems.size}/{cartItems.length})
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    {selectedItems.size > 0 && (
+                      <span className="text-base text-emerald-600 font-semibold">
+                        Đã chọn {selectedItems.size} sản phẩm
+                      </span>
+                    )}
+                    {cartItems.length > 0 && (
+                      <Button
+                        variant="outline"
+                        onClick={handleRemoveAllClick}
+                        className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200 hover:border-red-300"
+                        disabled={loading}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        <span>Xóa tất cả</span>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+            </div>
+
             {cartItems.map((item, index) => {
-              const rentalDuration = calculateRentalDuration(item.rentalStartDate, item.rentalEndDate, item.priceUnit)
-              const itemTotal = item.basePrice * item.quantity * rentalDuration
+              const rentalDuration = calculateRentalDuration(
+                item.rentalStartDate,
+                item.rentalEndDate,
+                item.priceUnit
+              );
+              const itemTotal = item.basePrice * item.quantity * rentalDuration;
+              const displayKey = getDisplayKey(item);
 
               return (
-                <Card
+                <div
                   key={item._id}
-                  className={`border-purple-200/50 bg-white/80 backdrop-blur-sm hover:shadow-xl transition-all duration-300 overflow-hidden ${updatingItems.has(item._id) ? 'ring-2 ring-blue-200 shadow-lg' : ''}`}
+                  className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-8 transition-all duration-300 ${
+                    updatingItems.has(item._id)
+                      ? "ring-2 ring-emerald-200 shadow-lg"
+                      : "hover:shadow-md"
+                  } ${!selectedItems.has(displayKey) ? "opacity-60" : ""}`}
                   style={{ animationDelay: `${index * 100}ms` }}
                 >
-                  <CardContent className="p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                      {/* Product Image */}
-                      <div className="relative w-full h-40 rounded-xl overflow-hidden flex-shrink-0 bg-gradient-to-br from-purple-100 to-blue-100 shadow-md">
-                        <Image
-                          src={item.primaryImage || "/placeholder.svg"}
-                          alt={item.title}
-                          fill
-                          className="object-cover hover:scale-110 transition-transform duration-300"
+                    <div className="flex gap-6">
+                      {/* Checkbox */}
+                      <div className="flex items-start gap-4 pt-1">
+                        <input
+                          type="checkbox"
+                          checked={selectedItems.has(displayKey)}
+                          onChange={() => toggleItemSelection(displayKey)}
+                          className="w-6 h-6 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500 focus:ring-2 cursor-pointer transition-all mt-1"
                         />
-                        <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-semibold text-purple-600">
-                          {item.condition || 'Chưa xác định'}
-                        </div>
+                      </div>
+
+                      {/* Product Image */}
+                      <div className="bg-gray-200 border-2 border-dashed rounded-xl w-32 h-32 flex-shrink-0 overflow-hidden">
+                        {item.primaryImage ? (
+                          <img
+                            src={item.primaryImage}
+                            alt={item.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400">
+                            <Package className="w-14 h-14" />
+                          </div>
+                        )}
                       </div>
 
                       {/* Product Details */}
-                      <div className="md:col-span-2 space-y-3">
-                        <div>
-                          <h3 className="text-lg font-bold text-slate-800">{item.title}</h3>
-                          <p className="text-sm text-slate-500 mt-1">Còn lại {item.availableQuantity} sản phẩm</p>
+                      <div className="flex-1 space-y-3">
+                        <h3 className="text-xl font-semibold text-gray-800 line-clamp-2">
+                          {item.title}
+                        </h3>
+                        <p className="text-base text-gray-600 line-clamp-1">
+                          {item.shortDescription || `Còn lại ${item.availableQuantity} sản phẩm`}
+                        </p>
+                        <div className="flex flex-wrap gap-3 text-base">
+                          <span className="bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full font-medium">
+                            {item.quantity} cái
+                          </span>
+                          {item.rentalStartDate && item.rentalEndDate && (
+                            <span className="bg-purple-100 text-purple-700 px-2.5 py-1 rounded-full font-medium">
+                              {getRentalDurationText(rentalDuration, item.priceUnit)}
+                            </span>
+                          )}
                         </div>
 
-                        {/* Rental Period */}
-                        <div className={`bg-blue-50 px-3 py-2 rounded-lg transition-all duration-300 ${updatingItems.has(item._id) ? 'opacity-75 bg-blue-100' : ''}`}>
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <Calendar className={`w-4 h-4 text-blue-600 ${updatingItems.has(item._id) ? 'animate-pulse' : ''}`} />
-                              <span className="text-sm font-medium text-blue-700">Thời gian thuê:</span>
+                        <div
+                          className={`bg-gray-50 px-4 py-3 rounded-lg transition-all duration-300 ${
+                            updatingItems.has(item._id)
+                              ? "opacity-75 bg-gray-100"
+                              : ""
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                              <Calendar
+                                className={`w-5 h-5 text-emerald-600 ${
+                                  updatingItems.has(item._id)
+                                    ? "animate-pulse"
+                                    : ""
+                                }`}
+                              />
+                              <span className="text-base font-medium text-gray-700">
+                                Thời gian thuê:
+                              </span>
                               {updatingItems.has(item._id) && (
-                                <Loader2 className="w-3 h-3 text-blue-600 animate-spin" />
+                                <Loader2 className="w-4 h-4 text-emerald-600 animate-spin" />
                               )}
                             </div>
-                            {!editingDates[item._id] && !updatingItems.has(item._id) && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => startEditingDates(item._id, item.rentalStartDate, item.rentalEndDate)}
-                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-100 h-6 px-2 transition-all duration-200"
-                              >
-                                <Edit3 className="w-3 h-3 mr-1" />
-                                <span className="text-xs">Chỉnh sửa</span>
-                              </Button>
-                            )}
+                            {!editingDates[item._id] &&
+                              !updatingItems.has(item._id) && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    startEditingDates(
+                                      item._id,
+                                      item.rentalStartDate,
+                                      item.rentalEndDate
+                                    )
+                                  }
+                                  className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 h-6 px-2 transition-all duration-200"
+                                >
+                                  <Edit3 className="w-3 h-3 mr-1" />
+                                  <span className="text-xs">Chỉnh sửa</span>
+                                </Button>
+                              )}
                           </div>
 
                           {editingDates[item._id] ? (
@@ -548,45 +915,80 @@ export default function CartPage() {
                             <div className="space-y-3">
                               <div className="grid grid-cols-2 gap-3">
                                 <div className="text-center">
-                                  <label className="block text-xs text-blue-700 font-medium mb-2">Thời gian bắt đầu:</label>
+                                  <label className="block text-xs text-blue-700 font-medium mb-2">
+                                    Thời gian bắt đầu:
+                                  </label>
                                   <input
                                     type="datetime-local"
-                                    value={editingDates[item._id].rentalStartDateTime}
-                                    onChange={(e) => updateEditingDates(item._id, 'rentalStartDateTime', e.target.value)}
-                                    className="w-full px-2 py-1 text-xs border border-blue-300 rounded focus:outline-none focus:border-blue-500 text-center"
+                                    value={
+                                      editingDates[item._id].rentalStartDateTime
+                                    }
+                                    onChange={(e) =>
+                                      updateEditingDates(
+                                        item._id,
+                                        "rentalStartDateTime",
+                                        e.target.value
+                                      )
+                                    }
+                                    className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 text-center"
                                     min={(() => {
-                                      const now = new Date()
-                                      const bufferTime = 5 * 60 * 1000 // 5 minutes buffer
-                                      const minTime = new Date(now.getTime() - bufferTime)
-                                      return minTime.toISOString().substring(0, 16)
+                                      const now = new Date();
+                                      const bufferTime = 5 * 60 * 1000; // 5 minutes buffer
+                                      const minTime = new Date(
+                                        now.getTime() - bufferTime
+                                      );
+                                      return minTime
+                                        .toISOString()
+                                        .substring(0, 16);
                                     })()}
                                   />
                                 </div>
                                 <div className="text-center">
-                                  <label className="block text-xs text-blue-700 font-medium mb-2">Thời gian kết thúc:</label>
+                                  <label className="block text-xs text-blue-700 font-medium mb-2">
+                                    Thời gian kết thúc:
+                                  </label>
                                   <input
                                     type="datetime-local"
-                                    value={editingDates[item._id].rentalEndDateTime}
-                                    onChange={(e) => updateEditingDates(item._id, 'rentalEndDateTime', e.target.value)}
-                                    className="w-full px-2 py-1 text-xs border border-blue-300 rounded focus:outline-none focus:border-blue-500 text-center"
-                                    min={editingDates[item._id].rentalStartDateTime || (() => {
-                                      const now = new Date()
-                                      const bufferTime = 5 * 60 * 1000 // 5 minutes buffer
-                                      const minTime = new Date(now.getTime() - bufferTime)
-                                      return minTime.toISOString().substring(0, 16)
-                                    })()}
+                                    value={
+                                      editingDates[item._id].rentalEndDateTime
+                                    }
+                                    onChange={(e) =>
+                                      updateEditingDates(
+                                        item._id,
+                                        "rentalEndDateTime",
+                                        e.target.value
+                                      )
+                                    }
+                                    className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 text-center"
+                                    min={
+                                      editingDates[item._id]
+                                        .rentalStartDateTime ||
+                                      (() => {
+                                        const now = new Date();
+                                        const bufferTime = 5 * 60 * 1000; // 5 minutes buffer
+                                        const minTime = new Date(
+                                          now.getTime() - bufferTime
+                                        );
+                                        return minTime
+                                          .toISOString()
+                                          .substring(0, 16);
+                                      })()
+                                    }
                                   />
                                 </div>
                               </div>
                               <div className="flex justify-center gap-2">
                                 <Button
                                   size="sm"
-                                  onClick={() => updateRentalDates(
-                                    item._id,
-                                    editingDates[item._id].rentalStartDateTime,
-                                    editingDates[item._id].rentalEndDateTime
-                                  )}
-                                  className="bg-blue-600 hover:bg-blue-700 text-white h-6 px-3 text-xs transition-all duration-200"
+                                  onClick={() =>
+                                    updateRentalDates(
+                                      item._id,
+                                      editingDates[item._id]
+                                        .rentalStartDateTime,
+                                      editingDates[item._id].rentalEndDateTime
+                                    )
+                                  }
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white h-6 px-3 text-xs transition-all duration-200"
                                   disabled={updatingItems.has(item._id)}
                                 >
                                   {updatingItems.has(item._id) ? (
@@ -615,24 +1017,47 @@ export default function CartPage() {
                             </div>
                           ) : (
                             // Display mode
-                            <div className={`transition-all duration-300 ${updatingItems.has(item._id) ? 'opacity-60' : 'opacity-100'}`}>
+                            <div
+                              className={`transition-all duration-300 ${
+                                updatingItems.has(item._id)
+                                  ? "opacity-60"
+                                  : "opacity-100"
+                              }`}
+                            >
                               {item.rentalStartDate && item.rentalEndDate ? (
                                 <>
-                                  <div className="text-sm text-blue-600 mb-1">
+                                  <div className="text-sm text-gray-700 mb-1">
                                     {(() => {
-                                      const startDate = new Date(item.rentalStartDate)
-                                      const endDate = new Date(item.rentalEndDate)
-                                      const hasTime = item.rentalStartDate.includes('T') || item.rentalEndDate.includes('T')
-                                      
+                                      const startDate = new Date(
+                                        item.rentalStartDate
+                                      );
+                                      const endDate = new Date(
+                                        item.rentalEndDate
+                                      );
+                                      const hasTime =
+                                        item.rentalStartDate.includes("T") ||
+                                        item.rentalEndDate.includes("T");
+
                                       if (hasTime) {
-                                        return `${startDate.toLocaleDateString("vi-VN")} ${startDate.toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' })} - ${endDate.toLocaleDateString("vi-VN")} ${endDate.toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' })}`
+                                        return `${startDate.toLocaleDateString(
+                                          "vi-VN"
+                                        )} ${startDate.toLocaleTimeString(
+                                          "vi-VN",
+                                          { hour: "2-digit", minute: "2-digit" }
+                                        )} - ${endDate.toLocaleDateString(
+                                          "vi-VN"
+                                        )} ${endDate.toLocaleTimeString(
+                                          "vi-VN",
+                                          { hour: "2-digit", minute: "2-digit" }
+                                        )}`;
                                       } else {
-                                        return `${startDate.toLocaleDateString("vi-VN")} - ${endDate.toLocaleDateString("vi-VN")}`
+                                        return `${startDate.toLocaleDateString(
+                                          "vi-VN"
+                                        )} - ${endDate.toLocaleDateString(
+                                          "vi-VN"
+                                        )}`;
                                       }
                                     })()}
-                                  </div>
-                                  <div className="text-sm text-blue-600 font-medium">
-                                    Tổng cộng: {getRentalDurationText(rentalDuration, item.priceUnit)}
                                   </div>
                                 </>
                               ) : (
@@ -644,32 +1069,19 @@ export default function CartPage() {
                           )}
                         </div>
 
-                        {/* Owner Info */}
-                        {item.owner && (
-                          <div className="flex items-center gap-3 bg-purple-50 px-3 py-2 rounded-lg">
-                            <Image
-                              src={item.owner.avatarUrl || "/placeholder.svg"}
-                              alt={item.owner.fullName}
-                              width={32}
-                              height={32}
-                              className="w-8 h-8 rounded-full object-cover"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-slate-800">{item.owner.fullName}</p>
-                              <p className="text-xs text-slate-500 truncate">{item.owner.email}</p>
-                            </div>
-                          </div>
-                        )}
-
                         {/* Pricing */}
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                          <div className="bg-orange-50 px-3 py-2 rounded-lg">
-                            <p className="text-xs text-slate-600">Giá thuê</p>
-                            <p className="font-bold text-orange-600">{formatPrice(item.basePrice, item.currency)}/{item.priceUnit || 'ngày'}</p>
+                        <div className="flex flex-col gap-2 pt-4 border-t border-gray-200">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600">Giá thuê:</span>
+                            <p className="text-2xl font-bold text-emerald-600">
+                              {formatPrice(itemTotal, item.currency)}
+                            </p>
                           </div>
-                          <div className="bg-red-50 px-3 py-2 rounded-lg">
-                            <p className="text-xs text-slate-600">Cọc</p>
-                            <p className="font-bold text-red-600">{formatPrice(item.depositAmount, item.currency)}</p>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600">Tiền cọc:</span>
+                            <p className="text-lg font-semibold text-amber-600">
+                              {formatPrice(item.depositAmount * item.quantity, item.currency)}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -677,125 +1089,109 @@ export default function CartPage() {
                       {/* Actions */}
                       <div className="flex flex-col justify-between items-end gap-4">
                         {/* Quantity Controls */}
-                        <div className="flex items-center gap-2 bg-gradient-to-r from-purple-100 to-blue-100 rounded-lg p-2 border border-purple-200">
+                        <div className="flex items-center gap-3 bg-gray-100 rounded-lg p-3 border border-gray-200">
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleQuantityChange(item._id, item.quantity - 1)}
-                            className="text-purple-600 hover:text-purple-700 hover:bg-white h-8 w-8"
+                            onClick={() =>
+                              handleQuantityChange(item._id, item.quantity - 1)
+                            }
+                            className="text-gray-700 hover:text-emerald-600 hover:bg-white h-8 w-8"
                             disabled={loading}
                           >
                             <Minus className="w-4 h-4" />
                           </Button>
-                          <span className="text-slate-800 font-bold w-8 text-center">{item.quantity}</span>
+                          <span className="text-gray-800 font-bold w-10 text-center text-lg">
+                            {item.quantity}
+                          </span>
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleQuantityChange(item._id, item.quantity + 1)}
-                            className="text-purple-600 hover:text-purple-700 hover:bg-white h-8 w-8"
+                            onClick={() =>
+                              handleQuantityChange(item._id, item.quantity + 1)
+                            }
+                            className="text-gray-700 hover:text-emerald-600 hover:bg-white h-8 w-8"
                             disabled={loading}
                           >
                             <Plus className="w-4 h-4" />
                           </Button>
                         </div>
 
-                        {/* Price */}
-                        <div className="text-right">
-                          <p className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                            {formatPrice(itemTotal, item.currency)}
-                          </p>
-                          <p className="text-xs text-slate-500 mt-1">
-                            {formatPrice(item.basePrice, item.currency)} × {item.quantity} × {getRentalDurationText(rentalDuration, item.priceUnit)}
-                          </p>
-                        </div>
-
                         {/* Delete Button */}
                         <Button
                           variant="ghost"
                           onClick={() => removeItem(item._id)}
-                          className="text-slate-600 hover:text-red-800 hover:bg-red-50 flex justify-end items-center ml-auto pr-6 py-4 backdrop-grayscale bg-gradient-to-r from-red-100 via-orange-50 to-red-50"
+                          className="text-gray-600 hover:text-red-600 hover:bg-red-50 flex items-center gap-2"
                         >
-                          <Trash2 className="w-7 h-7 mr-3" />
-                          <span className="text-lg">Xóa</span>
+                          <Trash2 className="w-4 h-4" />
+                          <span>Xóa</span>
                         </Button>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              )
+                </div>
+              );
             })}
           </div>
 
           {/* Order Summary */}
           <div className="lg:col-span-1">
-            <Card className="border-purple-200/50 bg-white/80 backdrop-blur-sm sticky top-24 shadow-xl">
-              <CardHeader className="bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-t-xl">
-                <CardTitle className="flex items-center gap-2">
-                  <Zap className="w-5 h-5" />
-                  Tóm tắt đơn hàng
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 pt-6">
-                {/* Subtotal */}
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-700">Tạm tính:</span>
-                  <span className="text-slate-800 font-semibold">{subtotal.toLocaleString("vi-VN")}đ</span>
+            <div className="bg-gradient-to-b from-emerald-600 to-emerald-700 text-white rounded-2xl shadow-xl p-8 sticky top-24">
+              <h2 className="font-bold text-2xl mb-6 flex items-center gap-3">
+                <CreditCard className="w-8 h-8" />
+                Tóm tắt đơn hàng
+              </h2>
+              <div className="space-y-4 text-base">
+                {/* Warning when no items selected */}
+                {selectedItems.size === 0 && (
+                  <div className="bg-white/20 border border-white/30 rounded-lg p-3 text-center">
+                    <p className="text-sm font-medium">
+                      ⚠️ Vui lòng chọn ít nhất một sản phẩm để thanh toán
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex justify-between">
+                  <span>Tiền thuê</span>
+                  <span>{subtotal.toLocaleString("vi-VN")}₫</span>
                 </div>
-
-
-                <Separator className="bg-purple-200/50" />
-
-                {/* Tax */}
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-700">Thuế (10%):</span>
-                  <span className="text-slate-800 font-semibold">{tax.toLocaleString("vi-VN")}đ</span>
+                <div className="flex justify-between text-yellow-200">
+                  <span>Phí dịch vụ ({taxRate}%)</span>
+                  <span>{tax.toLocaleString("vi-VN")}₫</span>
                 </div>
-
-                <Separator className="bg-purple-200/50" />
-
-                {/* Total */}
-                <div className="flex justify-between items-center pt-2 bg-gradient-to-r from-purple-50 to-blue-50 px-4 py-3 rounded-lg">
-                  <span className="text-lg font-bold text-slate-800">Tổng cộng:</span>
-                  <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                    {total.toLocaleString("vi-VN")}đ
-                  </span>
+                <div className="flex justify-between text-amber-200">
+                  <span>Tiền cọc</span>
+                  <span>{totalDeposit.toLocaleString("vi-VN")}₫</span>
                 </div>
-
-                {/* Checkout Button */}
-                <Button className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold py-6 mt-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300">
-                  Thanh toán
-                </Button>
-
-                {/* Continue Shopping */}
-                <Link href="/">
-                  <Button
-                    variant="outline"
-                    className="w-full border-purple-200 text-purple-600 hover:bg-purple-50 bg-transparent"
-                  >
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Tiếp tục mua sắm
-                  </Button>
-                </Link>
-
-                {/* Promo Code */}
-                <div className="pt-4 border-t border-purple-200/50">
-                  <p className="text-xs text-slate-600 mb-3 font-semibold">Có mã khuyến mãi?</p>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Nhập mã"
-                      className="flex-1 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg px-3 py-2 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-200 transition-all duration-300"
-                    />
-                    <Button
-                      variant="outline"
-                      className="border-purple-200 text-purple-600 hover:bg-purple-50 bg-transparent"
-                    >
-                      Áp dụng
-                    </Button>
+                <div className="flex justify-between text-yellow-200 text-xs">
+                  <span>(Hoàn lại tiền cọc sau khi trả đồ)</span>
+                </div>
+                <div className="border-t border-emerald-400 pt-3">
+                  <div className="flex justify-between text-lg font-bold">
+                    <span>Tổng cộng</span>
+                    <span className="text-2xl">
+                      {total.toLocaleString("vi-VN")}₫
+                    </span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+              <Button
+                className="mt-6 w-full bg-white text-emerald-700 font-bold py-4 rounded-xl hover:bg-emerald-50 transition transform hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
+                disabled={selectedItems.size === 0}
+                onClick={handleCheckout}
+              >
+                <CheckCircle2 className="w-6 h-6" />
+                Thanh toán
+              </Button>
+              <Link href="/products">
+                <Button
+                  variant="outline"
+                  className="mt-3 w-full border-white/30 text-white hover:bg-white/10 bg-transparent"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Tiếp tục mua sắm
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </main>
@@ -808,6 +1204,55 @@ export default function CartPage() {
         title={popupModal.title}
         message={popupModal.message}
       />
+
+      {/* Confirm Modal */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={closeConfirmModal}
+          />
+
+          {/* Modal */}
+          <div className="relative w-full max-w-md mx-auto bg-white rounded-2xl shadow-2xl border-2 border-red-200 transform transition-all duration-300 scale-100 opacity-100">
+            {/* Content */}
+            <div className="p-8 text-center">
+              {/* Icon */}
+              <div className="flex justify-center mb-6">
+                <AlertCircle className="w-16 h-16 text-red-500" />
+              </div>
+
+              {/* Title */}
+              <h3 className="text-2xl font-bold mb-4 text-red-900">
+                {confirmModal.title}
+              </h3>
+
+              {/* Message */}
+              <p className="text-lg mb-8 leading-relaxed text-red-700">
+                {confirmModal.message}
+              </p>
+
+              {/* Buttons */}
+              <div className="flex gap-4">
+                <Button
+                  variant="outline"
+                  onClick={closeConfirmModal}
+                  className="flex-1 py-3 px-6 text-lg font-semibold rounded-lg transition-all duration-200 hover:scale-105 border-gray-300 text-gray-700 hover:bg-gray-50"
+                >
+                  Hủy
+                </Button>
+                <Button
+                  onClick={handleConfirm}
+                  className="flex-1 py-3 px-6 text-lg font-semibold rounded-lg transition-all duration-200 hover:scale-105 bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Xác nhận
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  )
+  );
 }

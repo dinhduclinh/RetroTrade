@@ -114,6 +114,11 @@ interface SortState {
   order: "asc" | "desc";
 }
 
+const parseDate = (dateStr: string): Date => {
+  const [day, month, year] = dateStr.split("/").map(Number);
+  return new Date(year, month - 1, day);
+};
+
 export default function TopHighlightTable() {
   const [products, setProducts] = useState<TopProduct[]>([]);
   const [loading, setLoading] = useState(false);
@@ -123,6 +128,9 @@ export default function TopHighlightTable() {
     null
   );
   const [detailsLoading, setDetailsLoading] = useState(false);
+
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmProduct, setConfirmProduct] = useState<TopProduct | null>(null);
 
   const [sort, setSort] = useState<SortState>({
     field: "score",
@@ -175,15 +183,15 @@ export default function TopHighlightTable() {
     let cmp: number;
     switch (sort.field) {
       case "score":
-        cmp = a.score - b.score; 
+        cmp = a.score - b.score;
         break;
       case "createdAt":
-        const aDate = new Date(a.createdAt);
-        const bDate = new Date(b.createdAt);
-        cmp = aDate.getTime() - bDate.getTime(); 
+        const aDate = parseDate(a.createdAt);
+        const bDate = parseDate(b.createdAt);
+        cmp = aDate.getTime() - bDate.getTime();
         break;
       case "title":
-        cmp = a.title.localeCompare(b.title); 
+        cmp = a.title.localeCompare(b.title);
         break;
       default:
         return 0;
@@ -214,12 +222,18 @@ export default function TopHighlightTable() {
     setCurrentPage(1);
   };
 
-  const handleToggleHighlight = async (product: TopProduct) => {
-    setToggleLoading(product.id);
+  const openConfirmModal = (product: TopProduct) => {
+    setConfirmProduct(product);
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmToggle = async () => {
+    if (!confirmProduct) return;
+    setToggleLoading(confirmProduct.id);
     try {
       const res = await toggleProductHighlight(
-        product.id,
-        !product.isHighlighted
+        confirmProduct.id,
+        !confirmProduct.isHighlighted
       );
       if (!res.ok) {
         const errData: { message?: string } = await res.json();
@@ -228,14 +242,24 @@ export default function TopHighlightTable() {
       const result: { message?: string } = await res.json();
       toast.success(
         result.message ||
-          `Đã ${!product.isHighlighted ? "nổi bật" : "bỏ nổi bật"} sản phẩm`
+          `Đã ${
+            !confirmProduct.isHighlighted ? "nổi bật" : "bỏ nổi bật"
+          } sản phẩm`
       );
-      // Refetch để update top
-      fetchTopProducts();
+      // Cập nhật local state thay vì refetch để tránh gián đoạn
+      setProducts((prevProducts) =>
+        prevProducts.map((p) =>
+          p.id === confirmProduct.id
+            ? { ...p, isHighlighted: !p.isHighlighted }
+            : p
+        )
+      );
     } catch (err) {
       toast.error((err as Error).message || "Không thể cập nhật");
     } finally {
       setToggleLoading(null);
+      setShowConfirmModal(false);
+      setConfirmProduct(null);
     }
   };
 
@@ -280,7 +304,7 @@ export default function TopHighlightTable() {
       });
       setShowDetailModal(true);
     } catch (err) {
-      console.error("Error loading product details:", err); 
+      console.error("Error loading product details:", err);
       toast.error((err as Error).message || "Không thể tải chi tiết sản phẩm");
     } finally {
       setDetailsLoading(false);
@@ -290,43 +314,43 @@ export default function TopHighlightTable() {
   if (loading) {
     return (
       <div className="flex justify-center items-center py-16">
-        <Loader2 className="animate-spin h-8 w-8 text-blue-400" />
+        <Loader2 className="animate-spin h-8 w-8 text-blue-600" />
       </div>
     );
   }
 
   const Pagination = () => {
     return (
-      <div className="flex items-center justify-between px-4 py-3 bg-white/5 border-t border-white/10 sm:px-6">
+      <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-200 sm:px-6">
         <div className="flex justify-between flex-1 sm:hidden">
           <button
             onClick={() => handlePageChange(currentPage - 1)}
             disabled={currentPage === 1}
-            className="relative inline-flex items-center px-4 py-2 border border-white/20 text-sm font-medium rounded-md text-white/70 bg-white/5 hover:bg-white/10 disabled:opacity-50"
+            className="relative inline-flex items-center px-4 py-2 border border-gray-200 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
           >
             Trước
           </button>
           <button
             onClick={() => handlePageChange(currentPage + 1)}
             disabled={currentPage === totalPages || sortedProducts.length === 0}
-            className="relative ml-3 inline-flex items-center px-4 py-2 border border-white/20 text-sm font-medium rounded-md text-white/70 bg-white/5 hover:bg-white/10 disabled:opacity-50"
+            className="relative ml-3 inline-flex items-center px-4 py-2 border border-gray-200 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
           >
             Sau
           </button>
         </div>
         <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm text-white/70">
+            <p className="text-sm text-gray-600">
               Hiển thị{" "}
-              <span className="font-medium text-white">
+              <span className="font-medium text-gray-900">
                 {sortedProducts.length === 0 ? 0 : indexOfFirst + 1}
               </span>{" "}
               đến{" "}
-              <span className="font-medium text-white">
+              <span className="font-medium text-gray-900">
                 {Math.min(indexOfLast, sortedProducts.length)}
               </span>{" "}
               của{" "}
-              <span className="font-medium text-white">
+              <span className="font-medium text-gray-900">
                 {sortedProducts.length}
               </span>{" "}
               kết quả
@@ -338,17 +362,17 @@ export default function TopHighlightTable() {
               onChange={(e) =>
                 handleItemsPerPageChange(parseInt(e.target.value))
               }
-              className="px-2 py-1 border border-white/20 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white/5 text-white"
+              className="px-2 py-1 border border-gray-200 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white text-gray-900"
             >
               <option
                 value={5}
-                style={{ backgroundColor: "#111827", color: "white" }}
+                style={{ backgroundColor: "white", color: "#111827" }}
               >
                 5
               </option>
               <option
                 value={10}
-                style={{ backgroundColor: "#111827", color: "white" }}
+                style={{ backgroundColor: "white", color: "#111827" }}
               >
                 10
               </option>
@@ -360,7 +384,7 @@ export default function TopHighlightTable() {
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-white/20 bg-white/5 text-sm font-medium text-white/70 hover:bg-white/10 disabled:opacity-50"
+                className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
                 Trước
               </button>
@@ -369,10 +393,10 @@ export default function TopHighlightTable() {
                   <button
                     key={page}
                     onClick={() => handlePageChange(page)}
-                    className={`relative inline-flex items-center px-4 py-2 border border-white/20 text-sm font-medium ${
+                    className={`relative inline-flex items-center px-4 py-2 border border-gray-200 text-sm font-medium ${
                       currentPage === page
-                        ? "z-10 bg-white/10 border-blue-400 text-blue-400"
-                        : "bg-white/5 text-white/70 hover:bg-white/10"
+                        ? "z-10 bg-indigo-50 border-indigo-500 text-indigo-600"
+                        : "bg-white text-gray-700 hover:bg-gray-50"
                     }`}
                   >
                     {page}
@@ -384,7 +408,7 @@ export default function TopHighlightTable() {
                 disabled={
                   currentPage === totalPages || sortedProducts.length === 0
                 }
-                className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-white/20 bg-white/5 text-sm font-medium text-white/70 hover:bg-white/10 disabled:opacity-50"
+                className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
               >
                 Sau
               </button>
@@ -397,39 +421,39 @@ export default function TopHighlightTable() {
 
   return (
     <>
-      <div className="bg-white/10 backdrop-blur-md border-white/20 rounded-lg p-6">
+      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-white">
+          <h2 className="text-xl font-bold text-gray-900">
             Top Sản Phẩm Tốt Nhất
           </h2>
           <div className="flex items-center gap-2">
             <select
               value={sort.field}
               onChange={(e) => handleSort(e.target.value as SortField)}
-              className="px-3 py-2 bg-white/10 border-white/20 rounded text-white/70 focus:border-blue-400 focus:outline-none"
+              className="px-3 py-2 bg-gray-50 border-gray-200 rounded text-gray-700 focus:border-blue-400 focus:outline-none"
             >
               <option
                 value="score"
-                style={{ backgroundColor: "#111827", color: "white" }}
+                style={{ backgroundColor: "white", color: "#111827" }}
               >
                 Score
               </option>
               <option
                 value="createdAt"
-                style={{ backgroundColor: "#111827", color: "white" }}
+                style={{ backgroundColor: "white", color: "#111827" }}
               >
                 Ngày tạo
               </option>
               <option
                 value="title"
-                style={{ backgroundColor: "#111827", color: "white" }}
+                style={{ backgroundColor: "white", color: "#111827" }}
               >
                 Tiêu đề
               </option>
             </select>
             <button
               onClick={() => handleSort(sort.field)}
-              className="p-2 bg-white/10 border-white/20 rounded hover:bg-white/5 text-white/70 transition-colors"
+              className="p-2 bg-gray-50 border-gray-200 rounded hover:bg-gray-100 text-gray-700 transition-colors"
             >
               <ArrowUpDown
                 size={16}
@@ -439,48 +463,48 @@ export default function TopHighlightTable() {
             <button
               onClick={fetchTopProducts}
               disabled={loading}
-              className="p-2 bg-white/10 border-white/20 rounded hover:bg-white/5 text-white/70 transition-colors disabled:opacity-50"
+              className="p-2 bg-gray-50 border-gray-200 rounded hover:bg-gray-100 text-gray-700 transition-colors disabled:opacity-50"
             >
               <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
             </button>
           </div>
         </div>
 
-        <div className="overflow-x-auto rounded-lg border border-white/10 bg-white/10 relative">
-          <table className="min-w-full divide-y divide-white/10">
-            <thead className="bg-white/5">
+        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white relative">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                   Hình Ảnh
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                   Tiêu Đề
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                   Chủ Sở Hữu
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                   Danh Mục
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                   Giá
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                   Score
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
                   View / Fav / Rent
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-white/70 uppercase tracking-wider">
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
                   Hành Động
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white/5 divide-y divide-white/10">
+            <tbody className="bg-white divide-y divide-gray-200">
               {currentProducts.map((product) => (
                 <tr
                   key={product.id}
-                  className="hover:bg-white/5 transition-colors"
+                  className="hover:bg-gray-50 transition-colors"
                 >
                   <td className="px-4 py-4 whitespace-nowrap">
                     <Image
@@ -488,59 +512,59 @@ export default function TopHighlightTable() {
                       alt={product.title}
                       width={48}
                       height={48}
-                      className="h-12 w-12 object-cover rounded border border-white/20"
+                      className="h-12 w-12 object-cover rounded border border-gray-200"
                     />
                   </td>
                   <td className="px-4 py-4">
-                    <div className="text-sm font-medium text-white">
+                    <div className="text-sm font-medium text-gray-900">
                       {product.title}
                     </div>
-                    <div className="text-xs text-white/70">
+                    <div className="text-xs text-gray-600">
                       {product.createdAt}
                     </div>
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap">
-                    <span className="text-sm text-white">
+                    <span className="text-sm text-gray-900">
                       {product.ownerName}
                     </span>
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap">
-                    <span className="text-sm text-white">
+                    <span className="text-sm text-gray-900">
                       {product.categoryName}
                     </span>
                   </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm text-white">
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                     {product.basePrice.toLocaleString()} {product.currency}
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap">
-                    <span className="text-sm font-semibold text-yellow-400">
+                    <span className="text-sm font-semibold text-yellow-600">
                       {product.score}
                     </span>
                   </td>
-                  <td className="px-4 py-4 whitespace-nowrap text-xs text-white/70">
+                  <td className="px-4 py-4 whitespace-nowrap text-xs text-gray-600">
                     V: {product.viewCount} | F: {product.favoriteCount} | R:{" "}
                     {product.rentCount}
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end items-center gap-2">
                       <button
-                        onClick={() => handleToggleHighlight(product)}
+                        onClick={() => openConfirmModal(product)}
                         disabled={toggleLoading === product.id}
-                        className="p-2 rounded transition-colors disabled:opacity-50 hover:bg-white/10"
+                        className="p-2 rounded transition-colors disabled:opacity-50 hover:bg-gray-100"
                         title={
                           product.isHighlighted ? "Bỏ nổi bật" : "Đặt nổi bật"
                         }
                       >
                         {product.isHighlighted ? (
-                          <Star size={16} className="text-yellow-400" />
+                          <Star size={16} className="text-yellow-600" />
                         ) : (
-                          <StarOff size={16} className="text-white/50" />
+                          <StarOff size={16} className="text-gray-400" />
                         )}
                       </button>
                       <button
                         onClick={() => handleViewDetails(product.id)}
                         disabled={detailsLoading}
-                        className="p-2 text-blue-400 hover:bg-white/10 rounded-lg transition-colors disabled:opacity-50"
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
                         title="Xem chi tiết"
                       >
                         <Eye size={16} />
@@ -552,12 +576,12 @@ export default function TopHighlightTable() {
             </tbody>
           </table>
           {currentProducts.length === 0 && sortedProducts.length === 0 && (
-            <div className="text-center py-16 text-white/60 absolute inset-0 flex flex-col items-center justify-center">
+            <div className="text-center py-16 text-gray-600 absolute inset-0 flex flex-col items-center justify-center">
               <p>Chưa có sản phẩm nào</p>
             </div>
           )}
           {currentProducts.length === 0 && sortedProducts.length > 0 && (
-            <div className="text-center py-16 text-white/60">
+            <div className="text-center py-16 text-gray-600">
               <p>Không tìm thấy sản phẩm nào phù hợp</p>
             </div>
           )}
@@ -566,6 +590,42 @@ export default function TopHighlightTable() {
         {sortedProducts.length > 0 && <Pagination />}
       </div>
 
+      {showConfirmModal && confirmProduct && (
+        <div className="fixed inset-0 bg-gray-900/50 flex items-center justify-center z-50">
+          <div className="bg-white border border-gray-200 rounded-lg p-6 max-w-md w-full mx-4 shadow-lg">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">
+              Xác nhận {confirmProduct.isHighlighted ? "bỏ" : "thêm"} nổi bật
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Bạn có chắc chắn muốn{" "}
+              {confirmProduct.isHighlighted ? "bỏ" : "thêm"} nổi bật sản
+              phẩm&nbsp; &quot;{confirmProduct.title}&quot;?
+            </p>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowConfirmModal(false);
+                  setConfirmProduct(null);
+                }}
+                className="px-4 py-2 bg-white border border-gray-200 rounded text-gray-700 hover:bg-gray-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleConfirmToggle}
+                disabled={toggleLoading === confirmProduct.id}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-500 disabled:opacity-50 flex items-center gap-2"
+              >
+                {toggleLoading === confirmProduct.id ? (
+                  <Loader2 className="animate-spin h-4 w-4" />
+                ) : null}
+                Xác nhận
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ProductDetail
         isOpen={showDetailModal}

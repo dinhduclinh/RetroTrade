@@ -26,6 +26,15 @@ import {
 import { toast } from "sonner";
 import CommentDetail from "./comment-details";
 
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/common/dialog";
+
 export function CommentManagementTable() {
   const [comments, setComments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -34,6 +43,10 @@ export function CommentManagementTable() {
   const [selectedCommentId, setSelectedCommentId] = useState<string | null>(
     null
   );
+
+ 
+  const [openDelete, setOpenDelete] = useState(false);
+  const [deleteCommentData, setDeleteCommentData] = useState<any>(null);
 
   const fetchComments = async () => {
     try {
@@ -57,10 +70,9 @@ export function CommentManagementTable() {
     setOpenDetail(true);
   };
 
-  // Toggle trạng thái ẩn/hoạt động
   const handleToggleStatus = async (id: string, currentStatus: boolean) => {
     try {
-      await banComment(id); // API đã toggle trạng thái ở backend
+      await banComment(id);
       setComments((prev) =>
         prev.map((c) =>
           c._id === id ? { ...c, isDeleted: !currentStatus } : c
@@ -77,19 +89,6 @@ export function CommentManagementTable() {
     }
   };
 
-  // Xóa vĩnh viễn
-  const handleDeletePermanent = async (id: string) => {
-    if (!confirm("Bạn có chắc muốn xóa vĩnh viễn bình luận này?")) return;
-    try {
-      await deleteComment(id);
-      setComments((prev) => prev.filter((c) => c._id !== id));
-      toast.success("Xóa bình luận vĩnh viễn thành công");
-    } catch (err) {
-      console.error("Failed to delete comment permanently:", err);
-      toast.error("Xóa bình luận thất bại");
-    }
-  };
-
   const filteredComments = comments.filter((comment) => {
     const q = searchQuery.toLowerCase();
     return (
@@ -98,54 +97,54 @@ export function CommentManagementTable() {
     );
   });
 
-  if (loading) return <div className="text-white">Đang tải bình luận...</div>;
+  if (loading) return <div className="text-gray-900">Đang tải bình luận...</div>;
 
   return (
     <Card className="bg-white/10 backdrop-blur-md border-white/20">
       <CardHeader className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-        <CardTitle className="flex items-center gap-2 text-white">
+        <CardTitle className="flex items-center gap-2 text-gray-900">
           <MessageSquare className="w-5 h-5" />
           Quản lý bình luận
         </CardTitle>
+
         <div className="flex items-center gap-2">
-          <Search className="w-4 h-4 text-white/70" />
+          <Search className="w-4 h-4 text-gray-900/70" />
           <input
             type="text"
             placeholder="Tìm kiếm bình luận..."
-            className="px-2 py-1 rounded bg-white/10 text-white placeholder-white/50 outline-none"
+            className="px-2 py-1 rounded bg-white/10 text-gray-900 placeholder-white/50 outline-none"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
       </CardHeader>
+
       <CardContent>
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="border-white/20">
-                <TableHead className="text-white/70">Nội dung</TableHead>
-                <TableHead className="text-white/70">Tác giả</TableHead>
-                <TableHead className="text-white/70">Bài viết</TableHead>
-                <TableHead className="text-white/70">Trạng thái</TableHead>
-                <TableHead className="text-white/70">Ngày tạo</TableHead>
-                <TableHead className="text-white/70">Hành động</TableHead>
+                <TableHead className="text-gray-900/70">Nội dung</TableHead>
+                <TableHead className="text-gray-900/70">Tác giả</TableHead>
+                <TableHead className="text-gray-900/70">Trạng thái</TableHead>
+                <TableHead className="text-gray-900/70">Ngày tạo</TableHead>
+                <TableHead className="text-gray-900/70">Hành động</TableHead>
               </TableRow>
             </TableHeader>
+
             <TableBody>
               {filteredComments.map((comment) => (
                 <TableRow key={comment._id} className="border-white/20">
-                  <TableCell className="text-white/70 max-w-xs">
+                  <TableCell className="text-gray-900/70 max-w-xs">
                     <div className="truncate" title={comment.content}>
                       {comment.content}
                     </div>
                   </TableCell>
-                  <TableCell className="text-white font-medium">
+
+                  <TableCell className="text-gray-900 font-medium">
                     {comment.user?.fullName || "Unknown"}
                   </TableCell>
-                  <TableCell className="text-white/70 max-w-xs truncate">
-                    {comment.postTitle || "-"}
-                  </TableCell>
-                  {/* Trạng thái toggle */}
+
                   <TableCell>
                     <Badge
                       className={`cursor-pointer ${
@@ -156,14 +155,15 @@ export function CommentManagementTable() {
                       onClick={() =>
                         handleToggleStatus(comment._id, comment.isDeleted)
                       }
-                      title="Click để thay đổi trạng thái"
                     >
                       {comment.isDeleted ? "Đã ẩn" : "Hoạt động"}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-white/70">
+
+                  <TableCell className="text-gray-900/70">
                     {new Date(comment.createdAt).toLocaleDateString()}
                   </TableCell>
+
                   <TableCell>
                     <div className="flex gap-2">
                       <Button
@@ -174,13 +174,17 @@ export function CommentManagementTable() {
                       >
                         <Eye className="w-4 h-4" />
                       </Button>
-                      {/* Nếu đã bị ẩn thì hiển thị nút Xóa vĩnh viễn */}
+
+                 
                       {comment.isDeleted && (
                         <Button
                           size="sm"
                           variant="ghost"
                           className="text-red-400 hover:bg-red-500/10"
-                          onClick={() => handleDeletePermanent(comment._id)}
+                          onClick={() => {
+                            setDeleteCommentData(comment);
+                            setOpenDelete(true);
+                          }}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -192,6 +196,8 @@ export function CommentManagementTable() {
             </TableBody>
           </Table>
         </div>
+
+       
         {selectedCommentId && (
           <CommentDetail
             open={openDetail}
@@ -199,6 +205,61 @@ export function CommentManagementTable() {
             commentId={selectedCommentId}
           />
         )}
+
+     
+        <Dialog open={openDelete} onOpenChange={setOpenDelete}>
+          <DialogContent className="bg-white/10 backdrop-blur-md border-white/20 text-gray-900">
+            <DialogHeader>
+              <DialogTitle>Xóa bình luận?</DialogTitle>
+            </DialogHeader>
+
+            <p>
+              Bạn có chắc muốn xóa bình luận của{" "}
+              <span className="text-red-400 font-semibold">
+                {deleteCommentData?.user?.fullName ||
+                  deleteCommentData?.ownerName ||
+                  "Người dùng"}
+              </span>
+              ?
+            </p>
+
+            <div className="p-3 mt-2 bg-black/20 rounded border border-white/10 text-sm text-gray-900/70">
+              “{deleteCommentData?.content}”
+            </div>
+
+            <p className="text-xs text-red-300 mt-2">
+              ⚠️ Hành động này không thể khôi phục.
+            </p>
+
+            <DialogFooter className="mt-4">
+              <Button
+                variant="ghost"
+                className="text-gray-300 hover:bg-white/10"
+                onClick={() => setOpenDelete(false)}
+              >
+                Hủy
+              </Button>
+
+              <Button
+                className="bg-red-600 hover:bg-red-700 text-gray-900"
+                onClick={async () => {
+                  try {
+                    await deleteComment(deleteCommentData?._id);
+                    setComments((prev) =>
+                      prev.filter((c) => c._id !== deleteCommentData?._id)
+                    );
+                    toast.success("Xóa bình luận thành công!");
+                    setOpenDelete(false);
+                  } catch (error) {
+                    toast.error("Xóa bình luận thất bại");
+                  }
+                }}
+              >
+                Xóa ngay
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

@@ -34,6 +34,8 @@ interface ProductDetailDto {
   Category?: { _id: string; name: string } | null;
   Images?: { Url: string }[];
   Owner?: {
+    _id?: string;
+    userGuid?: string;
     DisplayName?: string;
     FullName?: string;
     AvatarUrl?: string;
@@ -327,20 +329,40 @@ export default function ProductDetailPage() {
     toast.info("So sánh sản phẩm tương tự (đang phát triển)");
   };
 
-  const handleRentNow = () => {
-    if (!product) return;
-    const pay = displayTotalPrice > 0 ? displayTotalPrice : baseUnitPrice;
-    if (!dateError && pay > 0) {
-      console.log("Rent now", product._id, dateFrom, dateTo, pay);
-      toast.info(`Thuê ngay với giá ${formatPrice(pay, product.Currency)}`);
-    } else if (!!dateError) {
-      toast.error(dateError);
-    }
+const handleRentNow = () => {
+  if (!product) return;
+
+  if (!dateFrom || !dateTo) {
+    toast.error("Vui lòng chọn thời gian thuê");
+    return;
+  }
+
+  if (dateError) {
+    toast.error(dateError);
+    return;
+  }
+
+  const checkoutItem = {
+    _id: "temp-" + product._id, 
+    itemId: product._id,
+    title: product.Title,
+    basePrice: product.BasePrice,
+    depositAmount: product.DepositAmount || 0,
+    quantity: 1,
+    priceUnit: product.PriceUnit?.UnitName || "ngày",
+    rentalStartDate: dateFrom,
+    rentalEndDate: dateTo,
+    primaryImage: product.Images?.[0]?.Url || "",
+    shortDescription: product.ShortDescription || "",
   };
 
-  // Add to cart handled by shared AddToCartButton component
+  sessionStorage.setItem("checkoutItems", JSON.stringify([checkoutItem]));
 
-  // Validate dates on change
+  toast.success("Đang chuyển đến trang thanh toán...");
+  router.push("/auth/order"); 
+};
+
+
   useEffect(() => {
     const today = new Date(todayStr);
     const start = dateFrom ? new Date(dateFrom) : null;
@@ -615,8 +637,12 @@ export default function ProductDetailPage() {
                     </button>
                     <button
                       onClick={() => {
-                        const ownerId = (product as any)?.Owner?._id || (product as any)?.Owner?.userGuid || (product as any)?.Owner?.UserGuid;
-                        if (ownerId) router.push(`/store/${ownerId}`);
+                        const ownerGuid = product?.Owner?.userGuid || product?.Owner?._id;
+                        if (ownerGuid) {
+                          router.push(`/store/${ownerGuid}`);
+                        } else {
+                          toast.error('Không tìm thấy thông tin cửa hàng');
+                        }
                       }}
                       className="px-3 py-1.5 text-sm rounded-md border text-gray-700 hover:bg-gray-50"
                     >

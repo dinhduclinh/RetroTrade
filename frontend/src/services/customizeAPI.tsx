@@ -25,23 +25,28 @@ interface ExtendedRequestInit extends RequestInit {
 
 // Custom fetch wrapper with interceptors functionality
 const customFetch = async (url: string, options: ExtendedRequestInit = {}): Promise<Response> => {
+  // normalize headers (support Headers instance)
+  const incomingHeaders: Record<string, string> =
+    options.headers instanceof Headers
+      ? Object.fromEntries((options.headers as Headers).entries())
+      : (options.headers as Record<string, string>) || {};
+
   // Request interceptor - add auth token
   const token = store.getState().auth?.accessToken;
-  
+
   if (token) {
-    options.headers = {
-      ...options.headers,
-      'Authorization': `Bearer ${token}`,
-    };
+    incomingHeaders['Authorization'] = `Bearer ${token}`;
   }
 
-  // Add default headers - DON'T set Content-Type for FormData
-  if (!(options.body instanceof FormData)) {
-    options.headers = {
-      "Content-Type": "application/json",
-      ...options.headers,
-    };
+  // Add default headers ONLY when there is a body and it's not FormData
+  if (options.body && !(options.body instanceof FormData)) {
+    incomingHeaders['Content-Type'] = incomingHeaders['Content-Type'] || "application/json";
   }
+
+  options.headers = incomingHeaders;
+
+  // ensure CORS mode by default (adjust if your backend requires credentials)
+  options.mode = options.mode ?? 'cors';
 
   try {
     const response = await fetch(url, options);
@@ -112,9 +117,12 @@ const customFetch = async (url: string, options: ExtendedRequestInit = {}): Prom
 
     return response;
   } catch (error) {
-    throw error;
+    // Improve diagnostics for network / CORS failures
+    const err = error instanceof Error ? error : new Error(String(error));
+    throw new Error(`Network or CORS error while fetching "${url}": ${err.message}`);
   }
 };
+
 
 
 const api = {

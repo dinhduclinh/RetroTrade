@@ -1,14 +1,14 @@
-const CartItem = require("../../models/CartItem.model");
+const CartItem = require("../../models/Order/CartItem.model");
 const Item = require("../../models/Product/Item.model");
 const ItemImages = require("../../models/Product/ItemImage.model");
 const ItemConditions = require("../../models/Product/ItemConditions.model");
 const PriceUnits = require("../../models/Product/PriceUnits.model");
 const Categories = require("../../models/Product/Categories.model");
 
-// Get all cart items for a user
+
 const getCartItems = async (req, res) => {
   try {
-    const userId = req.user._id; // Changed from req.user.userId to req.user._id
+    const userId = req.user._id; 
     
     const cartItems = await CartItem.find({ userId })
       .populate({
@@ -22,15 +22,36 @@ const getCartItems = async (req, res) => {
           { 
             path: 'OwnerId', 
             model: 'User', 
-            select: 'fullName email avatarUrl' 
+            select: 'fullName email avatarUrl userGuid' 
           }
         ]
       })
       .sort({ createdAt: -1 });
 
+    // Filter out and delete cartItems with deleted items
+    const invalidCartItemIds = [];
+    const validCartItems = [];
+
+    for (const cartItem of cartItems) {
+      const item = cartItem.itemId;
+      
+      // Check if item is null, deleted, or not approved
+      if (!item || !item._id || item.IsDeleted === true || item.StatusId !== 2) {
+        invalidCartItemIds.push(cartItem._id);
+        continue;
+      }
+      
+      validCartItems.push(cartItem);
+    }
+
+    // Delete invalid cart items from database
+    if (invalidCartItemIds.length > 0) {
+      await CartItem.deleteMany({ _id: { $in: invalidCartItemIds } });
+    }
+
     // Get additional item details
     const cartItemsWithDetails = await Promise.all(
-      cartItems.map(async (cartItem) => {
+      validCartItems.map(async (cartItem) => {
         const item = cartItem.itemId;
         
         // Get primary image
@@ -99,7 +120,7 @@ const getCartItems = async (req, res) => {
 // Add item to cart
 const addToCart = async (req, res) => {
   try {
-    const userId = req.user._id; // Changed from req.user.userId to req.user._id
+    const userId = req.user._id; 
     const { itemId, quantity = 1, rentalStartDate, rentalEndDate } = req.body;
 
     // Validate required fields
@@ -124,7 +145,7 @@ const addToCart = async (req, res) => {
       });
     }
 
-    // Validate quantity
+    
     if (!Number.isInteger(quantity) || quantity <= 0) {
       return res.status(400).json({
         success: false,
@@ -139,7 +160,6 @@ const addToCart = async (req, res) => {
       });
     }
 
-    // Check if user is trying to add their own item
     if (item.OwnerId.toString() === userId) {
       return res.status(400).json({
         success: false,
@@ -147,7 +167,7 @@ const addToCart = async (req, res) => {
       });
     }
 
-    // Check available quantity
+    
     if (item.AvailableQuantity < quantity) {
       return res.status(400).json({
         success: false,
@@ -155,11 +175,11 @@ const addToCart = async (req, res) => {
       });
     }
 
-    // Check if item already exists in cart
+    
     const existingCartItem = await CartItem.findOne({ userId, itemId });
 
     if (existingCartItem) {
-      // Update quantity if item already exists
+      
       const newQuantity = existingCartItem.quantity + quantity;
       
       if (item.AvailableQuantity < newQuantity) {
@@ -182,7 +202,7 @@ const addToCart = async (req, res) => {
       });
     }
 
-    // Create new cart item
+    
     const cartItem = await CartItem.create({
       userId,
       itemId,
@@ -206,14 +226,13 @@ const addToCart = async (req, res) => {
   }
 };
 
-// Update cart item
 const updateCartItem = async (req, res) => {
   try {
-    const userId = req.user._id; // Changed from req.user.userId to req.user._id
+    const userId = req.user._id; 
     const { cartItemId } = req.params;
     const { quantity, rentalStartDate, rentalEndDate } = req.body;
 
-    // Find cart item
+    
     const cartItem = await CartItem.findOne({ 
       _id: cartItemId, 
       userId 
@@ -284,10 +303,10 @@ const updateCartItem = async (req, res) => {
   }
 };
 
-// Remove item from cart
+
 const removeFromCart = async (req, res) => {
   try {
-    const userId = req.user._id; // Changed from req.user.userId to req.user._id
+    const userId = req.user._id; 
     const { cartItemId } = req.params;
 
     const cartItem = await CartItem.findOneAndDelete({ 
