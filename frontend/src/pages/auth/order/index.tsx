@@ -792,6 +792,9 @@ const handleSubmit = async () => {
 
   setIsSubmitting(true);
   try {
+    let successCount = 0;
+    const failedItems: string[] = [];
+
     for (const item of cartItems) {
       console.log("Tạo đơn hàng:", item.title);
 
@@ -808,18 +811,47 @@ const handleSubmit = async () => {
       );
 
       if (!result?.success) {
-          toast.error(`Không thể tạo đơn cho sản phẩm: ${item.title}`);
-        throw new Error(`Order failed for ${item.title}`);
+        const errorMessage = result?.error || "Không thể tạo đơn hàng";
+        toast.error(`Không thể tạo đơn cho sản phẩm: ${item.title}. ${errorMessage}`);
+        failedItems.push(item.title);
+        console.error(`Order failed for ${item.title}:`, result?.error);
+        continue; // Continue processing other items instead of throwing
       }
 
+      // Only remove from cart if order was successful
       if (!item._id?.startsWith("temp-")) {
-        await dispatch(removeItemFromCartAction(item._id));
+        try {
+          await dispatch(removeItemFromCartAction(item._id));
+        } catch (cartError) {
+          console.error(`Error removing item from cart: ${item.title}`, cartError);
+          // Don't fail the entire process if cart removal fails
+        }
       }
+
+      successCount++;
     }
 
+    // Show appropriate message based on results
+    if (failedItems.length === 0) {
       toast.success("Tạo tất cả đơn hàng thành công!");
-    sessionStorage.removeItem("checkoutItems");
-    router.push("/auth/order");
+      sessionStorage.removeItem("checkoutItems");
+      router.push("/auth/order");
+    } else if (successCount > 0) {
+      toast.warning(
+        `Đã tạo thành công ${successCount} đơn hàng. ${failedItems.length} đơn hàng thất bại: ${failedItems.join(", ")}`
+      );
+      // Keep only failed items in sessionStorage for retry
+      const remainingItems = cartItems.filter(
+        (item) => failedItems.includes(item.title)
+      );
+      if (remainingItems.length > 0) {
+        sessionStorage.setItem("checkoutItems", JSON.stringify(remainingItems));
+      } else {
+        sessionStorage.removeItem("checkoutItems");
+      }
+    } else {
+      toast.error("Không thể tạo bất kỳ đơn hàng nào. Vui lòng thử lại.");
+    }
   } catch (err) {
     console.error("Checkout error:", err);
       toast.error("Có lỗi xảy ra khi tạo đơn hàng, vui lòng thử lại.");
