@@ -217,6 +217,8 @@ export default function ProfilePage() {
                 onChangePassword={handleChangePasswordClick}
                 onRegisterRental={handleRegisterRentalClick}
                 userRole={userProfile?.role}
+                isPhoneConfirmed={userProfile?.isPhoneConfirmed || false}
+                isIdVerified={userProfile?.isIdVerified || false}
               />
             </div>
           </div>

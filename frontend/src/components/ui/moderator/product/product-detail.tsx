@@ -40,24 +40,24 @@ export default function ProductDetail({
   if (!isOpen || !productDetails) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 z-50 p-4 flex items-center justify-center">
-      <div className="bg-white/10 backdrop-blur-md border-white/20 rounded-lg w-full max-w-6xl max-h-[95vh] flex flex-col">
+    <div className="fixed inset-0 bg-gray-900/50 z-50 p-4 flex items-center justify-center">
+      <div className="bg-white border border-gray-200 rounded-lg w-full max-w-6xl max-h-[95vh] flex flex-col shadow-lg">
         {/* Header */}
-        <div className="sticky top-0 bg-white/10 border-b border-white/20 px-6 py-4 flex justify-between items-center z-10">
-          <h2 className="text-xl font-bold text-white">Chi tiết sản phẩm</h2>
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center z-10">
+          <h2 className="text-xl font-bold text-gray-900">Chi tiết sản phẩm</h2>
           <button
             onClick={onClose}
             disabled={loading}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors disabled:opacity-50"
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
           >
-            <X size={20} className="text-white/70" />
+            <X size={20} className="text-gray-600" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50">
           {loading ? (
             <div className="flex justify-center items-center py-16">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             </div>
           ) : (
             <>
@@ -74,7 +74,7 @@ export default function ProductDetail({
                       alt={productDetails.title || "Product image"}
                       width={800}
                       height={400}
-                      className="w-full h-64 object-cover rounded-lg border border-white/20"
+                      className="w-full h-64 object-cover rounded-lg border border-gray-200"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
                         target.src = "/placeholder.jpg";
@@ -90,7 +90,7 @@ export default function ProductDetail({
                             alt={`Thumbnail ${idx + 1}`}
                             width={80}
                             height={80}
-                            className="w-20 h-20 object-cover rounded border border-white/20 hover:border-blue-400 transition-colors cursor-pointer"
+                            className="w-20 h-20 object-cover rounded border border-gray-200 hover:border-blue-400 transition-colors cursor-pointer"
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
                               target.src = "/placeholder-image.jpg";
@@ -110,16 +110,16 @@ export default function ProductDetail({
 
                 {/* Title & Basic Info */}
                 <div className="space-y-4">
-                  <h1 className="text-2xl font-bold text-white">
+                  <h1 className="text-2xl font-bold text-gray-900">
                     {productDetails.title}
                   </h1>
-                  <div className="flex items-center gap-2 text-yellow-400">
+                  <div className="flex items-center gap-2 text-yellow-600">
                     <Hash size={16} />
                     <span className="text-sm">
                       {productDetails.categoryName}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-emerald-400">
+                  <div className="flex items-center gap-2 text-emerald-600">
                     <Users size={16} />
                     <span className="text-sm">
                       Chủ sở hữu: {productDetails.ownerName}
@@ -128,12 +128,12 @@ export default function ProductDetail({
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <DollarSign size={16} />
-                      <span className="text-lg font-semibold text-white">
+                      <span className="text-lg font-semibold text-gray-900">
                         {productDetails.basePrice.toLocaleString()}{" "}
                         {productDetails.currency}/{productDetails.priceUnitName}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-white/70">
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
                       <Clock size={16} />
                       <span>
                         Thời hạn: {productDetails.minRentalDuration} -{" "}
@@ -141,7 +141,7 @@ export default function ProductDetail({
                         {productDetails.priceUnitName}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-white/70">
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
                       <Users size={16} />
                       <span>
                         Số lượng: {productDetails.availableQuantity}/
@@ -155,22 +155,22 @@ export default function ProductDetail({
               {/* Description */}
               {productDetails.shortDescription && (
                 <div>
-                  <h3 className="text-lg font-semibold text-white mb-2">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
                     Mô tả ngắn
                   </h3>
-                  <p className="text-white/70">
+                  <p className="text-gray-600">
                     {productDetails.shortDescription}
                   </p>
                 </div>
               )}
               {productDetails.description && (
                 <div>
-                  <h3 className="text-lg font-semibold text-white mb-2">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
                     Mô tả chi tiết
                   </h3>
-                  <div className="prose prose-invert max-w-none bg-white/5 p-4 rounded-lg text-white">
+                  <div className="prose max-w-none bg-gray-50 p-4 rounded-lg text-gray-900">
                     <div
-                      className="text-white"
+                      className="text-gray-900"
                       dangerouslySetInnerHTML={{
                         __html: productDetails.description,
                       }}
@@ -180,35 +180,35 @@ export default function ProductDetail({
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-                <div className="bg-white/5 p-4 rounded-lg">
-                  <h4 className="text-sm font-semibold text-white/70 mb-2 flex items-center gap-2">
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                     <DollarSign size={16} /> Tiền đặt cọc
                   </h4>
-                  <p className="text-white text-lg">
+                  <p className="text-gray-900 text-lg">
                     {productDetails.depositAmount.toLocaleString()}{" "}
                     {productDetails.currency}
                   </p>
                 </div>
-                <div className="bg-white/5 p-4 rounded-lg">
-                  <h4 className="text-sm font-semibold text-white/70 mb-2 flex items-center gap-2">
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                     Tình trạng
                   </h4>
-                  <p className="text-white">{productDetails.conditionName}</p>
+                  <p className="text-gray-900">{productDetails.conditionName}</p>
                 </div>
-                <div className="bg-white/5 p-4 rounded-lg">
-                  <h4 className="text-sm font-semibold text-white/70 mb-2 flex items-center gap-2">
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                     <MapPin size={16} /> Vị trí
                   </h4>
-                  <p className="text-white">
+                  <p className="text-gray-900">
                     {productDetails.district || "N/A"},{" "}
                     {productDetails.city || "N/A"}
                   </p>
                 </div>
-                <div className="bg-white/5 p-4 rounded-lg">
-                  <h4 className="text-sm font-semibold text-white/70 mb-2 flex items-center gap-2">
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                     <MapPin size={16} /> Địa chỉ chi tiết
                   </h4>
-                  <p className="text-white">
+                  <p className="text-gray-900">
                     {productDetails.address || "Chưa cung cấp"}
                   </p>
                 </div>

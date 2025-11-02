@@ -28,9 +28,30 @@ const getCartItems = async (req, res) => {
       })
       .sort({ createdAt: -1 });
 
+    // Filter out and delete cartItems with deleted items
+    const invalidCartItemIds = [];
+    const validCartItems = [];
+
+    for (const cartItem of cartItems) {
+      const item = cartItem.itemId;
+      
+      // Check if item is null, deleted, or not approved
+      if (!item || !item._id || item.IsDeleted === true || item.StatusId !== 2) {
+        invalidCartItemIds.push(cartItem._id);
+        continue;
+      }
+      
+      validCartItems.push(cartItem);
+    }
+
+    // Delete invalid cart items from database
+    if (invalidCartItemIds.length > 0) {
+      await CartItem.deleteMany({ _id: { $in: invalidCartItemIds } });
+    }
+
     // Get additional item details
     const cartItemsWithDetails = await Promise.all(
-      cartItems.map(async (cartItem) => {
+      validCartItems.map(async (cartItem) => {
         const item = cartItem.itemId;
         
         // Get primary image

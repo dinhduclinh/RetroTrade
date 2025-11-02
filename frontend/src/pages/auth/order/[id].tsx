@@ -18,10 +18,10 @@ export default function OrderDetailPage() {
      try {
        const res = await getOrderDetails(id as string);
        if (res.code === 200 && res.data) {
-         setOrder(res.data); // res.data chắc chắn không undefined
+         setOrder(res.data); 
        } else {
          setError(res.message || "Không tìm thấy đơn hàng");
-         setOrder(null); // gán null nếu không có dữ liệu
+         setOrder(null); 
        }
      } catch (err: any) {
        setError(err.message || "Lỗi khi tải dữ liệu đơn hàng");

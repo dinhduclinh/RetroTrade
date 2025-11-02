@@ -2,7 +2,7 @@ services:
   js-backend:
     build:
       context: ./backend
-      dockerfile: ../backendDockerfile
+      dockerfile: Dockerfile
     restart: unless-stopped
     init: true
     env_file: ./backend/.env
@@ -15,7 +15,7 @@ services:
   ts-frontend:
     build:
       context: ./frontend
-      dockerfile: ../frontendDockerfile
+      dockerfile: Dockerfile
     restart: unless-stopped
     init: true
     env_file: ./frontend/.env

@@ -1,5 +1,6 @@
 const User = require("../../models/User.model");
 const { uploadUserAvatar, uploadToCloudinaryUserAvatar } = require("../../middleware/userAvatar.upload.middleware");
+const { createNotification } = require("../../middleware/createNotification");
 
 /**
  * Upload user avatar - xử lý cả file upload và URL update
@@ -57,6 +58,9 @@ module.exports.uploadUserAvatar = async (req, res) => {
             });
         }
 
+        // Get current user data to check if avatar is changing
+        const currentUser = await User.findById(userId);
+        
         // Update user avatar in database
         const updatedUser = await User.findByIdAndUpdate(
             userId,
@@ -65,6 +69,24 @@ module.exports.uploadUserAvatar = async (req, res) => {
             },
             { new: true }
         ).select("userGuid email fullName displayName avatarUrl bio phone isEmailConfirmed isPhoneConfirmed isIdVerified reputationScore points role wallet lastLoginAt createdAt updatedAt");
+
+        // Create notification for avatar update (only if avatar actually changed)
+        if (currentUser && currentUser.avatarUrl !== finalAvatarUrl) {
+            try {
+                await createNotification(
+                    userId,
+                    "Avatar Updated",
+                    "Ảnh đại diện đã được cập nhật",
+                    `Xin chào ${updatedUser.fullName || currentUser.fullName}, ảnh đại diện của bạn đã được cập nhật thành công vào lúc ${new Date().toLocaleString("vi-VN")}.`,
+                    { 
+                        updateTime: new Date().toISOString(),
+                        newAvatarUrl: finalAvatarUrl
+                    }
+                );
+            } catch (notificationError) {
+                console.error("Error creating avatar update notification:", notificationError);
+            }
+        }
 
         return res.status(200).json({
             code: 200,

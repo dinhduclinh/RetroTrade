@@ -97,22 +97,22 @@ export function CommentManagementTable() {
     );
   });
 
-  if (loading) return <div className="text-white">Đang tải bình luận...</div>;
+  if (loading) return <div className="text-gray-900">Đang tải bình luận...</div>;
 
   return (
     <Card className="bg-white/10 backdrop-blur-md border-white/20">
       <CardHeader className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-        <CardTitle className="flex items-center gap-2 text-white">
+        <CardTitle className="flex items-center gap-2 text-gray-900">
           <MessageSquare className="w-5 h-5" />
           Quản lý bình luận
         </CardTitle>
 
         <div className="flex items-center gap-2">
-          <Search className="w-4 h-4 text-white/70" />
+          <Search className="w-4 h-4 text-gray-900/70" />
           <input
             type="text"
             placeholder="Tìm kiếm bình luận..."
-            className="px-2 py-1 rounded bg-white/10 text-white placeholder-white/50 outline-none"
+            className="px-2 py-1 rounded bg-white/10 text-gray-900 placeholder-white/50 outline-none"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -124,24 +124,24 @@ export function CommentManagementTable() {
           <Table>
             <TableHeader>
               <TableRow className="border-white/20">
-                <TableHead className="text-white/70">Nội dung</TableHead>
-                <TableHead className="text-white/70">Tác giả</TableHead>
-                <TableHead className="text-white/70">Trạng thái</TableHead>
-                <TableHead className="text-white/70">Ngày tạo</TableHead>
-                <TableHead className="text-white/70">Hành động</TableHead>
+                <TableHead className="text-gray-900/70">Nội dung</TableHead>
+                <TableHead className="text-gray-900/70">Tác giả</TableHead>
+                <TableHead className="text-gray-900/70">Trạng thái</TableHead>
+                <TableHead className="text-gray-900/70">Ngày tạo</TableHead>
+                <TableHead className="text-gray-900/70">Hành động</TableHead>
               </TableRow>
             </TableHeader>
 
             <TableBody>
               {filteredComments.map((comment) => (
                 <TableRow key={comment._id} className="border-white/20">
-                  <TableCell className="text-white/70 max-w-xs">
+                  <TableCell className="text-gray-900/70 max-w-xs">
                     <div className="truncate" title={comment.content}>
                       {comment.content}
                     </div>
                   </TableCell>
 
-                  <TableCell className="text-white font-medium">
+                  <TableCell className="text-gray-900 font-medium">
                     {comment.user?.fullName || "Unknown"}
                   </TableCell>
 
@@ -160,7 +160,7 @@ export function CommentManagementTable() {
                     </Badge>
                   </TableCell>
 
-                  <TableCell className="text-white/70">
+                  <TableCell className="text-gray-900/70">
                     {new Date(comment.createdAt).toLocaleDateString()}
                   </TableCell>
 
@@ -208,7 +208,7 @@ export function CommentManagementTable() {
 
      
         <Dialog open={openDelete} onOpenChange={setOpenDelete}>
-          <DialogContent className="bg-white/10 backdrop-blur-md border-white/20 text-white">
+          <DialogContent className="bg-white/10 backdrop-blur-md border-white/20 text-gray-900">
             <DialogHeader>
               <DialogTitle>Xóa bình luận?</DialogTitle>
             </DialogHeader>
@@ -223,7 +223,7 @@ export function CommentManagementTable() {
               ?
             </p>
 
-            <div className="p-3 mt-2 bg-black/20 rounded border border-white/10 text-sm text-white/70">
+            <div className="p-3 mt-2 bg-black/20 rounded border border-white/10 text-sm text-gray-900/70">
               “{deleteCommentData?.content}”
             </div>
 
@@ -241,7 +241,7 @@ export function CommentManagementTable() {
               </Button>
 
               <Button
-                className="bg-red-600 hover:bg-red-700 text-white"
+                className="bg-red-600 hover:bg-red-700 text-gray-900"
                 onClick={async () => {
                   try {
                     await deleteComment(deleteCommentData?._id);

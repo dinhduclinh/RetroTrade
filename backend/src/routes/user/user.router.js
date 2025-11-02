@@ -10,10 +10,14 @@ router.get('/', pagination(), userController.getAllUsers);
 router.get('/:id', userController.getUserById);
 
 
-router.get('/profile/me', authenticateToken, userController.getProfile);
+router.get('/profile/me', authenticateToken, profileController.getProfile);
+router.put('/profile', authenticateToken, profileController.updateProfile);
+router.put('/profile/change-password', authenticateToken, profileController.changePassword);
 router.post('/', authenticateToken, authorizeRoles('admin'), userController.createUser);
 router.put('/:id', authenticateToken, authorizeRoles('admin'), userController.updateUser);
 router.delete('/:id', authenticateToken, authorizeRoles('admin'), userController.deleteUser);
 router.put('/role/update', authenticateToken, authorizeRoles('admin'), userController.updateUserRole);
+router.post('/:id/ban', authenticateToken, authorizeRoles('admin'), userController.banUser);
+router.post('/:id/unban', authenticateToken, authorizeRoles('admin'), userController.unbanUser);
 
 module.exports = router;

@@ -55,6 +55,9 @@ export function LoginForm() {
         toast.success("Đăng nhập thành công!");
         // Redirect to dashboard or home page
         router.push("/");
+      } else if (result.code === 403 && result.isBanned) {
+        // Redirect to banned account page
+        router.push("/auth/banned");
       } else {
         toast.error(result.message || "Đăng nhập thất bại");
       }
@@ -110,6 +113,9 @@ export function LoginForm() {
           dispatch(loginAction({ accessToken: result.data.accessToken, refreshToken: result.data.refreshToken }))
           toast.success("Đăng nhập Google thành công!")
           router.push("/")
+        } else if (result.code === 403 && result.isBanned) {
+          // Redirect to banned account page
+          router.push("/auth/banned")
         } else {
           toast.error(result.message || "Đăng nhập Google thất bại")
         }

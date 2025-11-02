@@ -1,10 +1,8 @@
 "use client";
 
 import {
-  Users,
   FileText,
   Shield,
-  LogOut,
   BookOpen,
   Menu,
   X,
@@ -12,30 +10,31 @@ import {
   ChevronRight,
   LayoutDashboard,
   Package,
+  MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/common/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface ModeratorSidebarProps {
   activeTab:
     | "dashboard"
-    | "users"
     | "requests"
     | "verification"
     | "productManagement"
-    | "blog";
-  activeProductTab?: "products" | "categories";
+    | "blog"
+    | "messages";
+  activeProductTab?: "products" | "categories" | "highlights";
   activeBlogTab?: "posts" | "categories" | "comments" | "tags";
   onTabChange?: (
     tab:
       | "dashboard"
-      | "users"
       | "requests"
       | "verification"
       | "productManagement"
       | "blog"
+      | "messages"
   ) => void;
-  onProductTabChange?: (tab: "products" | "categories") => void;
+  onProductTabChange?: (tab: "products" | "categories" | "highlights") => void;
   onBlogTabChange?: (tab: "posts" | "categories" | "comments" | "tags") => void;
 }
 
@@ -50,6 +49,61 @@ export function ModeratorSidebar({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isBlogDropdownOpen, setIsBlogDropdownOpen] = useState(false);
   const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Load collapsed state from localStorage on mount and update CSS variable
+  useEffect(() => {
+    const savedCollapsed = localStorage.getItem("moderatorSidebarCollapsed");
+    let collapsed = false;
+    if (savedCollapsed !== null) {
+      collapsed = savedCollapsed === "true";
+    }
+    setIsCollapsed(collapsed);
+    // Update CSS variable for sidebar width immediately
+    const width = collapsed ? "80px" : "288px";
+    document.documentElement.style.setProperty("--moderator-sidebar-width", width);
+    setIsMounted(true);
+  }, []);
+
+  // Close mobile menu when navigating - prevent auto-opening
+  useEffect(() => {
+    // Always close mobile menu when tab changes or on mount
+    setIsMobileMenuOpen(false);
+  }, [activeTab]);
+
+  // Close dropdowns when navigating away from their tabs
+  // Don't auto-open dropdowns on initial load
+  useEffect(() => {
+    if (!isMounted) return; // Don't run until mounted
+    
+    if (activeTab !== "blog") {
+      setIsBlogDropdownOpen(false);
+    }
+    
+    if (activeTab !== "productManagement") {
+      setIsProductDropdownOpen(false);
+    }
+  }, [activeTab, isMounted]);
+
+  // Save collapsed state to localStorage and update CSS variable
+  const toggleCollapse = () => {
+    setIsCollapsed((prev) => {
+      const newState = !prev;
+      localStorage.setItem("moderatorSidebarCollapsed", String(newState));
+      // Update CSS variable for sidebar width
+      document.documentElement.style.setProperty(
+        "--moderator-sidebar-width",
+        newState ? "80px" : "288px"
+      );
+      return newState;
+    });
+    // Close dropdowns when collapsing
+    if (!isCollapsed) {
+      setIsBlogDropdownOpen(false);
+      setIsProductDropdownOpen(false);
+    }
+  };
 
   const menuItems = [
     {
@@ -58,6 +112,13 @@ export function ModeratorSidebar({
       icon: LayoutDashboard,
       path: "/moderator/dashboard",
       description: "Tổng quan hệ thống",
+    },
+    {
+      id: "messages" as const,
+      label: "Tin nhắn",
+      icon: MessageCircle,
+      path: "/moderator/messages",
+      description: "Quản lý tin nhắn và hỗ trợ",
     },
     {
       id: "requests" as const,
@@ -90,7 +151,7 @@ export function ModeratorSidebar({
   ];
 
   const productSubmenuItems: {
-    id: "products" | "categories";
+    id: "products" | "categories" | "highlights";
     label: string;
     description: string;
   }[] = [
@@ -103,6 +164,12 @@ export function ModeratorSidebar({
       id: "categories",
       label: "Quản lý danh mục",
       description: "Quản lý danh mục sản phẩm",
+    },
+
+    {
+      id: "highlights",
+      label: "Top sản phẩm nổi bật",
+      description: "Đánh dấu sản phẩm nổi bật",
     },
   ];
 
@@ -136,11 +203,11 @@ export function ModeratorSidebar({
   const handleTabChange = (
     tab:
       | "dashboard"
-      | "users"
       | "requests"
       | "verification"
       | "productManagement"
       | "blog"
+      | "messages"
   ) => {
     if (onTabChange) {
       onTabChange(tab);
@@ -152,7 +219,7 @@ export function ModeratorSidebar({
     setIsMobileMenuOpen(false);
   };
 
-  const handleProductTabChange = (tab: "products" | "categories") => {
+  const handleProductTabChange = (tab: "products" | "categories" | "highlights") => {
     if (onProductTabChange) onProductTabChange(tab);
     setIsMobileMenuOpen(false);
   };
@@ -170,7 +237,7 @@ export function ModeratorSidebar({
     isDropdownOpen: boolean,
     dropdownKey: "product" | "blog",
     activeSubTab?: string,
-    onSubTabChange?: (tab: any) => void
+    onSubTabChange?: (tab: string) => void
   ) => {
     if (!item.hasSubmenu || !isDropdownOpen) return null;
 
@@ -188,8 +255,8 @@ export function ModeratorSidebar({
               variant="ghost"
               className={`w-full justify-start h-12 px-4 text-sm transition-all duration-200 ${
                 isSubActive
-                  ? "bg-white/15 text-white border border-white/20"
-                  : "text-white/60 hover:text-white hover:bg-white/5"
+                  ? "bg-indigo-50 text-indigo-600 border border-indigo-200"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
               }`}
               onClick={() => onSubTabChange?.(subItem.id)}
             >
@@ -209,7 +276,7 @@ export function ModeratorSidebar({
       <Button
         variant="ghost"
         size="icon"
-        className="fixed top-4 left-4 z-30 lg:hidden bg-white/10 backdrop-blur-md text-white hover:bg-white/20"
+        className="fixed top-4 left-4 z-30 lg:hidden bg-white border border-gray-200 text-gray-900 hover:bg-gray-50"
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
       >
         {isMobileMenuOpen ? (
@@ -220,20 +287,45 @@ export function ModeratorSidebar({
       </Button>
 
       <div
-        className={`fixed left-0 top-0 h-full w-72 bg-white/10 backdrop-blur-md border-r border-white/20 z-20
-          transform transition-transform duration-300 ease-in-out
+        className={`fixed left-0 top-0 h-full bg-white border-r border-gray-200 shadow-sm z-20
+          ${isMounted ? "transform transition-all duration-300 ease-in-out" : ""}
           ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
-          lg:translate-x-0`}
+          lg:translate-x-0
+          ${isCollapsed ? "w-20" : "w-72"}
+          lg:w-auto`}
+        style={{
+          width: isCollapsed ? "80px" : "288px",
+        }}
       >
-        <div className="p-6 h-full flex flex-col">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg">
-              <Shield className="w-7 h-7 text-white" />
+        <div className={`h-full flex flex-col ${isCollapsed ? "p-3" : "p-4 lg:p-6"}`}>
+          {/* Header with collapse button */}
+          <div className={`flex items-center mb-8 ${isCollapsed ? "justify-center flex-col gap-2" : "gap-3"}`}>
+            <div className={`bg-gradient-to-r from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0 transition-all duration-300 ${
+              isCollapsed ? "w-10 h-10" : "w-12 h-12"
+            }`}>
+              <Shield className={`text-white transition-all duration-300 ${isCollapsed ? "w-5 h-5" : "w-7 h-7"}`} />
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-white">Moderator</h2>
-              <p className="text-sm text-white/70">Control Panel</p>
-            </div>
+            {!isCollapsed && (
+              <div className="flex-1 min-w-0">
+                <h2 className="text-xl font-bold text-gray-900">Moderator</h2>
+                <p className="text-sm text-gray-600">Control Panel</p>
+              </div>
+            )}
+            {/* Collapse Toggle Button */}
+            <button
+              onClick={toggleCollapse}
+              className={`hidden lg:flex flex-col items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-900 transition-all duration-200 flex-shrink-0 ${
+                isCollapsed 
+                  ? "w-6 h-6 gap-0.5 mt-1" 
+                  : "w-8 h-8 gap-1 ml-auto"
+              }`}
+              aria-label={isCollapsed ? "Mở rộng sidebar" : "Thu nhỏ sidebar"}
+              title={isCollapsed ? "Mở rộng sidebar" : "Thu nhỏ sidebar"}
+            >
+              <div className={`bg-current transition-all duration-300 ${isCollapsed ? "w-3 h-[1.5px]" : "w-4 h-0.5"}`}></div>
+              <div className={`bg-current transition-all duration-300 ${isCollapsed ? "w-3 h-[1.5px]" : "w-4 h-0.5"}`}></div>
+              <div className={`bg-current transition-all duration-300 ${isCollapsed ? "w-3 h-[1.5px]" : "w-4 h-0.5"}`}></div>
+            </button>
           </div>
 
           <nav className="space-y-3 flex-1">
@@ -248,72 +340,88 @@ export function ModeratorSidebar({
                 <div key={item.id}>
                   <Button
                     variant="ghost"
-                    className={`w-full justify-start h-14 px-4 group transition-all duration-200 ${
+                    className={`w-full h-14 group transition-all duration-200 relative ${
+                      isCollapsed ? "justify-center px-2" : "justify-start px-4"
+                    } ${
                       isActive
-                        ? "bg-white/20 text-white border border-white/30 shadow-lg scale-105"
-                        : "text-white/70 hover:text-white hover:bg-white/10 hover:scale-105"
+                        ? "bg-indigo-50 text-indigo-600 border border-indigo-200 shadow-sm scale-105"
+                        : "text-gray-700 hover:text-gray-900 hover:bg-gray-50 hover:scale-105"
                     }`}
                     onClick={() => {
-                      if (item.hasSubmenu) {
-                        if (isProduct)
+                      if (item.hasSubmenu && !isCollapsed) {
+                        // Only toggle dropdown if clicking the same tab
+                        if (isProduct && activeTab === "productManagement") {
                           setIsProductDropdownOpen(!isProductDropdownOpen);
-                        if (isBlog) setIsBlogDropdownOpen(!isBlogDropdownOpen);
-                        handleTabChange(item.id);
+                        } else if (isProduct) {
+                          setIsProductDropdownOpen(true);
+                          handleTabChange(item.id);
+                        }
+                        if (isBlog && activeTab === "blog") {
+                          setIsBlogDropdownOpen(!isBlogDropdownOpen);
+                        } else if (isBlog) {
+                          setIsBlogDropdownOpen(true);
+                          handleTabChange(item.id);
+                        }
                       } else {
                         handleTabChange(item.id);
                       }
                     }}
+                    title={isCollapsed ? item.label : undefined}
                   >
-                    <div className="flex items-center gap-3 w-full">
+                    <div className={`flex items-center ${isCollapsed ? "justify-center" : "gap-3"} w-full`}>
                       <div
-                        className={`p-2 rounded-lg transition-all duration-200 ${
+                        className={`p-2 rounded-lg transition-all duration-200 flex-shrink-0 ${
                           isActive
-                            ? "bg-white/20"
-                            : "bg-white/5 group-hover:bg-white/15"
+                            ? "bg-indigo-100"
+                            : "bg-gray-100 group-hover:bg-gray-200"
                         }`}
                       >
                         <Icon className="w-5 h-5" />
                       </div>
-                      <div className="text-left flex-1">
-                        <div className="font-medium">{item.label}</div>
-                        <div className="text-xs opacity-70">
-                          {item.description}
-                        </div>
-                      </div>
-                      {item.hasSubmenu && (
-                        <div className="ml-auto">
-                          {(
-                            isProduct
-                              ? isProductDropdownOpen
-                              : isBlogDropdownOpen
-                          ) ? (
-                            <ChevronDown className="w-4 h-4" />
-                          ) : (
-                            <ChevronRight className="w-4 h-4" />
+                      {!isCollapsed && (
+                        <>
+                          <div className="text-left flex-1 min-w-0">
+                            <div className="font-medium truncate">{item.label}</div>
+                            <div className="text-xs opacity-70 truncate">
+                              {item.description}
+                            </div>
+                          </div>
+                          {item.hasSubmenu && (
+                            <div className="ml-auto flex-shrink-0">
+                              {(
+                                isProduct
+                                  ? isProductDropdownOpen
+                                  : isBlogDropdownOpen
+                              ) ? (
+                                <ChevronDown className="w-4 h-4" />
+                              ) : (
+                                <ChevronRight className="w-4 h-4" />
+                              )}
+                            </div>
                           )}
-                        </div>
+                        </>
                       )}
                     </div>
                   </Button>
 
-                  {isProduct &&
+                  {isProduct && !isCollapsed &&
                     renderSubmenu(
                       item,
                       productSubmenuItems,
                       isProductDropdownOpen,
                       "product",
                       activeProductTab,
-                      handleProductTabChange
+                      (tab) => handleProductTabChange(tab as "products" | "categories" | "highlights")
                     )}
 
-                  {isBlog &&
+                  {isBlog && !isCollapsed &&
                     renderSubmenu(
                       item,
                       blogSubmenuItems,
                       isBlogDropdownOpen,
                       "blog",
                       activeBlogTab,
-                      handleBlogTabChange
+                      (tab) => handleBlogTabChange(tab as "posts" | "categories" | "comments" | "tags")
                     )}
                 </div>
               );
@@ -326,7 +434,7 @@ export function ModeratorSidebar({
 
       {isMobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-10 lg:hidden"
+          className="fixed inset-0 bg-gray-900/50 z-10 lg:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}

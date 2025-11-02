@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { Button } from "@/components/ui/common/button";
-import { LogOut, User, Package, Settings, Shield, Crown, Moon, Sun, Wallet ,BoxIcon} from "lucide-react";
+import { LogOut, User, Package, Shield, Crown, Moon, Sun, Wallet, Bookmark, LayoutDashboard} from "lucide-react";
 import { NotificationIcon } from "@/components/ui/common/notification-icon";
 
 import {
@@ -125,8 +125,12 @@ export function Header() {
   };
 
   const handleGoToOwnerPanel = () => {
-    router.push('/owner/myproducts');
+    router.push('/owner');
   };
+
+    const handleGoToMyfavirite = () => {
+      router.push("/products/myfavorite");
+    };
 
   // Render menu items dựa trên role
   const renderRoleSpecificMenuItems = () => {
@@ -167,19 +171,8 @@ export function Header() {
             className="cursor-pointer"
             onClick={handleGoToOwnerPanel}
           >
-            <Settings className="mr-2 h-4 w-4" />
-            <span>Sản phẩm của tôi</span>
-          </DropdownMenuItem>
-        );
-
-        items.push(
-          <DropdownMenuItem
-            key="renter-requests"
-            className="cursor-pointer"
-            onClick={() => router.push("/owner/renter-requests")}
-          >
-            <BoxIcon className="mr-2 h-4 w-4" />
-            <span>Yêu cầu thuê hàng</span>
+            <LayoutDashboard className="mr-2 h-4 w-4" />
+            <span>Trang quản lý</span>
           </DropdownMenuItem>
         );
         break;
@@ -189,7 +182,7 @@ export function Header() {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-100 dark:border-gray-800 z-[150]">
+    <header className="fixed top-0 left-0 right-0 z-[150] bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-gray-100 dark:border-gray-800">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
@@ -272,7 +265,7 @@ export function Header() {
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuContent className="w-56 z-[200]" align="end" forceMount>
                   <div className="flex flex-col space-y-1 p-2">
                     <p className="text-sm font-medium leading-none">
                       {userInfo.email ?? ""}
@@ -313,6 +306,14 @@ export function Header() {
                   >
                     <Package className="mr-2 h-4 w-4" />
                     <span>Đơn hàng của tôi</span>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    className="cursor-pointer"
+                    onClick={handleGoToMyfavirite}
+                  >
+                    <Bookmark className="mr-2 h-4 w-4" />
+                    <span>Danh sách yêu thích</span>
                   </DropdownMenuItem>
 
                   {(userInfo?.role === 'renter' || userInfo?.role === 'owner') && (

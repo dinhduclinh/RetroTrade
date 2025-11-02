@@ -6,7 +6,7 @@ import { ModeratorHeader } from "@/components/ui/moderator/moderator-header";
 import { ModeratorStats } from "@/components/ui/moderator/moderator-stats";
 import { UserManagementTable } from "@/components/ui/moderator/user-management-table";
 import { RequestManagementTable } from "@/components/ui/moderator/request-management-table";
-import { VerificationQueue } from "@/components/ui/moderator/verification-queue";
+import { VerificationQueue } from "@/components/ui/moderator/verify/verification-queue";
 import { BlogManagementTable } from "@/components/ui/moderator/blog/blog-management-table";
 import { CategoryManagementTable } from "@/components/ui/moderator/blog/category-management-table";
 import { CommentManagementTable } from "@/components/ui/moderator/blog/comment-management-table";
@@ -141,7 +141,7 @@ export default function ModeratorDashboard() {
           onBlogTabChange={handleBlogTabChange}
         />
 
-        <div className="flex-1 lg:ml-64">
+        <div className="flex-1 transition-all duration-300 moderator-content-area min-w-0">
           <ModeratorHeader />
 
           <main className="p-4 lg:p-8">

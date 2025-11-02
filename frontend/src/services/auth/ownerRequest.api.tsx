@@ -48,35 +48,33 @@ export interface OwnerRequestStats {
 export const ownerRequestApi = {
   // User: Create a new owner request
   createOwnerRequest: async (data: CreateOwnerRequestRequest): Promise<OwnerRequest> => {
-    const response = await api.post('/owner-requests', data);
-    if (!response.ok) throw new Error('Failed to create owner request');
-    
+    const response = await api.post('/owner-requests-user', data);
     const result = await response.json();
+    if (result.code !== 200) throw new Error(result.message || 'Failed to create owner request');
     return result.data;
   },
 
   // User: Get my requests
   getMyOwnerRequests: async (): Promise<OwnerRequest[]> => {
-    const response = await api.get('/owner-requests/my-requests');
-    if (!response.ok) throw new Error('Failed to fetch my requests');
-    
+    const response = await api.get('/owner-requests-user/my-requests');
     const result = await response.json();
-    return result.data.items;
+    if (result.code !== 200) throw new Error(result.message || 'Failed to fetch my requests');
+    return result.data?.items || [];
   },
 
   // User: Get single request by ID
   getOwnerRequestById: async (id: string): Promise<OwnerRequest> => {
-    const response = await api.get(`/owner-requests/${id}`);
-    if (!response.ok) throw new Error('Failed to fetch request');
-    
+    const response = await api.get(`/owner-requests-user/${id}`);
     const result = await response.json();
+    if (result.code !== 200) throw new Error(result.message || 'Failed to fetch request');
     return result.data;
   },
 
   // User: Cancel own request
   cancelOwnerRequest: async (id: string): Promise<void> => {
-    const response = await api.put(`/owner-requests/${id}/cancel`, {});
-    if (!response.ok) throw new Error('Failed to cancel request');
+    const response = await api.put(`/owner-requests-user/${id}/cancel`, {});
+    const result = await response.json();
+    if (result.code !== 200) throw new Error(result.message || 'Failed to cancel request');
   },
 
   // Moderator: Get all owner requests
@@ -86,37 +84,33 @@ export const ownerRequestApi = {
     if (params?.skip) queryParams.append('skip', params.skip.toString());
     if (params?.status) queryParams.append('status', params.status);
 
-    const response = await api.get(`/owner-requests?${queryParams.toString()}`);
-    if (!response.ok) throw new Error('Failed to fetch requests');
-    
+    const response = await api.get(`/owner-requests-moderator/all?${queryParams.toString()}`);
     const result = await response.json();
+    if (result.code !== 200) throw new Error(result.message || 'Failed to fetch requests');
     return result.data;
   },
 
   // Moderator: Approve owner request
   approveOwnerRequest: async (id: string, data?: ApproveOwnerRequestRequest): Promise<OwnerRequest> => {
-    const response = await api.put(`/owner-requests/${id}/approve`, data || {});
-    if (!response.ok) throw new Error('Failed to approve request');
-    
+    const response = await api.put(`/owner-requests-moderator/${id}/approve`, data || {});
     const result = await response.json();
+    if (result.code !== 200) throw new Error(result.message || 'Failed to approve request');
     return result.data;
   },
 
   // Moderator: Reject owner request
   rejectOwnerRequest: async (id: string, data: RejectOwnerRequestRequest): Promise<OwnerRequest> => {
-    const response = await api.put(`/owner-requests/${id}/reject`, data);
-    if (!response.ok) throw new Error('Failed to reject request');
-    
+    const response = await api.put(`/owner-requests-moderator/${id}/reject`, data);
     const result = await response.json();
+    if (result.code !== 200) throw new Error(result.message || 'Failed to reject request');
     return result.data;
   },
 
   // Moderator: Get statistics
   getOwnerRequestStats: async (): Promise<OwnerRequestStats> => {
-    const response = await api.get('/owner-requests/stats/overview');
-    if (!response.ok) throw new Error('Failed to fetch stats');
-    
+    const response = await api.get('/owner-requests-moderator/stats/overview');
     const result = await response.json();
+    if (result.code !== 200) throw new Error(result.message || 'Failed to fetch stats');
     return result.data;
   },
 };

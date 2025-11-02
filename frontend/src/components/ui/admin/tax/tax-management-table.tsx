@@ -1,0 +1,878 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/common/button";
+import {
+  getCurrentTax,
+  getAllTaxSettings,
+  createTaxSetting,
+  updateTaxSetting,
+  deleteTaxSetting,
+  getTaxHistory,
+  getAllTaxHistory,
+  activateTaxSetting,
+  type TaxSetting,
+  type CreateTaxRequest,
+  type UpdateTaxRequest,
+} from "@/services/tax/tax.api";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  History,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Percent,
+  RotateCcw,
+} from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/common/dialog";
+import { Input } from "@/components/ui/common/input";
+import { Label } from "@/components/ui/common/label";
+import { Textarea } from "@/components/ui/common/textarea";
+import { Switch } from "@/components/ui/common/switch";
+
+export function TaxManagementTable() {
+  const [taxes, setTaxes] = useState<TaxSetting[]>([]);
+  const [currentTax, setCurrentTax] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
+  const [isAllHistoryDialogOpen, setIsAllHistoryDialogOpen] = useState(false);
+  const [selectedTax, setSelectedTax] = useState<TaxSetting | null>(null);
+  const [history, setHistory] = useState<any>(null);
+  const [allHistory, setAllHistory] = useState<any>(null);
+
+  // Form states
+  const [formData, setFormData] = useState<CreateTaxRequest>({
+    taxRate: 3,
+    description: "",
+    effectiveFrom: new Date().toISOString().split("T")[0],
+  });
+
+  useEffect(() => {
+    loadCurrentTax();
+    loadTaxes();
+  }, [page]);
+
+  const loadCurrentTax = async () => {
+    try {
+      const response = await getCurrentTax();
+      if (response.success && response.data) {
+        setCurrentTax(response.data);
+      }
+    } catch (err: any) {
+      console.error("Error loading current tax:", err);
+    }
+  };
+
+  const loadTaxes = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await getAllTaxSettings(page, 20, false);
+      if (response.success && response.data) {
+        setTaxes(response.data);
+        if (response.pagination) {
+          setTotalPages(response.pagination.totalPages);
+        }
+      } else {
+        setError(response.message || "Không thể tải danh sách thuế");
+      }
+    } catch (err: any) {
+      setError(err.message || "Lỗi khi tải danh sách thuế");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreate = async () => {
+    try {
+      setError(null);
+      const response = await createTaxSetting(formData);
+      if (response.success) {
+        setIsCreateDialogOpen(false);
+        setFormData({
+          taxRate: 3,
+          description: "",
+          effectiveFrom: new Date().toISOString().split("T")[0],
+        });
+        loadTaxes();
+        loadCurrentTax();
+      } else {
+        setError(response.message || "Không thể tạo cấu hình thuế");
+      }
+    } catch (err: any) {
+      setError(err.message || "Lỗi khi tạo cấu hình thuế");
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!selectedTax) return;
+
+    try {
+      setError(null);
+      const updateData: UpdateTaxRequest = {
+        taxRate: formData.taxRate,
+        description: formData.description,
+        effectiveFrom: formData.effectiveFrom,
+      };
+      const response = await updateTaxSetting(selectedTax._id, updateData);
+      if (response.success) {
+        setIsEditDialogOpen(false);
+        setSelectedTax(null);
+        loadTaxes();
+        loadCurrentTax();
+      } else {
+        setError(response.message || "Không thể cập nhật cấu hình thuế");
+      }
+    } catch (err: any) {
+      setError(err.message || "Lỗi khi cập nhật cấu hình thuế");
+    }
+  };
+
+  const handleActivate = async (id: string) => {
+    if (!confirm("Bạn có chắc chắn muốn kích hoạt cấu hình thuế này? Tax đang active sẽ bị tắt.")) return;
+
+    try {
+      setError(null);
+      const response = await activateTaxSetting(id);
+      if (response.success) {
+        loadTaxes();
+        loadCurrentTax();
+      } else {
+        setError(response.message || "Không thể kích hoạt cấu hình thuế");
+      }
+    } catch (err: any) {
+      setError(err.message || "Lỗi khi kích hoạt cấu hình thuế");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Bạn có chắc chắn muốn xóa cấu hình thuế này?")) return;
+
+    try {
+      setError(null);
+      const response = await deleteTaxSetting(id);
+      if (response.success) {
+        loadTaxes();
+        loadCurrentTax();
+      } else {
+        setError(response.message || "Không thể xóa cấu hình thuế");
+      }
+    } catch (err: any) {
+      setError(err.message || "Lỗi khi xóa cấu hình thuế");
+    }
+  };
+
+  const handleViewHistory = async (tax: TaxSetting) => {
+    try {
+      setError(null);
+      const response = await getTaxHistory(tax._id);
+      if (response.success && response.data) {
+        setHistory(response.data);
+        setSelectedTax(tax);
+        setIsHistoryDialogOpen(true);
+      } else {
+        setError(response.message || "Không thể tải lịch sử");
+      }
+    } catch (err: any) {
+      setError(err.message || "Lỗi khi tải lịch sử");
+    }
+  };
+
+  const handleViewAllHistory = async () => {
+    try {
+      setError(null);
+      const response = await getAllTaxHistory();
+      if (response.success && response.data) {
+        setAllHistory(response.data);
+        setIsAllHistoryDialogOpen(true);
+      } else {
+        setError(response.message || "Không thể tải lịch sử");
+      }
+    } catch (err: any) {
+      setError(err.message || "Lỗi khi tải lịch sử");
+    }
+  };
+
+  const handleReapplyTax = (event: any) => {
+    // Copy thông tin từ event để tạo tax mới
+    const now = new Date().toISOString().split("T")[0];
+    setFormData({
+      taxRate: event.taxRate,
+      description: event.description || "",
+      effectiveFrom: now, // Dùng ngày hiện tại làm hiệu lực từ
+      effectiveTo: event.effectiveTo ? new Date(event.effectiveTo).toISOString().split("T")[0] : undefined,
+    });
+    setIsAllHistoryDialogOpen(false);
+    setIsCreateDialogOpen(true);
+  };
+
+  const openEditDialog = (tax: TaxSetting) => {
+    setSelectedTax(tax);
+    setFormData({
+      taxRate: tax.taxRate,
+      description: tax.description || "",
+      effectiveFrom: tax.effectiveFrom
+        ? new Date(tax.effectiveFrom).toISOString().split("T")[0]
+        : new Date().toISOString().split("T")[0],
+      effectiveTo: tax.effectiveTo
+        ? new Date(tax.effectiveTo).toISOString().split("T")[0]
+        : undefined,
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Current Tax Card */}
+      {currentTax && (
+        <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <Percent className="w-5 h-5 text-yellow-500" />
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Thuế hiện tại đang áp dụng
+                </h3>
+              </div>
+              <div className="text-3xl font-bold text-gray-900 mb-1">
+                {currentTax.taxRate}%
+              </div>
+              {currentTax.description && (
+                <p className="text-gray-600">{currentTax.description}</p>
+              )}
+              <div className="text-sm text-gray-500 mt-2 space-y-1">
+                <p>
+                  Có hiệu lực từ:{" "}
+                  {new Date(currentTax.effectiveFrom).toLocaleDateString("vi-VN")}
+                </p>
+                {currentTax.effectiveTo ? (
+                  <p>
+                    Hiệu lực đến:{" "}
+                    {new Date(currentTax.effectiveTo).toLocaleDateString("vi-VN")}
+                  </p>
+                ) : (
+                  <p>Hiệu lực đến: Không giới hạn</p>
+                )}
+              </div>
+              {/* Cảnh báo nếu đang dùng tax mặc định */}
+              {currentTax.isDefault && (
+                <div className="mt-3 bg-orange-50 border border-orange-300 rounded-lg p-3">
+                  <div className="flex items-center gap-2 text-orange-800">
+                    <AlertCircle className="w-4 h-4" />
+                    <p className="text-sm font-medium">
+                      ⚠️ ĐANG SỬ DỤNG THUẾ MẶC ĐỊNH 3%. Hệ thống không có cấu hình thuế active. Vui lòng tạo cấu hình thuế mới ngay!
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Cảnh báo nếu tax sắp hết hạn hoặc đã hết hạn */}
+              {currentTax.effectiveTo && !currentTax.isDefault && (
+                (() => {
+                  const now = new Date();
+                  const effectiveTo = new Date(currentTax.effectiveTo);
+                  const daysRemaining = Math.ceil(
+                    (effectiveTo.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+                  );
+                  
+                  if (daysRemaining <= 7 && daysRemaining > 0) {
+                    return (
+                      <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                        <div className="flex items-center gap-2 text-yellow-800">
+                          <AlertCircle className="w-4 h-4" />
+                          <p className="text-sm font-medium">
+                            ⚠️ Thuế sẽ hết hạn sau {daysRemaining} ngày ({new Date(currentTax.effectiveTo).toLocaleDateString("vi-VN")}). 
+                            <span className="font-bold"> Vui lòng tạo cấu hình thuế mới trước khi hết hạn để tránh dùng thuế mặc định 3%.</span>
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  } else if (daysRemaining <= 0) {
+                    return (
+                      <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3">
+                        <div className="flex items-center gap-2 text-red-800">
+                          <AlertCircle className="w-4 h-4" />
+                          <p className="text-sm font-medium">
+                            ❌ Thuế đã hết hạn ({new Date(currentTax.effectiveTo).toLocaleDateString("vi-VN")}). 
+                            <span className="font-bold"> Vui lòng tạo cấu hình thuế mới ngay! Hệ thống hiện đang dùng thuế mặc định 3%.</span>
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()
+              )}
+            </div>
+            <div className="flex items-center gap-2 ml-4">
+              {currentTax.isActive ? (
+                <CheckCircle className="w-6 h-6 text-green-500" />
+              ) : (
+                <XCircle className="w-6 h-6 text-red-500" />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error Alert */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-2 text-red-700">
+          <AlertCircle className="w-5 h-5" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-bold text-gray-900">Quản lý cấu hình thuế</h2>
+        <div className="flex gap-2">
+          <Button
+            onClick={handleViewAllHistory}
+            variant="outline"
+            className="border-gray-300 text-gray-700 hover:bg-gray-50"
+          >
+            <History className="w-4 h-4 mr-2" />
+            Xem tất cả lịch sử
+          </Button>
+          <Button
+            onClick={() => {
+              setFormData({
+                taxRate: 3,
+                description: "",
+                effectiveFrom: new Date().toISOString().split("T")[0],
+              });
+              setIsCreateDialogOpen(true);
+            }}
+            className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Tạo cấu hình thuế mới
+          </Button>
+        </div>
+      </div>
+
+      {/* Tax Settings Table */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  Thuế suất
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  Mô tả
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  Trạng thái
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  Hiệu lực từ
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  Hiệu lực đến
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  Thao tác
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {taxes.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                    Không có cấu hình thuế nào
+                  </td>
+                </tr>
+              ) : (
+                taxes.map((tax) => {
+                  const now = new Date();
+                  const effectiveFrom = new Date(tax.effectiveFrom);
+                  const effectiveTo = tax.effectiveTo ? new Date(tax.effectiveTo) : null;
+                  const isInEffect = effectiveFrom <= now && (!effectiveTo || effectiveTo >= now);
+                  const isExpired = effectiveTo && effectiveTo < now;
+                  
+                  return (
+                    <tr key={tax._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-lg font-semibold text-gray-900">
+                          {tax.taxRate}%
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-600">
+                          {tax.description || "Không có mô tả"}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {tax.isActive ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            Đang áp dụng
+                          </span>
+                        ) : isInEffect ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">
+                            <AlertCircle className="w-3 h-3 mr-1" />
+                            Trong hiệu lực (chưa kích hoạt)
+                          </span>
+                        ) : isExpired ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
+                            <XCircle className="w-3 h-3 mr-1" />
+                            Đã hết hạn
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                            Chưa đến hiệu lực
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {effectiveFrom.toLocaleDateString("vi-VN")}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {effectiveTo ? effectiveTo.toLocaleDateString("vi-VN") : "Không giới hạn"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEditDialog(tax)}
+                          className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                          title="Chỉnh sửa"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewHistory(tax)}
+                          className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                          title="Xem lịch sử"
+                        >
+                          <History className="w-4 h-4" />
+                        </Button>
+                        {!tax.isActive && isInEffect && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleActivate(tax._id)}
+                            className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                            title="Kích hoạt"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                          </Button>
+                        )}
+                        {!tax.isActive && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(tax._id)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            title="Xóa"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="px-6 py-4 flex items-center justify-between border-t border-gray-200">
+            <div className="text-sm text-gray-600">
+              Trang {page} / {totalPages}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              >
+                Trước
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              >
+                Sau
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Create Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="bg-white border-gray-200 text-gray-900">
+          <DialogHeader>
+            <DialogTitle>Tạo cấu hình thuế mới</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="taxRate">Thuế suất (%)</Label>
+              <Input
+                id="taxRate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                value={formData.taxRate}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    taxRate: parseFloat(e.target.value) || 0,
+                  })
+                }
+                className="bg-white border-gray-300 text-gray-900"
+              />
+            </div>
+            <div>
+              <Label htmlFor="description">Mô tả</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
+                className="bg-white border-gray-300 text-gray-900"
+              />
+            </div>
+            <div>
+              <Label htmlFor="effectiveFrom">Hiệu lực từ</Label>
+              <Input
+                id="effectiveFrom"
+                type="date"
+                value={formData.effectiveFrom}
+                onChange={(e) =>
+                  setFormData({ ...formData, effectiveFrom: e.target.value })
+                }
+                className="bg-white border-gray-300 text-gray-900"
+              />
+            </div>
+            <div>
+              <Label htmlFor="effectiveTo">Hiệu lực đến (tùy chọn)</Label>
+              <Input
+                id="effectiveTo"
+                type="date"
+                value={formData.effectiveTo || ""}
+                onChange={(e) =>
+                  setFormData({ ...formData, effectiveTo: e.target.value || undefined })
+                }
+                className="bg-white border-gray-300 text-gray-900"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                onClick={() => setIsCreateDialogOpen(false)}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                Hủy
+              </Button>
+              <Button
+                onClick={handleCreate}
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white"
+              >
+                Tạo
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="bg-white border-gray-200 text-gray-900">
+          <DialogHeader>
+            <DialogTitle>Cập nhật cấu hình thuế</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="editTaxRate">Thuế suất (%)</Label>
+              <Input
+                id="editTaxRate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                value={formData.taxRate}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    taxRate: parseFloat(e.target.value) || 0,
+                  })
+                }
+                className="bg-white border-gray-300 text-gray-900"
+              />
+            </div>
+            <div>
+              <Label htmlFor="editDescription">Mô tả</Label>
+              <Textarea
+                id="editDescription"
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
+                className="bg-white border-gray-300 text-gray-900"
+              />
+            </div>
+            <div>
+              <Label htmlFor="editEffectiveFrom">Hiệu lực từ</Label>
+              <Input
+                id="editEffectiveFrom"
+                type="date"
+                value={formData.effectiveFrom}
+                onChange={(e) =>
+                  setFormData({ ...formData, effectiveFrom: e.target.value })
+                }
+                className="bg-white border-gray-300 text-gray-900"
+              />
+            </div>
+            <div>
+              <Label htmlFor="editEffectiveTo">Hiệu lực đến (tùy chọn)</Label>
+              <Input
+                id="editEffectiveTo"
+                type="date"
+                value={formData.effectiveTo || ""}
+                onChange={(e) =>
+                  setFormData({ ...formData, effectiveTo: e.target.value || undefined })
+                }
+                className="bg-white border-gray-300 text-gray-900"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                onClick={() => setIsEditDialogOpen(false)}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                Hủy
+              </Button>
+              <Button
+                onClick={handleUpdate}
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white"
+              >
+                Cập nhật
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* History Dialog */}
+      <Dialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen}>
+        <DialogContent className="bg-white border-gray-200 text-gray-900 max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Lịch sử thay đổi thuế</DialogTitle>
+          </DialogHeader>
+          {history && (
+            <div className="space-y-4">
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <h3 className="font-semibold mb-2 text-gray-900">Cấu hình hiện tại</h3>
+                <p className="text-sm text-gray-600">
+                  Thuế suất: <span className="font-bold text-gray-900">{history.currentTax.taxRate}%</span>
+                </p>
+                {history.currentTax.description && (
+                  <p className="text-sm text-gray-600">Mô tả: {history.currentTax.description}</p>
+                )}
+              </div>
+              {history.history && history.history.length > 0 ? (
+                <div className="space-y-2">
+                  <h3 className="font-semibold mb-2 text-gray-900">Lịch sử thay đổi</h3>
+                  {history.history.map((entry: any, index: number) => (
+                    <div
+                      key={index}
+                      className="bg-gray-50 rounded-lg p-3 border border-gray-200"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-900">
+                            Thuế suất: {entry.taxRate}%
+                          </p>
+                          {entry.description && (
+                            <p className="text-xs text-gray-600 mt-1">
+                              Mô tả: {entry.description}
+                            </p>
+                          )}
+                          <div className="text-xs text-gray-600 mt-1 space-y-0.5">
+                            {entry.effectiveFrom && (
+                              <p>Hiệu lực từ: {new Date(entry.effectiveFrom).toLocaleDateString("vi-VN")}</p>
+                            )}
+                            {entry.effectiveTo ? (
+                              <p>Hiệu lực đến: {new Date(entry.effectiveTo).toLocaleDateString("vi-VN")}</p>
+                            ) : entry.effectiveFrom && (
+                              <p className="text-gray-500">Hiệu lực đến: Không giới hạn</p>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-2">
+                            Thay đổi lúc: {new Date(entry.changedAt).toLocaleString("vi-VN")}
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-2 ml-4">
+                          {entry.changedBy && (
+                            <div className="text-xs text-gray-600">
+                              <p className="font-medium">Người thay đổi:</p>
+                              <p>{entry.changedBy.fullName}</p>
+                              {entry.changedBy.email && (
+                                <p className="text-gray-500">{entry.changedBy.email}</p>
+                              )}
+                            </div>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const now = new Date().toISOString().split("T")[0];
+                              setFormData({
+                                taxRate: entry.taxRate,
+                                description: entry.description || "",
+                                effectiveFrom: now,
+                                effectiveTo: entry.effectiveTo ? new Date(entry.effectiveTo).toISOString().split("T")[0] : undefined,
+                              });
+                              setIsHistoryDialogOpen(false);
+                              setIsCreateDialogOpen(true);
+                            }}
+                            className="text-green-600 border-green-300 hover:bg-green-50"
+                            title="Áp dụng lại thuế này"
+                          >
+                            <RotateCcw className="w-3 h-3 mr-1" />
+                            Áp dụng lại
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">Chưa có lịch sử thay đổi</p>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* All History Dialog */}
+      <Dialog open={isAllHistoryDialogOpen} onOpenChange={setIsAllHistoryDialogOpen}>
+        <DialogContent className="bg-white border-gray-200 text-gray-900 max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Tất cả lịch sử thuế</DialogTitle>
+          </DialogHeader>
+          {allHistory && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center mb-4">
+                <p className="text-sm text-gray-600">
+                  Tổng cộng: {allHistory.totalEvents} sự kiện từ {allHistory.totalTaxes} cấu hình thuế
+                </p>
+              </div>
+              {allHistory.timeline && allHistory.timeline.length > 0 ? (
+                <div className="space-y-3">
+                  {allHistory.timeline.map((event: any, index: number) => (
+                    <div
+                      key={index}
+                      className={`rounded-lg p-4 border ${
+                        event.type === "create"
+                          ? "bg-blue-50 border-blue-200"
+                          : "bg-gray-50 border-gray-200"
+                      }`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            {event.type === "create" ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                <Plus className="w-3 h-3 mr-1" />
+                                Tạo mới
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                <Edit className="w-3 h-3 mr-1" />
+                                Cập nhật
+                              </span>
+                            )}
+                            <span className="text-sm font-semibold text-gray-900">
+                              Thuế suất: {event.taxRate}%
+                            </span>
+                          </div>
+                          {event.description && (
+                            <p className="text-sm text-gray-600 mb-2">
+                              Mô tả: {event.description}
+                            </p>
+                          )}
+                          <div className="text-xs text-gray-600 space-y-0.5">
+                            <p>Hiệu lực từ: {new Date(event.effectiveFrom).toLocaleDateString("vi-VN")}</p>
+                            {event.effectiveTo ? (
+                              <p>Hiệu lực đến: {new Date(event.effectiveTo).toLocaleDateString("vi-VN")}</p>
+                            ) : (
+                              <p className="text-gray-500">Hiệu lực đến: Không giới hạn</p>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-2">
+                            {event.type === "create" 
+                              ? `Tạo lúc: ${new Date(event.createdAt).toLocaleString("vi-VN")}`
+                              : `Thay đổi lúc: ${new Date(event.changedAt).toLocaleString("vi-VN")}`
+                            }
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-2 ml-4">
+                          {event.changedBy && (
+                            <div className="text-xs text-gray-600 text-right">
+                              <p className="font-medium">Người {event.type === "create" ? "tạo" : "thay đổi"}:</p>
+                              <p>{event.changedBy.fullName}</p>
+                              {event.changedBy.email && (
+                                <p className="text-gray-500">{event.changedBy.email}</p>
+                              )}
+                            </div>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleReapplyTax(event)}
+                            className="text-green-600 border-green-300 hover:bg-green-50"
+                            title="Áp dụng lại thuế này"
+                          >
+                            <RotateCcw className="w-3 h-3 mr-1" />
+                            Áp dụng lại
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 text-center py-8">Chưa có lịch sử</p>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+

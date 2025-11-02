@@ -9,7 +9,8 @@ import { toast } from "sonner";
 import { ModeratorSidebar } from "@/components/ui/moderator/moderator-sidebar";
 import { ModeratorHeader } from "@/components/ui/moderator/moderator-header";
 import { ModeratorStats } from "@/components/ui/moderator/moderator-stats";
-import { VerificationQueue } from "@/components/ui/moderator/verification-queue";
+import { VerificationQueue } from "@/components/ui/moderator/verify/verification-queue";
+import { OwnerRequestManagement } from "@/components/ui/moderator/ownerRequest/owner-request-management";
 import { BlogManagementTable } from "@/components/ui/moderator/blog/blog-management-table";
 import { CommentManagementTable } from "@/components/ui/moderator/blog/comment-management-table";
 import { TagManagementTable } from "@/components/ui/moderator/blog/tag-management";
@@ -54,7 +55,7 @@ export default function ModeratorDashboard() {
   const searchParams = useSearchParams();
   const { accessToken } = useSelector((state: RootState) => state.auth);
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "requests" | "verification" | "blog" | "productManagement"
+    "dashboard" | "requests" | "verification" | "blog" | "productManagement" | "messages"
   >("dashboard");
   const [activeBlogTab, setActiveBlogTab] = useState<
     "posts" | "categories" | "comments" | "tags"
@@ -72,9 +73,20 @@ export default function ModeratorDashboard() {
       | "verification"
       | "blog"
       | "productManagement"
+      | "messages"
   ) => {
     console.log("Moderator handleTabChange called with:", tab);
+    
+    // Navigate to messages page (separate route)
+    if (tab === "messages") {
+      router.push("/moderator/messages");
+      return;
+    }
+    
+    // For other tabs, update state and URL query parameter
     setActiveTab(tab);
+    const newUrl = `/moderator?tab=${tab}`;
+    router.push(newUrl, { scroll: false });
     console.log("State updated: activeTab=", tab);
   };
 
@@ -106,32 +118,45 @@ export default function ModeratorDashboard() {
     );
   }, [activeTab, activeBlogTab, activeProductTab]);
 
-  // Check URL query parameter for tab navigation
+  // Set default tab and handle URL query parameter for tab navigation
   useEffect(() => {
     const tab = searchParams.get("tab");
     console.log("URL query parameter 'tab':", tab);
 
+    // If no tab parameter, default to dashboard
+    if (!tab) {
+      const defaultUrl = `/moderator?tab=dashboard`;
+      window.history.replaceState({}, "", defaultUrl);
+      setActiveTab("dashboard");
+      return;
+    }
+
     if (
-      tab &&
       [
         "dashboard",
         "requests",
         "verification",
         "blog",
         "productManagement",
+        "messages",
       ].includes(tab)
     ) {
       console.log("Setting activeTab from URL query parameter:", tab);
-      setActiveTab(
-        tab as
-          | "dashboard"
-          | "requests"
-          | "verification"
-          | "blog"
-          | "productManagement"
-      );
+      // If messages tab, navigate to messages page (separate route)
+      if (tab === "messages") {
+        router.push("/moderator/messages");
+        return;
+      }
+      // For other tabs, set activeTab and update URL with query param
+      const validTab = tab as
+        | "dashboard"
+        | "requests"
+        | "verification"
+        | "blog"
+        | "productManagement";
+      setActiveTab(validTab);
     }
-  }, [searchParams]);
+  }, [searchParams, router]);
 
   useEffect(() => {
     if (!accessToken) {
@@ -171,9 +196,9 @@ export default function ModeratorDashboard() {
   // Show loading while checking authorization
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-800 via-purple-900 to-slate-800 flex items-center justify-center">
-        <div className="text-center text-white">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-400 mx-auto mb-4"></div>
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center text-gray-900">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-600 mx-auto mb-4"></div>
           <p className="text-lg">Đang kiểm tra quyền truy cập...</p>
         </div>
       </div>
@@ -192,7 +217,7 @@ export default function ModeratorDashboard() {
           return <BlogManagementTable />;
         case "categories":
           return (
-            <div className="text-white p-8 text-center">
+            <div className="text-gray-900 p-8 text-center">
               Quản lý danh mục blog (Chưa triển khai)
             </div>
           );
@@ -222,12 +247,7 @@ export default function ModeratorDashboard() {
       case "dashboard":
         return <DashboardOverview />;
       case "requests":
-        // return <RequestManagementTable />; // Component removed
-        return (
-          <div className="p-4 text-white">
-            Chức năng đang được phát triển...
-          </div>
-        );
+        return <OwnerRequestManagement />;
       case "verification":
         return <VerificationQueue />;
       default:
@@ -314,13 +334,7 @@ export default function ModeratorDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-800 via-purple-900 to-slate-800 relative overflow-hidden">
-      {/* Animated background */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(120,119,198,0.2),rgba(255,255,255,0))] animate-pulse" />
-      <div className="absolute top-0 -left-4 w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-3xl opacity-15 animate-blob" />
-      <div className="absolute top-0 -right-4 w-96 h-96 bg-indigo-400 rounded-full mix-blend-multiply filter blur-3xl opacity-15 animate-blob animation-delay-2000" />
-      <div className="absolute -bottom-8 left-20 w-96 h-96 bg-pink-400 rounded-full mix-blend-multiply filter blur-3xl opacity-15 animate-blob animation-delay-4000" />
-
+    <div className="min-h-screen bg-white relative overflow-hidden">
       <div className="relative z-10 flex">
         <ModeratorSidebar
           activeTab={activeTab}
@@ -331,15 +345,15 @@ export default function ModeratorDashboard() {
           onBlogTabChange={handleBlogTabChange}
         />
 
-        <div className="flex-1 lg:ml-72">
+        <div className="flex-1 transition-all duration-300 moderator-content-area min-w-0 bg-gray-50">
           <ModeratorHeader />
 
           <main className="p-4 lg:p-8">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-white mb-2">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
                 {getPageTitle()}
               </h2>
-              <p className="text-white/70">{getPageDescription()}</p>
+              <p className="text-gray-600">{getPageDescription()}</p>
             </div>
 
             {activeTab === "dashboard" && <ModeratorStats />}
@@ -437,31 +451,31 @@ function DashboardOverview() {
           return (
             <Card
               key={index}
-              className="bg-white/10 backdrop-blur-md border-white/20 hover:bg-white/15 transition-all duration-300 hover:scale-105 hover-lift group cursor-pointer"
+              className="bg-white border border-gray-200 hover:border-gray-300 shadow-sm hover:shadow-md transition-all duration-300 hover:scale-105 group cursor-pointer"
             >
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                 <div className="space-y-1">
-                  <CardTitle className="text-sm font-medium text-white/80 group-hover:text-white transition-colors duration-200">
+                  <CardTitle className="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors duration-200">
                     {action.title}
                   </CardTitle>
-                  <p className="text-xs text-white/60 group-hover:text-white/80 transition-colors duration-200">
+                  <p className="text-xs text-gray-500 group-hover:text-gray-600 transition-colors duration-200">
                     {action.description}
                   </p>
                 </div>
                 <div
-                  className={`p-3 rounded-xl transition-all duration-300 group-hover:scale-110 ${action.bgColor} group-hover:bg-white/20`}
+                  className={`p-3 rounded-xl transition-all duration-300 group-hover:scale-110 ${action.bgColor} group-hover:bg-gray-100`}
                 >
                   <Icon
-                    className={`w-5 h-5 ${action.color} group-hover:text-white transition-colors duration-200`}
+                    className={`w-5 h-5 ${action.color} transition-colors duration-200`}
                   />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-white group-hover:text-white transition-colors duration-200">
+                <div className="text-2xl font-bold text-gray-900 group-hover:text-gray-900 transition-colors duration-200">
                   {action.value}
                 </div>
-                <p className="text-xs text-white/70 mt-1">
-                  <span className="text-green-400">{action.change}</span> so với
+                <p className="text-xs text-gray-600 mt-1">
+                  <span className="text-green-600">{action.change}</span> so với
                   hôm qua
                 </p>
               </CardContent>
@@ -471,9 +485,9 @@ function DashboardOverview() {
       </div>
 
       {/* Recent Activities */}
-      <Card className="bg-white/10 backdrop-blur-md border-white/20">
+      <Card className="bg-white border border-gray-200 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
+          <CardTitle className="text-gray-900 flex items-center gap-2">
             <BarChart3 className="w-5 h-5" />
             Hoạt động gần đây
           </CardTitle>
@@ -483,15 +497,15 @@ function DashboardOverview() {
             {recentActivities.map((activity) => (
               <div
                 key={activity.id}
-                className="flex items-center gap-4 p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors duration-200"
+                className="flex items-center gap-4 p-3 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors duration-200"
               >
                 <div
                   className={`w-10 h-10 rounded-full flex items-center justify-center ${
                     activity.status === "success"
-                      ? "bg-green-500/20 text-green-400"
+                      ? "bg-green-100 text-green-600"
                       : activity.status === "warning"
-                      ? "bg-orange-500/20 text-orange-400"
-                      : "bg-blue-500/20 text-blue-400"
+                      ? "bg-orange-100 text-orange-600"
+                      : "bg-blue-100 text-blue-600"
                   }`}
                 >
                   {activity.type === "renter" && <Users className="w-5 h-5" />}
@@ -504,10 +518,10 @@ function DashboardOverview() {
                   )}
                 </div>
                 <div className="flex-1">
-                  <p className="text-white font-medium">{activity.action}</p>
-                  <p className="text-white/70 text-sm">{activity.user}</p>
+                  <p className="text-gray-900 font-medium">{activity.action}</p>
+                  <p className="text-gray-600 text-sm">{activity.user}</p>
                 </div>
-                <div className="text-white/60 text-sm">{activity.time}</div>
+                <div className="text-gray-500 text-sm">{activity.time}</div>
               </div>
             ))}
           </div>
@@ -516,9 +530,9 @@ function DashboardOverview() {
 
       {/* System Status */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="bg-white/10 backdrop-blur-md border-white/20">
+        <Card className="bg-white border border-gray-200 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
+            <CardTitle className="text-gray-900 flex items-center gap-2">
               <TrendingUp className="w-5 h-5" />
               Thống kê hệ thống
             </CardTitle>
@@ -526,28 +540,28 @@ function DashboardOverview() {
           <CardContent>
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <span className="text-white/70">Tổng người dùng</span>
-                <span className="text-white font-semibold">1,234</span>
+                <span className="text-gray-600">Tổng người dùng</span>
+                <span className="text-gray-900 font-semibold">1,234</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-white/70">Bài viết đã duyệt</span>
-                <span className="text-white font-semibold">856</span>
+                <span className="text-gray-600">Bài viết đã duyệt</span>
+                <span className="text-gray-900 font-semibold">856</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-white/70">Tài khoản xác thực</span>
-                <span className="text-white font-semibold">892</span>
+                <span className="text-gray-600">Tài khoản xác thực</span>
+                <span className="text-gray-900 font-semibold">892</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-white/70">Báo cáo đã xử lý</span>
-                <span className="text-white font-semibold">156</span>
+                <span className="text-gray-600">Báo cáo đã xử lý</span>
+                <span className="text-gray-900 font-semibold">156</span>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-white/10 backdrop-blur-md border-white/20">
+        <Card className="bg-white border border-gray-200 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
+            <CardTitle className="text-gray-900 flex items-center gap-2">
               <Activity className="w-5 h-5" />
               Trạng thái hệ thống
             </CardTitle>
@@ -555,20 +569,20 @@ function DashboardOverview() {
           <CardContent>
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <span className="text-white/70">Server Status</span>
-                <span className="text-green-400 font-semibold">Online</span>
+                <span className="text-gray-600">Server Status</span>
+                <span className="text-green-600 font-semibold">Online</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-white/70">Database</span>
-                <span className="text-green-400 font-semibold">Connected</span>
+                <span className="text-gray-600">Database</span>
+                <span className="text-green-600 font-semibold">Connected</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-white/70">API Response</span>
-                <span className="text-green-400 font-semibold">45ms</span>
+                <span className="text-gray-600">API Response</span>
+                <span className="text-green-600 font-semibold">45ms</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-white/70">Last Backup</span>
-                <span className="text-white font-semibold">2h ago</span>
+                <span className="text-gray-600">Last Backup</span>
+                <span className="text-gray-900 font-semibold">2h ago</span>
               </div>
             </div>
           </CardContent>

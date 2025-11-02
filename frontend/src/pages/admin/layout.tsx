@@ -1,16 +1,94 @@
-import React, { useState } from "react";
+"use client";
+
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Crown, Users, Package, BarChart3, Settings, Home, Wallet } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useSelector, useDispatch } from "react-redux";
+import { jwtDecode } from "jwt-decode";
+import { toast } from "sonner";
+import { Crown, Users, BarChart3, Settings, Home, Wallet, Percent, History } from "lucide-react";
+import { AdminHeader } from "@/components/ui/admin/admin-header";
+import { RootState } from "@/store/redux_store";
+import { logout } from "@/store/auth/authReducer";
+
+interface JwtPayload {
+  email: string;
+  role?: string;
+  exp?: number;
+  iat: number;
+}
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [activePage, setActivePage] = useState("");
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
+  const dispatch = useDispatch();
+  const { accessToken } = useSelector((state: RootState) => state.auth);
+
+  // Check authorization on mount
+  useEffect(() => {
+    setIsLoading(true);
+    
+    if (!accessToken) {
+      toast.error("Bạn cần đăng nhập để truy cập trang admin");
+      router.push("/auth/login");
+      return;
+    }
+
+    try {
+      const decoded = jwtDecode<JwtPayload>(accessToken);
+
+      // Check if token is expired
+      const currentTime = Date.now() / 1000;
+      if (decoded.exp && decoded.exp < currentTime) {
+        toast.error("Phiên đăng nhập đã hết hạn");
+        dispatch(logout());
+        router.push("/auth/login");
+        return;
+      }
+
+      // Check if user has admin role
+      if (decoded.role !== "admin") {
+        toast.error("Bạn không có quyền truy cập trang admin");
+        router.push("/home");
+        return;
+      }
+
+      setIsAuthorized(true);
+    } catch (error) {
+      console.error("Token decode error:", error);
+      toast.error("Token không hợp lệ");
+      dispatch(logout());
+      router.push("/auth/login");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [accessToken, router, dispatch]);
+
+  // Show loading while checking authorization
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center text-gray-900">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-lg">Đang kiểm tra quyền truy cập...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if not authorized
+  if (!isAuthorized) {
+    return null;
+  }
 
   const menus = [
     { icon: Home, label: "Trang chủ", key: "home", href: "/home" },
-    { icon: Users, label: "Người dùng", key: "users", href: "/admin/users" },
-    { icon: Package, label: "Sản phẩm", key: "products", href: "/admin/products" },
+    { icon: Users, label: "Người dùng", key: "users", href: "/admin/user-management" },
     { icon: Wallet, label: "Quản lý ví", key: "wallet", href: "/admin/wallet" },
-    { icon: BarChart3, label: "Thống kê", key: "analytics", href: "/admin/analytics" },
+    { icon: Percent, label: "Quản lý Thuế", key: "tax", href: "/admin/tax-management" },
+    { icon: BarChart3, label: "Lịch sử thay đổi", key: "audit", href: "/admin/audit-logs" },
     { icon: Settings, label: "Cài đặt", key: "settings", href: "/admin/settings" },
   ];
 
@@ -46,8 +124,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </aside>
 
+      {/* Header */}
+      <AdminHeader />
+
       {/* Main content */}
-      <main className="flex-1 ml-64 p-8 overflow-y-auto">{children}</main>
+      <main className="flex-1 ml-64 mt-16 p-8 overflow-y-auto">{children}</main>
     </div>
   );
 }

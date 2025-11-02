@@ -560,12 +560,17 @@ module.exports = {
 
       const filter = { isDeleted: false };
 
-      if (role === "renter") filter.renterId = userId;
-      else if (role === "owner") filter.ownerId = userId;
-      else
+      if (role === "renter") {
+        filter.renterId = userId;
+      } else if (role === "owner") {
+
+        filter.$or = [{ ownerId: userId }, { renterId: userId }];
+      } else {
         return res.status(403).json({
           message: "You are not permitted to access orders",
         });
+      }
+
 
       if (status) filter.orderStatus = status;
       if (paymentStatus) filter.paymentStatus = paymentStatus;
@@ -574,6 +579,7 @@ module.exports = {
 
       const skip = (Number(page) - 1) * Number(limit);
 
+ 
       const [orders, total] = await Promise.all([
         Order.find(filter)
           .populate("renterId", "fullName email")
@@ -582,9 +588,9 @@ module.exports = {
           .skip(skip)
           .limit(Number(limit))
           .lean(),
-
         Order.countDocuments(filter),
       ]);
+
 
       return res.json({
         message: "OK",
