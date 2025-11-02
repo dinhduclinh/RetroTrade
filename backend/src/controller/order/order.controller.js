@@ -563,8 +563,65 @@ module.exports = {
       if (role === "renter") {
         filter.renterId = userId;
       } else if (role === "owner") {
-
         filter.$or = [{ ownerId: userId }, { renterId: userId }];
+      } else {
+        return res.status(403).json({
+          message: "You are not permitted to access orders",
+        });
+      }
+
+      if (status) filter.orderStatus = status;
+      if (paymentStatus) filter.paymentStatus = paymentStatus;
+      if (search)
+        filter["itemSnapshot.title"] = { $regex: search, $options: "i" };
+
+      const skip = (Number(page) - 1) * Number(limit);
+
+      const [orders, total] = await Promise.all([
+        Order.find(filter)
+          .populate("renterId", "fullName email")
+          .populate("ownerId", "fullName email")
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(Number(limit))
+          .lean(),
+        Order.countDocuments(filter),
+      ]);
+
+      return res.json({
+        message: "OK",
+        data: orders,
+        pagination: {
+          total,
+          page: Number(page),
+          limit: Number(limit),
+          totalPages: Math.ceil(total / Number(limit)),
+        },
+      });
+    } catch (err) {
+      console.error("listOrders err:", err);
+      return res.status(500).json({
+        message: "Failed to list orders",
+        error: err.message,
+      });
+    }
+  },
+  listOrdersByOnwer: async (req, res) => {
+    try {
+      const userId = req.user._id;
+      const role = req.user.role?.toLowerCase();
+      const { status, paymentStatus, search, page = 1, limit = 20 } = req.query;
+
+      // Bộ lọc mặc định
+      const filter = { isDeleted: false };
+
+      // Phân quyền lấy đơn
+      if (role === "renter") {
+     
+        filter.renterId = userId;
+      } else if (role === "owner") {
+
+        filter.ownerId = userId;
       } else {
         return res.status(403).json({
           message: "You are not permitted to access orders",
@@ -579,7 +636,7 @@ module.exports = {
 
       const skip = (Number(page) - 1) * Number(limit);
 
- 
+
       const [orders, total] = await Promise.all([
         Order.find(filter)
           .populate("renterId", "fullName email")
@@ -590,7 +647,6 @@ module.exports = {
           .lean(),
         Order.countDocuments(filter),
       ]);
-
 
       return res.json({
         message: "OK",

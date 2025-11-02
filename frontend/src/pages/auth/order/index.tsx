@@ -105,7 +105,7 @@ export default function Checkout() {
     setCartItems(items);
   }, [router]);
 
-  // Fetch tax rate
+
   useEffect(() => {
     const fetchTaxRate = async () => {
       try {
@@ -115,13 +115,13 @@ export default function Checkout() {
         }
       } catch (error) {
         console.error("Error fetching tax rate:", error);
-        // Keep default 3% if error
+        
       }
     };
     fetchTaxRate();
   }, []);
 
-  // === TÍNH TOÁN CÓ THUẾ ĐỘNG ===
+ 
   const rentalTotal = cartItems.reduce((sum, item) => {
     const days = calculateRentalDays(item);
     return sum + item.basePrice * item.quantity * days;

@@ -159,3 +159,22 @@ export const disputeOrder = async (
   const response = await api.post(`/order/${orderId}/dispute`, { reason });
   return await parseResponse(response);
 };
+
+
+export const listOrdersByOwner = async (params?: {
+  status?: string;
+  paymentStatus?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+}): Promise<ApiResponse<Order[]>> => {
+  const query = new URLSearchParams(
+    Object.entries(params || {}).reduce((acc, [key, value]) => {
+      if (value !== undefined && value !== null && value !== "") acc[key] = String(value);
+      return acc;
+    }, {} as Record<string, string>)
+  ).toString();
+
+  const response = await api.get(`/order/owner${query ? `?${query}` : ""}`);
+  return await parseResponse(response);
+};
