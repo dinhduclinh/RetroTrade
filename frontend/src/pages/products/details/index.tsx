@@ -686,33 +686,20 @@ export default function ProductDetailPage() {
                   So sánh sản phẩm
                 </button>
                 <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => {
-                      // This is a workaround to trigger the AddToCartButton's click handler
-                      const addToCartBtn = document.querySelector('.add-to-cart-btn') as HTMLElement;
-                      if (addToCartBtn) addToCartBtn.click();
-                    }}
-                    disabled={outOfStock}
-                    className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg border ${
-                      outOfStock
-                        ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                        : 'bg-white text-blue-600 border-blue-600 hover:bg-blue-50'
-                    }`}
-                  >
-                    <ShoppingCart className="w-5 h-5" /> Thêm vào giỏ
+                  <div className="h-full">
                     <AddToCartButton
                       itemId={product._id}
                       availableQuantity={product.AvailableQuantity ?? 0}
                       size="md"
                       variant="outline"
-                      showText={false}
-                      className="hidden add-to-cart-btn"
+                      showText={true}
+                      className={`w-full h-full justify-center py-2.5 ${outOfStock ? 'opacity-50 cursor-not-allowed' : ''}`}
                     />
-                  </button>
+                  </div>
                   <button
                     onClick={handleRentNow}
                     disabled={outOfStock}
-                    className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg ${
+                    className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg h-full ${
                       outOfStock
                         ? "bg-gray-300 text-gray-600 cursor-not-allowed"
                         : "bg-blue-600 text-white hover:bg-blue-700"
@@ -954,12 +941,16 @@ export default function ProductDetailPage() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div className="bg-amber-50 p-3 rounded-lg border border-amber-100">
                             <p className="text-xs text-amber-700 font-medium mb-1">Tối thiểu</p>
-                            <p className="text-base font-semibold text-amber-900">{product.MinRentalDuration || 1} ngày</p>
+                            <p className="text-base font-semibold text-amber-900">
+                              {product.MinRentalDuration || 1} {product.PriceUnit?.UnitName?.toLowerCase() || 'ngày'}
+                            </p>
                           </div>
                           <div className="bg-amber-50 p-3 rounded-lg border border-amber-100">
                             <p className="text-xs text-amber-700 font-medium mb-1">Tối đa</p>
                             <p className="text-base font-semibold text-amber-900">
-                              {product.MaxRentalDuration ? `${product.MaxRentalDuration} ngày` : 'Không giới hạn'}
+                              {product.MaxRentalDuration 
+                                ? `${product.MaxRentalDuration} ${product.PriceUnit?.UnitName?.toLowerCase() || 'ngày'}` 
+                                : 'Không giới hạn'}
                             </p>
                           </div>
                         </div>
