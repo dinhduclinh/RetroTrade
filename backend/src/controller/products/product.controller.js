@@ -15,6 +15,9 @@ const Tags = require("../../models/Tag.model");
 
 const cloudinary = require("cloudinary").v2;
 
+const MAX_PRICE = 100000000; // 100 triệu VND - giá trị tối đa cho BasePrice và DepositAmount
+const MAX_DURATION = 365; // 365 ngày - giá trị tối đa cho MinRentalDuration và MaxRentalDuration
+
 const extractPublicId = (url) => {
   if (!url) return null;
   const parts = url.split("/upload/");
@@ -117,16 +120,22 @@ const addProduct = async (req, res) => {
     if (
       !BasePrice ||
       isNaN(parseFloat(BasePrice)) ||
-      parseFloat(BasePrice) < 0
+      parseFloat(BasePrice) <= 0
     ) {
-      throw new Error("Giá cơ bản là bắt buộc và không được âm");
+      throw new Error("Giá cơ bản là bắt buộc và phải lớn hơn 0");
+    }
+    if (parseFloat(BasePrice) > MAX_PRICE) {
+      throw new Error(`Giá cơ bản không được vượt quá ${MAX_PRICE} VND`);
     }
     if (
       !DepositAmount ||
       isNaN(parseFloat(DepositAmount)) ||
-      parseFloat(DepositAmount) < 0
+      parseFloat(DepositAmount) <= 0
     ) {
-      throw new Error("Số tiền đặt cọc là bắt buộc và không được âm");
+      throw new Error("Số tiền đặt cọc là bắt buộc và phải lớn hơn 0");
+    }
+    if (parseFloat(DepositAmount) > MAX_PRICE) {
+      throw new Error(`Số tiền đặt cọc không được vượt quá ${MAX_PRICE} VND`);
     }
     if (!Quantity || isNaN(parseInt(Quantity)) || parseInt(Quantity) < 1) {
       throw new Error("Số lượng là bắt buộc và phải lớn hơn hoặc bằng 1");
@@ -146,16 +155,22 @@ const addProduct = async (req, res) => {
     if (
       !MinRentalDuration ||
       isNaN(parseInt(MinRentalDuration)) ||
-      parseInt(MinRentalDuration) <= 0
+      parseInt(MinRentalDuration) < 1 ||
+      parseInt(MinRentalDuration) > MAX_DURATION
     ) {
-      throw new Error("Thời gian thuê tối thiểu là bắt buộc và phải lớn hơn 0");
+      throw new Error(
+        `Thời gian thuê tối thiểu là bắt buộc và phải từ 1 đến ${MAX_DURATION} ngày`
+      );
     }
     if (
       !MaxRentalDuration ||
       isNaN(parseInt(MaxRentalDuration)) ||
-      parseInt(MaxRentalDuration) <= 0
+      parseInt(MaxRentalDuration) < 1 ||
+      parseInt(MaxRentalDuration) > MAX_DURATION
     ) {
-      throw new Error("Thời gian thuê tối đa là bắt buộc và phải lớn hơn 0");
+      throw new Error(
+        `Thời gian thuê tối đa là bắt buộc và phải từ 1 đến ${MAX_DURATION} ngày`
+      );
     }
 
     const parsedQuantity = parseInt(Quantity);
@@ -266,10 +281,7 @@ const addProduct = async (req, res) => {
           );
         }
       } catch (imgError) {
-        console.warn(
-          "Tạo hình ảnh thất bại :",
-          imgError.message
-        );
+        console.warn("Tạo hình ảnh thất bại :", imgError.message);
       }
     }
 
@@ -499,16 +511,22 @@ const updateProduct = async (req, res) => {
     if (
       !BasePrice ||
       isNaN(parseFloat(BasePrice)) ||
-      parseFloat(BasePrice) < 0
+      parseFloat(BasePrice) <= 0
     ) {
-      throw new Error("Giá cơ bản là bắt buộc và không được âm");
+      throw new Error("Giá cơ bản là bắt buộc và phải lớn hơn 0");
+    }
+    if (parseFloat(BasePrice) > MAX_PRICE) {
+      throw new Error(`Giá cơ bản không được vượt quá ${MAX_PRICE} VND`);
     }
     if (
       !DepositAmount ||
       isNaN(parseFloat(DepositAmount)) ||
-      parseFloat(DepositAmount) < 0
+      parseFloat(DepositAmount) <= 0
     ) {
-      throw new Error("Số tiền đặt cọc là bắt buộc và không được âm");
+      throw new Error("Số tiền đặt cọc là bắt buộc và phải lớn hơn 0");
+    }
+    if (parseFloat(DepositAmount) > MAX_PRICE) {
+      throw new Error(`Số tiền đặt cọc không được vượt quá ${MAX_PRICE} VND`);
     }
     if (!Quantity || isNaN(parseInt(Quantity)) || parseInt(Quantity) < 1) {
       throw new Error("Số lượng là bắt buộc và phải lớn hơn hoặc bằng 1");
@@ -528,14 +546,26 @@ const updateProduct = async (req, res) => {
     const finalMinDuration = MinRentalDuration
       ? parseInt(MinRentalDuration)
       : existingItem.MinRentalDuration;
-    if (!finalMinDuration || finalMinDuration <= 0) {
-      throw new Error("Thời gian thuê tối thiểu là bắt buộc và phải lớn hơn 0");
+    if (
+      !finalMinDuration ||
+      finalMinDuration < 1 ||
+      finalMinDuration > MAX_DURATION
+    ) {
+      throw new Error(
+        `Thời gian thuê tối thiểu là bắt buộc và phải từ 1 đến ${MAX_DURATION} ngày`
+      );
     }
     const finalMaxDuration = MaxRentalDuration
       ? parseInt(MaxRentalDuration)
       : existingItem.MaxRentalDuration;
-    if (!finalMaxDuration || finalMaxDuration <= 0) {
-      throw new Error("Thời gian thuê tối đa là bắt buộc và phải lớn hơn 0");
+    if (
+      !finalMaxDuration ||
+      finalMaxDuration < 1 ||
+      finalMaxDuration > MAX_DURATION
+    ) {
+      throw new Error(
+        `Thời gian thuê tối đa là bắt buộc và phải từ 1 đến ${MAX_DURATION} ngày`
+      );
     }
 
     const parsedQuantity = parseInt(Quantity);
