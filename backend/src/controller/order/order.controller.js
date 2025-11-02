@@ -529,8 +529,8 @@ module.exports = {
         return res.status(400).json({ message: "Invalid order id" });
 
       const order = await Order.findById(orderId)
-        .populate("renterId", "fullName email avatarUrl")
-        .populate("ownerId", "fullName email avatarUrl")
+        .populate("renterId", "fullName email avatarUrl userGuid")
+        .populate("ownerId", "fullName email avatarUrl userGuid")
         .lean();
 
       if (!order || order.isDeleted)
@@ -555,20 +555,16 @@ module.exports = {
   listOrders: async (req, res) => {
     try {
       const userId = req.user._id;
-      const role = req.user.role?.toLowerCase();
       const { status, paymentStatus, search, page = 1, limit = 20 } = req.query;
 
-      const filter = { isDeleted: false };
-
-      if (role === "renter") {
-        filter.renterId = userId;
-      } else if (role === "owner") {
-        filter.$or = [{ ownerId: userId }, { renterId: userId }];
-      } else {
-        return res.status(403).json({
-          message: "You are not permitted to access orders",
-        });
-      }
+      // Cho phép mọi role xem đơn hàng của mình (là renter hoặc owner)
+      const filter = { 
+        isDeleted: false,
+        $or: [
+          { renterId: userId },
+          { ownerId: userId }
+        ]
+      };
 
       if (status) filter.orderStatus = status;
       if (paymentStatus) filter.paymentStatus = paymentStatus;
@@ -609,25 +605,13 @@ module.exports = {
   listOrdersByOnwer: async (req, res) => {
     try {
       const userId = req.user._id;
-      const role = req.user.role?.toLowerCase();
       const { status, paymentStatus, search, page = 1, limit = 20 } = req.query;
 
-      // Bộ lọc mặc định
-      const filter = { isDeleted: false };
-
-      // Phân quyền lấy đơn
-      if (role === "renter") {
-     
-        filter.renterId = userId;
-      } else if (role === "owner") {
-
-        filter.ownerId = userId;
-      } else {
-        return res.status(403).json({
-          message: "You are not permitted to access orders",
-        });
-      }
-
+      // Cho phép mọi role xem đơn hàng của mình (là owner của sản phẩm)
+      const filter = { 
+        isDeleted: false,
+        ownerId: userId
+      };
 
       if (status) filter.orderStatus = status;
       if (paymentStatus) filter.paymentStatus = paymentStatus;
@@ -635,7 +619,6 @@ module.exports = {
         filter["itemSnapshot.title"] = { $regex: search, $options: "i" };
 
       const skip = (Number(page) - 1) * Number(limit);
-
 
       const [orders, total] = await Promise.all([
         Order.find(filter)
@@ -659,7 +642,7 @@ module.exports = {
         },
       });
     } catch (err) {
-      console.error("listOrders err:", err);
+      console.error("listOrdersByOnwer err:", err);
       return res.status(500).json({
         message: "Failed to list orders",
         error: err.message,

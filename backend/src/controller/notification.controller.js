@@ -1,4 +1,5 @@
 const Notification = require("../models/Notification.model");
+const { sendUnreadCount } = require("../utils/sseManager");
 
 /**
  * Get all notifications for current user with pagination
@@ -41,32 +42,6 @@ module.exports.getNotifications = async (req, res) => {
 };
 
 /**
- * Get unread notification count for current user
- */
-module.exports.getUnreadCount = async (req, res) => {
-  try {
-    const userId = req.user._id;
-    const unreadCount = await Notification.countDocuments({
-      user: userId,
-      isRead: false,
-    });
-
-    return res.json({
-      code: 200,
-      message: "Lấy số lượng thông báo chưa đọc thành công",
-      data: { unreadCount },
-    });
-  } catch (error) {
-    console.error("Error in getUnreadCount:", error);
-    return res.json({
-      code: 500,
-      message: "Lấy số lượng thông báo chưa đọc thất bại",
-      error: error.message,
-    });
-  }
-};
-
-/**
  * Mark a notification as read
  */
 module.exports.markAsRead = async (req, res) => {
@@ -85,6 +60,17 @@ module.exports.markAsRead = async (req, res) => {
         code: 404,
         message: "Không tìm thấy thông báo",
       });
+    }
+
+    // Cập nhật unread count qua SSE
+    try {
+      const unreadCount = await Notification.countDocuments({
+        user: userId,
+        isRead: false
+      });
+      sendUnreadCount(userId, unreadCount);
+    } catch (error) {
+      console.error("Error sending unread count update:", error);
     }
 
     return res.json({
@@ -113,6 +99,13 @@ module.exports.markAllAsRead = async (req, res) => {
       { user: userId, isRead: false },
       { $set: { isRead: true } }
     );
+
+    // Cập nhật unread count qua SSE (sẽ là 0)
+    try {
+      sendUnreadCount(userId, 0);
+    } catch (error) {
+      console.error("Error sending unread count update:", error);
+    }
 
     return res.json({
       code: 200,

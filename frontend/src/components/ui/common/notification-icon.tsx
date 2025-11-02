@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Bell, CheckCircle, CheckCheck, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/common/button";
 import {
@@ -9,41 +9,30 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/common/dropdown-menu';
 import { notificationApi, Notification } from "@/services/auth/notification.api";
+import { notificationSSE } from "@/services/auth/notification.sse";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { useSelector } from "react-redux";
 
 interface NotificationIconProps {
   className?: string;
 }
 
 // Constants
-const POLLING_INTERVAL = 30000; // 30 seconds
 const NOTIFICATIONS_LIMIT = 20;
 
 export function NotificationIcon({ className }: NotificationIconProps) {
   const router = useRouter();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { accessToken, user } = useSelector((state: any) => state.auth);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [sseConnected, setSseConnected] = useState(false);
 
-  // Memoized: Calculate unread count from notifications
-  const computedUnreadCount = useMemo(() => {
-    return notifications.filter(n => !n.isRead).length;
-  }, [notifications]);
 
-  const fetchUnreadCount = useCallback(async () => {
-    try {
-      const count = await notificationApi.getUnreadCount();
-      setUnreadCount(count);
-    } catch (error) {
-      console.error("Error fetching unread count:", error);
-      // Don't show toast for background polling errors
-    }
-  }, []);
-
-  const fetchNotifications = useCallback(async (updateUnreadCount = false) => {
+  const fetchNotifications = useCallback(async () => {
     try {
       setIsLoading(true);
       const data = await notificationApi.getNotifications({ 
@@ -53,11 +42,6 @@ export function NotificationIcon({ className }: NotificationIconProps) {
       
       if (data?.items) {
         setNotifications(data.items);
-        // Update unread count from notifications if requested
-        if (updateUnreadCount) {
-          const count = data.items.filter(n => !n.isRead).length;
-          setUnreadCount(count);
-        }
       }
     } catch (error) {
       console.error("Error fetching notifications:", error);
@@ -67,32 +51,72 @@ export function NotificationIcon({ className }: NotificationIconProps) {
     }
   }, []);
 
-  // Initial load and polling setup
+  // SSE setup - kết nối với SSE stream để nhận notifications realtime
   useEffect(() => {
-    // Fetch initial data
-    fetchUnreadCount();
-    fetchNotifications(true); // Update unread count on initial load
+    // Chỉ kết nối khi có user và token
+    if (!user || !accessToken) {
+      return;
+    }
 
-    // Set up polling every 30 seconds
-    intervalRef.current = setInterval(() => {
-      fetchUnreadCount();
-    }, POLLING_INTERVAL);
+    // Fetch initial notifications list
+    fetchNotifications();
 
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+    // Kết nối SSE
+    notificationSSE.connect({
+      onConnect: () => {
+        console.log('[Notifications] SSE connected');
+        setSseConnected(true);
+      },
+      onDisconnect: () => {
+        console.log('[Notifications] SSE disconnected');
+        setSseConnected(false);
+      },
+      onNotification: (notification: Notification) => {
+        console.log('[Notifications] New notification received:', notification);
+        
+        // Thêm notification mới vào đầu danh sách
+        setNotifications(prev => {
+          // Kiểm tra xem notification đã tồn tại chưa (tránh duplicate)
+          const exists = prev.some(n => n._id === notification._id);
+          if (exists) return prev;
+          
+          // Thêm vào đầu danh sách và giới hạn số lượng
+          return [notification, ...prev].slice(0, NOTIFICATIONS_LIMIT);
+        });
+        
+        // Tăng unread count
+        setUnreadCount(prev => prev + 1);
+        
+        // Hiển thị toast notification
+        toast.info(notification.title, {
+          description: notification.body,
+          duration: 5000,
+        });
+      },
+      onUnreadCount: (count: number) => {
+        console.log('[Notifications] Unread count updated:', count);
+        setUnreadCount(count);
+      },
+      onError: (error) => {
+        console.error('[Notifications] SSE error:', error);
+        setSseConnected(false);
       }
+    });
+
+    // Cleanup: disconnect SSE khi component unmount hoặc user logout
+    return () => {
+      notificationSSE.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array - only run once on mount
+  }, [user, accessToken]); // Reconnect khi user hoặc token thay đổi
 
-  // Refresh notifications when dropdown opens
+  // Refresh notifications when dropdown opens (SSE đã tự động cập nhật unread count)
   useEffect(() => {
     if (isOpen) {
-      fetchNotifications(false); // Don't update unread count (it's already being polled)
+      fetchNotifications();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]); // Only depend on isOpen
+  }, [isOpen]);
 
   const handleMarkAsRead = useCallback(async (id: string, event?: React.MouseEvent) => {
     if (event) {
@@ -161,10 +185,8 @@ export function NotificationIcon({ className }: NotificationIconProps) {
     }
   }, []);
 
-  // Use the larger of API unread count or computed unread count
-  const displayUnreadCount = useMemo(() => {
-    return Math.max(unreadCount, computedUnreadCount);
-  }, [unreadCount, computedUnreadCount]);
+  // Unread count được cập nhật realtime từ SSE
+  const displayUnreadCount = unreadCount;
 
   const handleNotificationClick = useCallback((notification: Notification, event?: React.MouseEvent) => {
     if (event) {
@@ -211,11 +233,16 @@ export function NotificationIcon({ className }: NotificationIconProps) {
                 <Bell className="h-4 w-4 text-white" />
               </div>
               <h3 className="font-bold text-lg text-gray-900 dark:text-white">Thông báo</h3>
-              {displayUnreadCount > 0 && (
-                <span className="bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5">
-                  {displayUnreadCount} mới
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {sseConnected && (
+                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" title="Đang kết nối realtime"></span>
+                )}
+                {displayUnreadCount > 0 && (
+                  <span className="bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5">
+                    {displayUnreadCount} mới
+                  </span>
+                )}
+              </div>
             </div>
             <Button
               variant="ghost"

@@ -4,8 +4,8 @@ const { authenticateToken, authorizeRoles } = require("../../middleware/auth");
 const OrderController = require("../../controller/order/order.controller");
 
 
-router.get("/", authenticateToken,OrderController.listOrders);
-router.get("/owner/", authenticateToken, authorizeRoles("renter", "owner"), OrderController.listOrdersByOnwer);
+router.get("/", authenticateToken, OrderController.listOrders);
+router.get("/owner/", authenticateToken, OrderController.listOrdersByOnwer);
 router.post("/", authenticateToken, authorizeRoles("renter", "owner"),OrderController.createOrder);
 router.get("/:id", authenticateToken, OrderController.getOrder);
 router.post("/:id/confirm", authenticateToken,OrderController.confirmOrder);

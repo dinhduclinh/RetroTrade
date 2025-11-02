@@ -28,12 +28,14 @@ export interface Order {
     _id: string;
     fullName: string;
     email: string;
+    avatarUrl?: string;
   };
   ownerId: {
     _id: string;
     fullName: string;
     email: string;
     avatarUrl?: string;
+    userGuid?: string;
   };
   itemId: {
     _id: string;

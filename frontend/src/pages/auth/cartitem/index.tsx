@@ -31,7 +31,6 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
-import { format } from "date-fns";
 import { RootState, AppDispatch } from "@/store/redux_store";
 import {
   fetchCartItems,
@@ -868,21 +867,6 @@ const handleCheckout = () => {
                           )}
                         </div>
 
-                        {/* Rental Period */}
-                        <div className="flex items-center gap-3 text-base text-gray-700">
-                          <Calendar className="w-5 h-5 text-emerald-600" />
-                          {item.rentalStartDate && item.rentalEndDate ? (
-                            <>
-                              {format(new Date(item.rentalStartDate), "dd/MM")} →{" "}
-                              {format(new Date(item.rentalEndDate), "dd/MM/yyyy")}
-                            </>
-                          ) : (
-                            <span className="text-gray-500 italic">
-                              Chưa chọn thời gian thuê
-                            </span>
-                          )}
-                        </div>
-
                         <div
                           className={`bg-gray-50 px-4 py-3 rounded-lg transition-all duration-300 ${
                             updatingItems.has(item._id)
@@ -1086,22 +1070,18 @@ const handleCheckout = () => {
                         </div>
 
                         {/* Pricing */}
-                        <div className="flex justify-between items-end pt-4 border-t border-gray-200">
-                          <div>
+                        <div className="flex flex-col gap-2 pt-4 border-t border-gray-200">
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600">Giá thuê:</span>
                             <p className="text-2xl font-bold text-emerald-600">
                               {formatPrice(itemTotal, item.currency)}
                             </p>
-                            <p className="text-sm text-amber-600">
-                              Cọc: {formatPrice(item.depositAmount * item.quantity, item.currency)}
-                            </p>
                           </div>
-                          <div className="text-right text-sm text-gray-500">
-                            <div>
-                              {formatPrice(item.basePrice, item.currency)}/{item.priceUnit || "ngày"}
-                            </div>
-                            <div>
-                              Cọc: {formatPrice(item.depositAmount, item.currency)}/cái
-                            </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-sm text-gray-600">Tiền cọc:</span>
+                            <p className="text-lg font-semibold text-amber-600">
+                              {formatPrice(item.depositAmount * item.quantity, item.currency)}
+                            </p>
                           </div>
                         </div>
                       </div>

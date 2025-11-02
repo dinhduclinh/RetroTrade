@@ -25,9 +25,16 @@ import {
   ChevronRight,
   Download,
   Share2,
+  Home,
+  ShoppingBag,
+  Eye,
+  User,
+  Mail,
+  Store,
 } from "lucide-react";
 import type { Order } from "@/services/auth/order.api";
 import Image from "next/image";
+import Link from "next/link";
 import { getCurrentTax } from "@/services/tax/tax.api";
 interface TimelineStep {
   status: string;
@@ -55,6 +62,31 @@ const calculateRentalAmount = (order: Order): number => {
   const duration = order.rentalDuration ?? 0;
   const count = order.unitCount ?? 1;
   return basePrice * duration * count;
+};
+
+// Helper functions to convert status to Vietnamese
+const getOrderStatusLabel = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    pending: "Chờ xác nhận",
+    confirmed: "Đã xác nhận",
+    progress: "Đang thuê",
+    returned: "Đã trả hàng",
+    completed: "Hoàn tất",
+    cancelled: "Đã hủy",
+    disputed: "Tranh chấp",
+  };
+  return statusMap[status.toLowerCase()] || status;
+};
+
+const getPaymentStatusLabel = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    pending: "Chờ thanh toán",
+    not_paid: "Chưa thanh toán",
+    paid: "Đã thanh toán",
+    refunded: "Đã hoàn tiền",
+    partial: "Thanh toán một phần",
+  };
+  return statusMap[status.toLowerCase()] || status;
 };
 
 export default function OrderDetail() {
@@ -183,9 +215,52 @@ export default function OrderDetail() {
   const canComplete = order.orderStatus === "returned";
   const canCancel = ["pending", "confirmed"].includes(order.orderStatus);
 
+  // Breadcrumb data
+  const breadcrumbs = [
+    { label: "Trang chủ", href: "/home", icon: Home },
+    { label: "Đơn hàng", href: "/order", icon: ShoppingBag },
+    { label: "Chi tiết đơn hàng", href: `/order/${id}`, icon: Eye },
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50 py-8 px-4">
       <div className="max-w-5xl mx-auto">
+        {/* Breadcrumb Navigation */}
+        <nav className="mb-6">
+          <div className="flex items-center space-x-2 text-sm">
+            {breadcrumbs.map((breadcrumb, index) => {
+              const IconComponent = breadcrumb.icon;
+              const isLast = index === breadcrumbs.length - 1;
+
+              return (
+                <div
+                  key={breadcrumb.href}
+                  className="flex items-center space-x-2"
+                >
+                  {index > 0 && (
+                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                  )}
+
+                  {isLast ? (
+                    <span className="flex items-center space-x-1 text-gray-900 font-medium">
+                      {IconComponent && <IconComponent className="w-4 h-4" />}
+                      <span>{breadcrumb.label}</span>
+                    </span>
+                  ) : (
+                    <Link
+                      href={breadcrumb.href}
+                      className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 transition-colors"
+                    >
+                      {IconComponent && <IconComponent className="w-4 h-4" />}
+                      <span>{breadcrumb.label}</span>
+                    </Link>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </nav>
+
         {/* Header */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
           <div className="flex justify-between items-start">
@@ -212,12 +287,7 @@ export default function OrderDetail() {
                     : "bg-yellow-100 text-yellow-700"
                 }`}
               >
-                {order.orderStatus === "pending" && "Chờ xác nhận"}
-                {order.orderStatus === "confirmed" && "Đã xác nhận"}
-                {order.orderStatus === "progress" && "Đang thuê"}
-                {order.orderStatus === "returned" && "Đã trả"}
-                {order.orderStatus === "completed" && "Hoàn tất"}
-                {order.orderStatus === "cancelled" && "Đã hủy"}
+                {getOrderStatusLabel(order.orderStatus)}
               </span>
             </div>
           </div>
@@ -278,21 +348,117 @@ export default function OrderDetail() {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-3 bg-purple-50 px-3 py-2 rounded-lg mt-6">
-                <Image
-                  src={order.ownerId.avatarUrl || ""}
-                  alt={order.ownerId.fullName || "Chủ sở hữu"}
-                  width={32}
-                  height={32}
-                  className="w-8 h-8 rounded-full object-cover"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-800">
-                    {order.ownerId.fullName || "Chủ sở hữu"}
-                  </p>
-                  <p className="text-xs text-slate-500 truncate">
-                    {order.ownerId.email || "Không có email"}
-                  </p>
+            </div>
+
+            {/* User Info */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <h2 className="font-bold text-lg mb-6 flex items-center gap-3">
+                <User className="w-6 h-6 text-blue-600" />
+                Thông tin người tham gia
+              </h2>
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Người thuê */}
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="relative">
+                      {order.renterId.avatarUrl ? (
+                        <Image
+                          src={order.renterId.avatarUrl}
+                          alt={order.renterId.fullName}
+                          width={64}
+                          height={64}
+                          className="w-16 h-16 rounded-full object-cover border-2 border-blue-200 shadow-sm"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 rounded-full bg-blue-200 border-2 border-blue-300 flex items-center justify-center">
+                          <User className="w-8 h-8 text-blue-600" />
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg text-gray-800 mb-1">Người thuê</h3>
+                      <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-100 px-3 py-1 rounded-full w-fit">
+                        <User className="w-3 h-3" />
+                        <span>Người mua</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-3 pt-4 border-t border-blue-200">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-1">
+                        <User className="w-5 h-5 text-blue-500" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs text-gray-500 mb-1">Họ và tên</p>
+                        <p className="text-base font-semibold text-gray-800">{order.renterId.fullName}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="mt-1">
+                        <Mail className="w-5 h-5 text-blue-500" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs text-gray-500 mb-1">Email</p>
+                        <p className="text-sm text-gray-700 break-all">{order.renterId.email}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Người cho thuê */}
+                <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-xl p-6 border border-emerald-100">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="relative">
+                      {order.ownerId.avatarUrl ? (
+                        <Image
+                          src={order.ownerId.avatarUrl}
+                          alt={order.ownerId.fullName || "Chủ sở hữu"}
+                          width={64}
+                          height={64}
+                          className="w-16 h-16 rounded-full object-cover border-2 border-emerald-200 shadow-sm"
+                        />
+                      ) : (
+                        <div className="w-16 h-16 rounded-full bg-emerald-200 border-2 border-emerald-300 flex items-center justify-center">
+                          <Store className="w-8 h-8 text-emerald-600" />
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg text-gray-800 mb-1">Người cho thuê</h3>
+                      <div className="flex items-center gap-2 text-sm text-emerald-600 bg-emerald-100 px-3 py-1 rounded-full w-fit">
+                        <Store className="w-3 h-3" />
+                        <span>Chủ cửa hàng</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-3 pt-4 border-t border-emerald-200">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-1">
+                        <User className="w-5 h-5 text-emerald-500" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs text-gray-500 mb-1">Họ và tên</p>
+                        <p className="text-base font-semibold text-gray-800">{order.ownerId.fullName || "Chủ sở hữu"}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="mt-1">
+                        <Mail className="w-5 h-5 text-emerald-500" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs text-gray-500 mb-1">Email</p>
+                        <p className="text-sm text-gray-700 break-all">{order.ownerId.email || "Không có email"}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="pt-4 mt-4 border-t border-emerald-200">
+                    <Link href={`/store/${order.ownerId.userGuid || order.ownerId._id}`}>
+                      <button className="w-full px-4 py-2 text-sm font-medium text-emerald-600 bg-white border border-emerald-300 rounded-lg hover:bg-emerald-50 transition-colors flex items-center justify-center gap-2">
+                        <Store className="w-4 h-4" />
+                        Xem cửa hàng
+                      </button>
+                    </Link>
+                  </div>
                 </div>
               </div>
             </div>
@@ -455,22 +621,18 @@ export default function OrderDetail() {
                         ? "bg-green-100 text-green-700"
                         : order.paymentStatus === "not_paid"
                         ? "bg-yellow-100 text-yellow-700"
+                        : order.paymentStatus === "refunded"
+                        ? "bg-blue-100 text-blue-700"
                         : "bg-gray-100 text-gray-700"
                     }`}
                 >
                   {order.paymentStatus === "paid" && (
-                    <>
-                      <CheckCircle2 className="w-4 h-4" />
-                      Đã thanh toán
-                    </>
+                    <CheckCircle2 className="w-4 h-4" />
                   )}
                   {order.paymentStatus === "not_paid" && (
-                    <>
-                      <AlertCircle className="w-4 h-4" />
-                      Chưa thanh toán
-                    </>
+                    <AlertCircle className="w-4 h-4" />
                   )}
-                  {order.paymentStatus === "refunded" && "Đã hoàn tiền"}
+                  {getPaymentStatusLabel(order.paymentStatus)}
                 </span>
               </div>
             </div>

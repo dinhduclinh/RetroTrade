@@ -16,10 +16,6 @@ export interface NotificationResponse {
   totalItems: number;
 }
 
-export interface UnreadCountResponse {
-  unreadCount: number;
-}
-
 export const notificationApi = {
   // Get all notifications with pagination
   getNotifications: async (params?: { limit?: number; skip?: number; isRead?: boolean }): Promise<NotificationResponse> => {
@@ -33,15 +29,6 @@ export const notificationApi = {
     
     const data = await response.json();
     return data.data;
-  },
-
-  // Get unread notification count (for badge)
-  getUnreadCount: async (): Promise<number> => {
-    const response = await api.get('/notifications/unread-count');
-    if (!response.ok) throw new Error('Failed to fetch unread count');
-    
-    const data = await response.json();
-    return data.data.unreadCount;
   },
 
   // Mark a notification as read
