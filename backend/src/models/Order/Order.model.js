@@ -46,6 +46,14 @@ const orderSchema = new mongoose.Schema(
       },
     },
     totalAmount: { type: Number, required: true, min: 0 },
+    // discount fields
+    discount: {
+      code: String,
+      type: { type: String, enum: ["percent", "fixed"] },
+      value: Number,
+      amountApplied: { type: Number, default: 0, min: 0 },
+    },
+    finalAmount: { type: Number, min: 0 },
     depositAmount: { type: Number, default: 0, min: 0 },
     serviceFee: { type: Number, default: 0, min: 0 },
     currency: { type: String, default: "VND", enum: ["VND", "USD"] },

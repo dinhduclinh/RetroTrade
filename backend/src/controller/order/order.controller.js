@@ -29,6 +29,7 @@ module.exports = {
         paymentMethod = "Wallet",
         shippingAddress,
         note = "",
+        discountCode,
       } = req.body;
 
       const finalStartAt = startAt || rentalStartDate;
@@ -89,6 +90,58 @@ module.exports = {
       const { totalAmount, depositAmount, serviceFee, duration, unitName } =
         result;
 
+      // === DISCOUNT ===
+      let discountInfo = null;
+      let finalAmount = totalAmount;
+      if (discountCode) {
+        try {
+          const DiscountController = require("./discount.controller");
+          const Discount = require("../../models/Discount.model");
+          const DiscountAssignment = require("../../models/Discount/DiscountAssignment.model");
+          const DiscountRedemption = require("../../models/Discount/DiscountRedemption.model");
+          const validated = await DiscountController.validateAndCompute({
+            code: discountCode,
+            baseAmount: totalAmount,
+            ownerId: item.OwnerId,
+            itemId: item._id,
+            userId: renterId,
+          });
+          if (validated.valid) {
+            finalAmount = Math.max(0, totalAmount - validated.amount);
+            discountInfo = {
+              code: discountCode.toUpperCase(),
+              type: validated.discount.type,
+              value: validated.discount.value,
+              amountApplied: validated.amount,
+            };
+            // optimistic increment, non-blocking
+            try {
+              await Discount.updateOne(
+                { code: discountInfo.code },
+                { $inc: { usedCount: 1 } }
+              );
+              // increment per-user assignment if exists
+              await DiscountAssignment.updateOne(
+                { discountId: validated.discount._id, userId: renterId },
+                { $inc: { usedCount: 1 } }
+              );
+              // record redemption (orderId available after create; we store later if needed)
+              try {
+                await DiscountRedemption.create({
+                  discountId: validated.discount._id,
+                  userId: renterId,
+                  orderId: null,
+                  amountApplied: validated.amount,
+                  status: "applied",
+                });
+              } catch (_) {}
+            } catch (incErr) { /* ignore */ }
+          }
+        } catch (e) {
+          // ignore discount errors to not block order creation
+        }
+      }
+
       // === TẠO ORDER ===
       const orderDoc = await Order.create(
         [
@@ -106,6 +159,8 @@ module.exports = {
             startAt: new Date(finalStartAt),
             endAt: new Date(finalEndAt),
             totalAmount,
+            discount: discountInfo || undefined,
+            finalAmount,
             depositAmount,
             serviceFee,
             currency: "VND",
@@ -133,6 +188,8 @@ module.exports = {
           orderId: newOrder._id,
           orderGuid: newOrder.orderGuid,
           totalAmount,
+          finalAmount,
+          discount: discountInfo,
           depositAmount,
           serviceFee,
           rentalDuration: duration,

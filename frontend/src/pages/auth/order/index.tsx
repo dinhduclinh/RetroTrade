@@ -10,7 +10,6 @@ import { decodeToken } from "@/utils/jwtHelper";
 import { getUserProfile } from "@/services/auth/user.api";
 import {
   Package,
-  MapPin,
   Truck,
   Calendar,
   CreditCard,
@@ -26,21 +25,11 @@ import {
   Eye,
   ExternalLink,
 } from "lucide-react";
-import { getCurrentTax } from "@/services/tax/tax.api";
+// import { getCurrentTax } from "@/services/tax/tax.api";
 import Link from "next/link";
 import { toast } from "sonner";
-import {
-  getUserAddresses,
-  createUserAddress,
-  updateUserAddress,
-  deleteUserAddress,
-  type UserAddress,
-} from "@/services/auth/userAddress.api";
-import {
-  Plus,
-  Trash2,
-  Check,
-} from "lucide-react";
+import { type UserAddress } from "@/services/auth/userAddress.api";
+import { AddressSelector } from "@/components/ui/auth/address/address-selector";
 
 const calculateRentalDays = (item: CartItem): number => {
   if (!item.rentalStartDate || !item.rentalEndDate) return 0;
@@ -126,29 +115,7 @@ export default function Checkout() {
     rentalStartDate?: string;
     rentalEndDate?: string;
   }>>({});
-  const [userAddresses, setUserAddresses] = useState<UserAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
-  const [isEditingAddress, setIsEditingAddress] = useState(false);
-  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
-  const [newAddress, setNewAddress] = useState({
-    Address: "",
-    City: "",
-    District: "",
-    IsDefault: false,
-  });
-  const [addressLoading, setAddressLoading] = useState(false);
-  const [locationLoading, setLocationLoading] = useState(false);
-  const [confirmPopup, setConfirmPopup] = useState<{
-    isOpen: boolean;
-    message: string;
-    onConfirm: () => void;
-    title?: string;
-  }>({
-    isOpen: false,
-    message: "",
-    onConfirm: () => {},
-    title: "Xác nhận",
-  });
 
   // Lấy từ sessionStorage
   useEffect(() => {
@@ -168,20 +135,7 @@ export default function Checkout() {
   }, [router]);
 
 
-  useEffect(() => {
-    const fetchTaxRate = async () => {
-      try {
-        const response = await getCurrentTax();
-        if (response.success && response.data) {
-          setTaxRate(response.data.taxRate);
-        }
-      } catch (error) {
-        console.error("Error fetching tax rate:", error);
-        
-      }
-    };
-    fetchTaxRate();
-  }, []);
+  // Note: Using default taxRate; dynamic fetch can be re-enabled when needed
 
   // Load user info and auto-fill shipping address
   useEffect(() => {
@@ -206,56 +160,7 @@ export default function Checkout() {
           }));
         }
 
-        // Load user addresses
-        try {
-          const addressesResponse = await getUserAddresses();
-          console.log("Addresses response:", addressesResponse);
-          console.log("Addresses response data:", addressesResponse?.data);
-          console.log("Addresses response code:", addressesResponse?.code);
-          
-          // Check if response is successful (code 200-299) and has data
-          if (addressesResponse?.code && addressesResponse.code >= 200 && addressesResponse.code < 300 && addressesResponse?.data !== undefined) {
-            // Handle array case
-            if (Array.isArray(addressesResponse.data)) {
-              const addresses = addressesResponse.data;
-              console.log("Setting addresses:", addresses.length);
-              setUserAddresses(addresses);
-              
-              // Auto-select default address
-              if (addresses.length > 0) {
-                const defaultAddress = addresses.find(addr => addr.IsDefault);
-                if (defaultAddress) {
-                  setSelectedAddressId(defaultAddress._id);
-                  applyAddressToShipping(defaultAddress);
-                } else {
-                  // Select first address if no default
-                  setSelectedAddressId(addresses[0]._id);
-                  applyAddressToShipping(addresses[0]);
-                }
-              } else {
-                console.log("No addresses in array");
-              }
-            } else if (addressesResponse.data !== null && addressesResponse.data !== undefined) {
-              // Handle case where data is not an array but exists
-              console.warn("Addresses data is not an array:", addressesResponse.data);
-              // Try to convert to array if it's a single object
-              if (typeof addressesResponse.data === 'object' && '_id' in addressesResponse.data) {
-                const singleAddress = addressesResponse.data as UserAddress;
-                setUserAddresses([singleAddress]);
-                setSelectedAddressId(singleAddress._id);
-                applyAddressToShipping(singleAddress);
-              }
-            }
-          } else {
-            console.log("No addresses found - response failed or no data:", {
-              code: addressesResponse?.code,
-              hasData: addressesResponse?.data !== undefined
-            });
-          }
-        } catch (error) {
-          console.error("Error loading user addresses:", error);
-          toast.error("Không thể tải danh sách địa chỉ đã lưu");
-        }
+        // Address loading handled inside AddressSelector component
       } catch (error) {
         console.error("Error loading user info:", error);
       }
@@ -276,339 +181,7 @@ export default function Checkout() {
     }));
   };
 
-  // Handle address selection
-  const handleAddressSelect = (addressId: string) => {
-    setSelectedAddressId(addressId);
-    const address = userAddresses.find(addr => addr._id === addressId);
-    if (address) {
-      applyAddressToShipping(address);
-    }
-    setIsEditingAddress(false);
-    setEditingAddressId(null);
-  };
-
-  // Handle create new address
-  const handleCreateAddress = async () => {
-    if (!newAddress.Address || !newAddress.City || !newAddress.District) {
-      toast.error("Vui lòng điền đầy đủ thông tin địa chỉ");
-      return;
-    }
-
-    // Địa chỉ mới luôn được set làm mặc định (backend sẽ tự động xử lý)
-    // Không cần truyền IsDefault vì backend sẽ luôn set = true
-
-    setAddressLoading(true);
-    try {
-      // Backend sẽ tự động set địa chỉ mới làm mặc định
-      const response = await createUserAddress(newAddress);
-      if (response?.data) {
-        // Reload all addresses to ensure sync with backend (especially for default addresses)
-        const addressesResponse = await getUserAddresses();
-        if (addressesResponse?.data && Array.isArray(addressesResponse.data)) {
-          setUserAddresses(addressesResponse.data);
-          
-          // Select the newly created address
-          const newAddressData = addressesResponse.data.find(addr => addr._id === (response.data as UserAddress)._id);
-          if (newAddressData) {
-            setSelectedAddressId(newAddressData._id);
-            applyAddressToShipping(newAddressData);
-          }
-        } else {
-          // Fallback: use the response data
-          const updatedAddresses = [...userAddresses, response.data as UserAddress];
-          setUserAddresses(updatedAddresses);
-          setSelectedAddressId(response.data._id);
-          applyAddressToShipping(response.data as UserAddress);
-        }
-        
-        setNewAddress({ Address: "", City: "", District: "", IsDefault: false });
-        setIsEditingAddress(false);
-        toast.success("Tạo địa chỉ thành công");
-      } else {
-        toast.error(response?.message || "Có lỗi xảy ra khi tạo địa chỉ");
-      }
-    } catch (error) {
-      console.error("Error creating address:", error);
-      toast.error("Có lỗi xảy ra khi tạo địa chỉ");
-    } finally {
-      setAddressLoading(false);
-    }
-  };
-
-  // Handle update address
-  const handleUpdateAddress = async (addressId: string) => {
-    const address = userAddresses.find(addr => addr._id === addressId);
-    if (!address) return;
-
-    // Check if trying to unset default and this is the only default address
-    const defaultAddresses = userAddresses.filter(addr => addr.IsDefault && addr._id !== addressId);
-    if (address.IsDefault && !newAddress.IsDefault && defaultAddresses.length === 0) {
-      toast.error("Phải có ít nhất một địa chỉ mặc định. Vui lòng chọn một địa chỉ khác làm mặc định trước.");
-      return;
-    }
-
-    setAddressLoading(true);
-    try {
-      const updateData = {
-        Address: newAddress.Address || address.Address,
-        City: newAddress.City || address.City,
-        District: newAddress.District || address.District,
-        IsDefault: newAddress.IsDefault,
-      };
-
-      const response = await updateUserAddress(addressId, updateData);
-      if (response?.data) {
-        // Reload all addresses to ensure sync with backend (especially when default changes)
-        const addressesResponse = await getUserAddresses();
-        if (addressesResponse?.data && Array.isArray(addressesResponse.data)) {
-          setUserAddresses(addressesResponse.data);
-          
-          // Select the updated address if it was selected before
-          const updatedAddress = addressesResponse.data.find(addr => addr._id === addressId);
-          if (selectedAddressId === addressId && updatedAddress) {
-            applyAddressToShipping(updatedAddress);
-          }
-          
-          // If we set a new default, select it
-          if (updateData.IsDefault) {
-            const newDefault = addressesResponse.data.find(addr => addr.IsDefault);
-            if (newDefault) {
-              setSelectedAddressId(newDefault._id);
-              applyAddressToShipping(newDefault);
-            }
-          }
-        } else {
-          // Fallback: use the response data
-          const updatedAddresses = userAddresses.map(addr =>
-            addr._id === addressId ? (response.data as UserAddress) : 
-            updateData.IsDefault ? { ...addr, IsDefault: false } : addr
-          );
-          setUserAddresses(updatedAddresses);
-          if (selectedAddressId === addressId) {
-            applyAddressToShipping(response.data as UserAddress);
-          }
-        }
-        
-        setNewAddress({ Address: "", City: "", District: "", IsDefault: false });
-        setIsEditingAddress(false);
-        setEditingAddressId(null);
-        toast.success("Cập nhật địa chỉ thành công");
-      } else {
-        toast.error(response?.message || "Có lỗi xảy ra khi cập nhật địa chỉ");
-      }
-    } catch (error) {
-      console.error("Error updating address:", error);
-      toast.error("Có lỗi xảy ra khi cập nhật địa chỉ");
-    } finally {
-      setAddressLoading(false);
-    }
-  };
-
-  // Handle delete address
-  const handleDeleteAddress = (addressId: string) => {
-    const address = userAddresses.find(addr => addr._id === addressId);
-    if (!address) return;
-
-    // Check if this is the only default address and there are other addresses
-    const otherAddresses = userAddresses.filter(addr => addr._id !== addressId);
-    if (address.IsDefault && otherAddresses.length > 0) {
-      toast.error("Không thể xóa địa chỉ mặc định. Vui lòng chọn một địa chỉ khác làm mặc định trước khi xóa.");
-      return;
-    }
-
-    setConfirmPopup({
-      isOpen: true,
-      title: "Xác nhận xóa địa chỉ",
-      message: "Bạn có chắc chắn muốn xóa địa chỉ này?",
-      onConfirm: async () => {
-        setAddressLoading(true);
-        try {
-          const response = await deleteUserAddress(addressId);
-          if (response?.code === 200 || response?.code === 201) {
-            toast.success("Xóa địa chỉ thành công");
-            const updatedAddresses = userAddresses.filter(addr => addr._id !== addressId);
-            setUserAddresses(updatedAddresses);
-            
-            // If we deleted the default and there are other addresses, set the first one as default
-            if (address.IsDefault && updatedAddresses.length > 0) {
-              try {
-                await updateUserAddress(updatedAddresses[0]._id, {
-                  IsDefault: true,
-                });
-                // Reload addresses to get updated default
-                const addressesResponse = await getUserAddresses();
-                if (addressesResponse?.data && Array.isArray(addressesResponse.data)) {
-                  setUserAddresses(addressesResponse.data);
-                  const defaultAddr = addressesResponse.data.find(addr => addr.IsDefault);
-                  if (defaultAddr) {
-                    setSelectedAddressId(defaultAddr._id);
-                    applyAddressToShipping(defaultAddr);
-                  }
-                }
-              } catch (error) {
-                console.error("Error setting new default:", error);
-              }
-            }
-            
-            if (selectedAddressId === addressId) {
-              // Select another address or clear
-              if (updatedAddresses.length > 0) {
-                const defaultAddr = updatedAddresses.find(addr => addr.IsDefault) || updatedAddresses[0];
-                handleAddressSelect(defaultAddr._id);
-              } else {
-                setSelectedAddressId(null);
-                setShipping(prev => ({
-                  ...prev,
-                  street: "",
-                  ward: "",
-                  province: "",
-                }));
-              }
-            }
-          } else {
-            toast.error(response?.message || "Có lỗi xảy ra khi xóa địa chỉ");
-          }
-        } catch (error) {
-          console.error("Error deleting address:", error);
-          toast.error("Có lỗi xảy ra khi xóa địa chỉ");
-        } finally {
-          setAddressLoading(false);
-        }
-      },
-    });
-  };
-
-  // Start editing address
-  const startEditingAddress = (addressId: string) => {
-    const address = userAddresses.find(addr => addr._id === addressId);
-    if (address) {
-      setEditingAddressId(addressId);
-      setNewAddress({
-        Address: address.Address,
-        City: address.City,
-        District: address.District,
-        IsDefault: address.IsDefault,
-      });
-    }
-  };
-
-  // Get current location and reverse geocode
-  const getCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error("Trình duyệt của bạn không hỗ trợ lấy vị trí");
-      return;
-    }
-
-    setLocationLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const { latitude, longitude } = position.coords;
-          console.log("Getting location for:", latitude, longitude);
-          
-          // Use Nominatim (OpenStreetMap) for reverse geocoding (free, no API key needed)
-          // Add language=vi for Vietnamese results
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&accept-language=vi`,
-            {
-              method: 'GET',
-              headers: {
-                'User-Agent': 'RetroTrade/1.0', // Required by Nominatim
-                'Accept': 'application/json',
-              }
-            }
-          );
-          
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          
-          const data = await response.json();
-          console.log("Reverse geocoding response:", data);
-          
-          if (data && data.address) {
-            const addr = data.address;
-            
-            // Map OpenStreetMap address to our format (Vietnam-specific)
-            // For Vietnam, we typically have: house_number, road, ward, district, city, state
-            const street = addr.road || addr.street || addr.pedestrian || "";
-            const houseNumber = addr.house_number || "";
-            const fullStreet = houseNumber && street ? `${houseNumber} ${street}`.trim() : (street || houseNumber);
-            
-            // Vietnam address structure: ward (phường/xã), district (quận/huyện), city (tỉnh/thành phố)
-            const ward = addr.ward || addr.suburb || addr.neighbourhood || "";
-            const district = addr.district || addr.county || addr.city_district || "";
-            const city = addr.city || addr.town || addr.municipality || "";
-            const province = addr.state || addr.province || "";
-            
-            // Build full address
-            const finalWard = ward || district || "";
-            const finalCity = city || province || "";
-            
-            // Update shipping address form
-            setShipping(prev => ({
-              ...prev,
-              street: fullStreet || prev.street,
-              ward: finalWard || prev.ward,
-              province: finalCity || prev.province,
-            }));
-
-            // Update new address form if editing
-            if (isEditingAddress || editingAddressId) {
-              setNewAddress(prev => ({
-                ...prev,
-                Address: fullStreet || prev.Address,
-                District: finalWard || prev.District,
-                City: finalCity || prev.City,
-              }));
-            }
-
-            toast.success("Đã lấy địa chỉ hiện tại thành công!");
-          } else {
-            console.warn("No address data in response:", data);
-            // Fallback: show display_name if available
-            if (data.display_name) {
-              setShipping(prev => ({
-                ...prev,
-                street: data.display_name.split(',')[0] || prev.street,
-              }));
-              toast.success("Đã lấy một phần địa chỉ. Vui lòng kiểm tra và chỉnh sửa thêm.");
-            } else {
-              throw new Error("Không thể lấy địa chỉ từ tọa độ");
-            }
-          }
-        } catch (error) {
-          console.error("Error getting address from coordinates:", error);
-          const errorMessage = error instanceof Error ? error.message : "Có lỗi xảy ra khi lấy địa chỉ";
-          toast.error(`${errorMessage}. Vui lòng thử lại hoặc nhập thủ công.`);
-        } finally {
-          setLocationLoading(false);
-        }
-      },
-      (error) => {
-        console.error("Geolocation error:", error);
-        let message = "Không thể lấy vị trí hiện tại.";
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            message = "Bạn cần cấp quyền truy cập vị trí để sử dụng tính năng này.";
-            break;
-          case error.POSITION_UNAVAILABLE:
-            message = "Thông tin vị trí không khả dụng.";
-            break;
-          case error.TIMEOUT:
-            message = "Yêu cầu lấy vị trí hết thời gian chờ.";
-            break;
-        }
-        toast.error(message);
-        setLocationLoading(false);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
-      }
-    );
-  };
+  // Address selection, CRUD and geolocation are handled inside AddressSelector component
 
 
   // Pagination calculations
@@ -1206,9 +779,7 @@ const handleSubmit = async () => {
             {/* Địa chỉ */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 hover:shadow-md transition-shadow">
               <h2 className="font-bold text-xl mb-6 flex items-center gap-3">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <MapPin className="w-6 h-6 text-red-600" />
-                </div>
+                <div className="p-2 bg-red-100 rounded-lg" />
                 <span>Địa chỉ nhận hàng</span>
               </h2>
 
@@ -1241,311 +812,20 @@ const handleSubmit = async () => {
                 </div>
               </div>
 
-              {/* Address Selection Dropdown */}
-              {userAddresses.length > 0 && !isEditingAddress && !editingAddressId && (
+              {/* Address selector */}
                 <div className="mt-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <label className="block text-sm font-semibold text-gray-700">
-                      Chọn địa chỉ đã lưu
-                    </label>
-                    <button
-                      onClick={() => {
-                        setIsEditingAddress(true);
-                        setEditingAddressId(null);
-                        setNewAddress({ Address: "", City: "", District: "", IsDefault: false });
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-semibold"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      Thêm mới
-                    </button>
-                  </div>
-                  <div className="space-y-4">
-                    {userAddresses.map((address) => (
-                      <div
-                        key={address._id}
-                        className={`relative p-4 border-2 rounded-xl transition-all cursor-pointer ${
-                          selectedAddressId === address._id
-                            ? "border-emerald-500 bg-emerald-50/30"
-                            : "border-gray-200 hover:border-gray-300 bg-white"
-                        }`}
-                        onClick={() => handleAddressSelect(address._id)}
-                      >
-                        {/* Radio button and default badge */}
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="flex items-center gap-2">
-                            {selectedAddressId === address._id ? (
-                              <div className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-600 border-2 border-emerald-600 flex-shrink-0 cursor-pointer">
-                                <Check className="w-3.5 h-3.5 text-white" />
-                              </div>
-                            ) : (
-                              <div className="w-5 h-5 rounded-full border-2 border-gray-300 flex-shrink-0 cursor-pointer"></div>
-                            )}
-                          </div>
-                          {address.IsDefault && (
-                            <span className="inline-flex items-center px-2.5 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold">
-                              Mặc định
-                            </span>
-                          )}
-                          <div className="flex-1"></div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                startEditingAddress(address._id);
-                                setIsEditingAddress(true);
-                              }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
-                              title="Sửa địa chỉ"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                              Sửa
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteAddress(address._id);
-                              }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-200"
-                              title="Xóa địa chỉ"
-                              disabled={addressLoading}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              Xóa
-                            </button>
-                          </div>
-                        </div>
-                        
-                        {/* Address fields in form-like style */}
-                        <div className="space-y-3">
-                          <div className="space-y-1.5">
-                            <label className="block text-sm font-semibold text-gray-700">
-                              Địa chỉ (số nhà, đường...) <span className="text-red-500">*</span>
-                            </label>
-                <input
-                              type="text"
-                              value={address.Address}
-                              readOnly
-                              className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-lg bg-gray-50 cursor-pointer"
+                <AddressSelector
+                  selectedAddressId={selectedAddressId}
+                  onSelect={(addr) => {
+                    setSelectedAddressId(addr._id);
+                    applyAddressToShipping(addr);
+                  }}
                             />
                           </div>
                           
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1.5">
-                              <label className="block text-sm font-semibold text-gray-700">
-                                Phường/Xã <span className="text-red-500">*</span>
-                              </label>
-                              <input
-                                type="text"
-                                value={address.District}
-                                readOnly
-                                className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-lg bg-gray-50 cursor-pointer"
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <label className="block text-sm font-semibold text-gray-700">
-                                Tỉnh/Thành phố <span className="text-red-500">*</span>
-                              </label>
-                              <input
-                                type="text"
-                                value={address.City}
-                                readOnly
-                                className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-lg bg-gray-50 cursor-pointer"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
-              {/* No Address Message */}
-              {userAddresses.length === 0 && !isEditingAddress && !editingAddressId && (
-                <div className="mt-6 p-4 bg-amber-50 border-2 border-amber-200 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-amber-800 mb-2">
-                        Vui lòng nhập địa chỉ
-                      </p>
-                      <p className="text-xs text-amber-700 mb-3">
-                        Bạn chưa có địa chỉ đã lưu. Vui lòng thêm địa chỉ mới hoặc nhập địa chỉ bên dưới.
-                      </p>
-                      <button
-                        onClick={() => {
-                          setIsEditingAddress(true);
-                          setEditingAddressId(null);
-                          setNewAddress({ Address: "", City: "", District: "", IsDefault: false });
-                        }}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-semibold"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Thêm địa chỉ mới
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Add/Edit Address Form - After name and phone */}
-              {(isEditingAddress || editingAddressId) && (
-                <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-gray-800">
-                      {editingAddressId ? "Sửa địa chỉ" : "Thêm địa chỉ mới"}
-                    </h3>
-                    <button
-                      onClick={() => {
-                        setIsEditingAddress(false);
-                        setEditingAddressId(null);
-                        setNewAddress({ Address: "", City: "", District: "", IsDefault: false });
-                      }}
-                      className="p-1 text-gray-500 hover:text-gray-700 transition-colors"
-                      title="Đóng"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <div className="space-y-3">
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-sm font-semibold text-gray-700">
-                          Địa chỉ (số nhà, đường...) <span className="text-red-500">*</span>
-                        </label>
-                        <button
-                          onClick={getCurrentLocation}
-                          disabled={locationLoading}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Lấy địa chỉ hiện tại từ vị trí GPS"
-                        >
-                          {locationLoading ? (
-                            <>
-                              <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                              <span>Đang lấy...</span>
-                            </>
-                          ) : (
-                            <>
-                              <MapPin className="w-3.5 h-3.5" />
-                              <span>Lấy địa chỉ hiện tại</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                <input
-                        type="text"
-                        placeholder="Nhập địa chỉ chi tiết"
-                        value={newAddress.Address}
-                        onChange={(e) => setNewAddress({ ...newAddress, Address: e.target.value })}
-                        className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">
-                          Phường/Xã <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Nhập phường/xã"
-                          value={newAddress.District}
-                          onChange={(e) => setNewAddress({ ...newAddress, District: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">
-                          Tỉnh/Thành phố <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Nhập tỉnh/thành phố"
-                          value={newAddress.City}
-                          onChange={(e) => setNewAddress({ ...newAddress, City: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
-                        />
-                      </div>
-                    </div>
-                    {/* Chỉ hiển thị checkbox khi đang sửa địa chỉ, không hiển thị khi thêm mới */}
-                    {editingAddressId && (
-                      <div className="flex items-center gap-2">
-                        {(() => {
-                          const address = userAddresses.find(addr => addr._id === editingAddressId);
-                          const defaultAddresses = userAddresses.filter(addr => addr.IsDefault && addr._id !== editingAddressId);
-                          const isOnlyDefault = address?.IsDefault && defaultAddresses.length === 0;
-                          const isDisabled = isOnlyDefault;
-                          const isChecked = isOnlyDefault ? true : newAddress.IsDefault;
-                          
-                          return (
-                            <>
-                              <input
-                                type="checkbox"
-                                id="isDefault"
-                                checked={isChecked}
-                                disabled={isDisabled}
-                                onChange={(e) => {
-                                  if (!isDisabled) {
-                                    setNewAddress({ ...newAddress, IsDefault: e.target.checked });
-                                  }
-                                }}
-                                className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                              />
-                              <label htmlFor="isDefault" className="text-sm text-gray-700 cursor-pointer">
-                                Đặt làm địa chỉ mặc định
-                                {isOnlyDefault && (
-                                  <span className="text-xs text-gray-500 ml-1">
-                                    (bắt buộc - đây là địa chỉ mặc định duy nhất)
-                                  </span>
-                                )}
-                              </label>
-                            </>
-                          );
-                        })()}
-                      </div>
-                    )}
-                    {!editingAddressId && (
-                      <div className="flex items-center gap-2">
-                        <div className="inline-flex items-center px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg">
-                          <Check className="w-4 h-4 text-emerald-600 mr-2" />
-                          <span className="text-sm text-emerald-700 font-medium">
-                            Địa chỉ mới sẽ tự động được đặt làm mặc định
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          if (editingAddressId) {
-                            handleUpdateAddress(editingAddressId);
-                          } else {
-                            handleCreateAddress();
-                          }
-                        }}
-                        disabled={addressLoading}
-                        className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {addressLoading ? "Đang xử lý..." : editingAddressId ? "Cập nhật" : "Thêm mới"}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setIsEditingAddress(false);
-                          setEditingAddressId(null);
-                          setNewAddress({ Address: "", City: "", District: "", IsDefault: false });
-                        }}
-                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-semibold"
-                      >
-                        Hủy
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-
-              {/* Manual Address Input - Hidden when adding/editing address or when an address is selected */}
-              {!isEditingAddress && !editingAddressId && !selectedAddressId && (
+              {/* Manual Address Input - Hidden when an address is selected */}
+              {!selectedAddressId && (
                 <div className="mt-6 space-y-4">
                 <div className="space-y-2 sm:col-span-2">
                   <label className="text-sm font-semibold text-gray-700">
@@ -1670,56 +950,7 @@ const handleSubmit = async () => {
         </div>
       </div>
 
-      {/* Confirm Popup */}
-      {confirmPopup.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => setConfirmPopup({ isOpen: false, message: "", onConfirm: () => {} })}
-          />
-
-          {/* Popup */}
-          <div className="relative w-full max-w-md mx-auto bg-white rounded-2xl shadow-2xl border-2 border-emerald-200 transform transition-all duration-300 scale-100 opacity-100">
-            {/* Content */}
-            <div className="p-6 text-center">
-              {/* Icon */}
-              <div className="flex justify-center mb-4">
-                <AlertCircle className="w-12 h-12 text-emerald-600" />
-              </div>
-
-              {/* Title */}
-              <h3 className="text-xl font-bold mb-3 text-gray-900">
-                {confirmPopup.title}
-              </h3>
-
-              {/* Message */}
-              <p className="text-base mb-6 leading-relaxed text-gray-700">
-                {confirmPopup.message}
-              </p>
-
-              {/* Buttons */}
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setConfirmPopup({ isOpen: false, message: "", onConfirm: () => {} })}
-                  className="flex-1 py-2.5 px-5 text-base font-semibold rounded-lg transition-all duration-200 hover:scale-105 border-2 border-gray-300 text-gray-700 hover:bg-gray-50 bg-white"
-                >
-                  Hủy
-                </button>
-                <button
-                  onClick={() => {
-                    confirmPopup.onConfirm();
-                    setConfirmPopup({ isOpen: false, message: "", onConfirm: () => {} });
-                  }}
-                  className="flex-1 py-2.5 px-5 text-base font-semibold rounded-lg transition-all duration-200 hover:scale-105 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md"
-                >
-                  Xác nhận
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Confirm Popup removed – handled inside AddressSelector */}
     </div>
   );
 }

@@ -2,20 +2,34 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store/redux_store';
-import { getUserProfile } from '@/services/auth/user.api';
+import { getUserProfile, changePassword } from '@/services/auth/user.api';
+import { validatePassword } from '@/lib/validation-password';
 import { toast } from 'sonner';
 import type { UserProfile, ProfileApiResponse } from '@iService';
 
-// Import components
-import { ProfileHeader } from '@/components/ui/auth/profile/profile-header';
-import { AccountStatusCard } from '@/components/ui/auth/account-status-card';
+
+// import { AccountStatusCard } from '@/components/ui/auth/account-status-card';
 // import { WalletCard } from '@/components/ui/wallet-card';
-import { StatisticsCard } from '@/components/ui/auth/profile/statistics-card';
-import { DetailedInfoCard, DetailedInfoCardHandle } from '@/components/ui/auth/profile/detailed-info-card';
-import { QuickActionsCard } from '@/components/ui/auth/profile/quick-actions-card';
-import { EditProfileModal } from '@/components/ui/auth/edit-profile-modal';
-import { ChangePasswordModal } from '@/components/ui/auth/change-password-modal';
-import { AvatarUploadModal } from '@/components/ui/auth/avatar-upload-modal';
+// import { StatisticsCard } from '@/components/ui/auth/profile/statistics-card';
+// import { DetailedInfoCard, DetailedInfoCardHandle } from '@/components/ui/auth/profile/detailed-info-card';
+// import { QuickActionsCard } from '@/components/ui/auth/profile/quick-actions-card';
+import { ProfileSidebar } from '@/components/ui/auth/profile/profile-sidebar';
+import { ProfileHeader as UserProfileHeader } from '@/components/ui/auth/profile/user-profile';
+import { ChangePasswordModal } from '@/components/ui/auth/profile/change-password-modal';
+import { AvatarUploadModal } from '@/components/ui/auth/profile/avatar-upload-modal';
+import { AddressSelector } from '@/components/ui/auth/address/address-selector';
+import { AccountVerification } from '@/components/ui/auth/profile/account-verification';
+import { SignatureManagement } from '@/components/ui/auth/signature/signature-management';
+import { ownerRequestApi } from '@/services/auth/ownerRequest.api';
+import dynamic from 'next/dynamic';
+
+// Render trang Ví & giao dịch inline
+const WalletPage = dynamic(() => import('@/pages/wallet'), { ssr: false });
+// Render trang Đơn hàng inline
+const OrdersPage = dynamic(() => import('@/components/ui/auth/order'), { ssr: false });
+const OrderDetailInline = dynamic(() => import('@/components/ui/auth/order/[id]'), { ssr: false });
+// Render Mã giảm giá inline
+const DiscountsPage = dynamic(() => import('@/components/ui/auth/discounts'), { ssr: false });
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -24,8 +38,8 @@ export default function ProfilePage() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  // const [showEditModal, setShowEditModal] = useState(false);
+  // Legacy modal flag kept for compatibility (unused in inline flow)
   const [showAvatarModal, setShowAvatarModal] = useState(false);
 
   // Redirect nếu chưa đăng nhập
@@ -81,15 +95,11 @@ export default function ProfilePage() {
     }
   }, [accessToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const detailRef = React.useRef<DetailedInfoCardHandle | null>(null);
+  // const detailRef = React.useRef<DetailedInfoCardHandle | null>(null);
   
-  const handleEditClick = () => {
-    setShowEditModal(true);
-  };
+  const handleEditClick = () => { };
 
-  const handleChangePasswordClick = () => {
-    setShowChangePasswordModal(true);
-  };
+  // Change password modal is opened via sidebar selection
 
   const handleAvatarEditClick = () => {
     setShowAvatarModal(true);
@@ -104,27 +114,76 @@ export default function ProfilePage() {
     }
   };
 
-  const handleRegisterRentalClick = () => {
-    // This is for owner role - redirect to product creation
-    if (userProfile?.role === 'owner') {
-      router.push('/products/myproducts/create');
-    } else if (userProfile?.role === 'renter') {
-      // For renter, the QuickActionsCard will handle showing the dialog
-      // Don't show toast here
-      toast.info('Vui lòng yêu cầu cấp quyền Owner trước');
-    } else {
-      toast.info('Tính năng đăng ký cho thuê đang được phát triển');
+  // Owner request (inline)
+  const [showOwnerForm, setShowOwnerForm] = useState(true);
+  const [ownerReason, setOwnerReason] = useState('Muốn đăng đồ cho thuê trên hệ thống');
+  const [ownerInfo, setOwnerInfo] = useState('');
+  const [ownerSubmitting, setOwnerSubmitting] = useState(false);
+
+  const submitOwnerRequest = async () => {
+    if (!ownerReason.trim()) {
+      toast.error('Vui lòng nhập lý do');
+      return;
+    }
+    setOwnerSubmitting(true);
+    try {
+      await ownerRequestApi.createOwnerRequest({ reason: ownerReason.trim(), additionalInfo: ownerInfo.trim() || undefined });
+      toast.success('Gửi yêu cầu thành công');
+      setShowOwnerForm(false);
+      setOwnerInfo('');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Không thể gửi yêu cầu');
+    } finally {
+      setOwnerSubmitting(false);
     }
   };
 
-  const handleProfileUpdate = (updatedProfile: UserProfile) => {
-    setUserProfile(updatedProfile);
-    toast.success('Cập nhật thông tin người dùng thành công');
-  };
+  // const handleProfileUpdate = (updatedProfile: UserProfile) => {
+  //   setUserProfile(updatedProfile);
+  //   toast.success('Cập nhật thông tin người dùng thành công');
+  // };
 
   // const handleTopUpClick = () => {
   //   toast.info('Tính năng nạp tiền đang được phát triển');
   // };
+
+  // Sidebar layout (Shopee-like) - MUST be before any returns to respect hook rules
+  type MenuKey = 'orders' | 'wallet' | 'discounts' | 'messages' | 'settings' | 'security' | 'addresses' | 'ownership' | 'changePassword' | 'signature';
+  const [activeMenu, setActiveMenu] = useState<MenuKey>('settings');
+  // Verification renders inline; no toggle button
+
+  // Inline change password state
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [pwErrors, setPwErrors] = useState<{ currentPassword?: string; newPassword?: string; confirmPassword?: string }>({});
+  const [showPw, setShowPw] = useState<{ current: boolean; new: boolean; confirm: boolean }>({ current: false, new: false, confirm: false });
+
+  const submitInlineChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const errors: typeof pwErrors = {};
+    if (!pwForm.currentPassword.trim()) errors.currentPassword = 'Vui lòng nhập mật khẩu hiện tại';
+    const v = validatePassword(pwForm.newPassword);
+    if (!v.isValid) errors.newPassword = v.message;
+    if (!pwForm.confirmPassword.trim()) errors.confirmPassword = 'Vui lòng nhập lại mật khẩu mới';
+    else if (pwForm.newPassword !== pwForm.confirmPassword) errors.confirmPassword = 'Mật khẩu mới không khớp';
+    setPwErrors(errors);
+    if (Object.keys(errors).length) return;
+    setIsChangingPassword(true);
+    try {
+      const res = await changePassword({ currentPassword: pwForm.currentPassword, newPassword: pwForm.newPassword });
+      if (res.code === 200) {
+        toast.success(res.message || 'Đổi mật khẩu thành công');
+        setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        setPwErrors({});
+      } else {
+        toast.error(res.message || 'Đổi mật khẩu thất bại');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Lỗi khi đổi mật khẩu');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
   if (!accessToken) {
     return (
@@ -183,63 +242,201 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-white relative overflow-hidden">
-      {/* Subtle background elements */}
-      <div className="absolute inset-0 bg-gradient-to-br from-gray-50 to-gray-100" />
-      <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-100 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob" />
-      <div className="absolute top-0 -right-4 w-72 h-72 bg-indigo-100 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-2000" />
-      <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-100 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-4000" />
-
       <div className="relative z-10">
-        <ProfileHeader 
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Sidebar */}
+            <aside className="lg:col-span-3">
+              <ProfileSidebar
+                active={activeMenu}
+                onChange={(k) => setActiveMenu(k)}
+                user={{ fullName: normalizedUserProfile.fullName, email: normalizedUserProfile.email, avatarUrl: normalizedUserProfile.avatarUrl }}
+              />
+            </aside>
+
+            {/* Content */}
+            <section className="lg:col-span-9">
+              {/* Overview removed as per request */}
+
+              {activeMenu === 'orders' && (
+                <div className="rounded-xl overflow-hidden">
+                  {router.query.orderId ? (
+                    <OrderDetailInline id={String(router.query.orderId)} />
+                  ) : (
+                    <OrdersPage
+                      onOpenDetail={(id: string) => {
+                        const { pathname, query } = router;
+                        router.replace({ pathname, query: { ...query, orderId: id } }, undefined, { shallow: true });
+                      }}
+                    />
+                  )}
+                </div>
+              )}
+
+              {activeMenu === 'wallet' && (
+                <div className="rounded-xl overflow-hidden">
+                  <WalletPage />
+                </div>
+              )}
+
+              {activeMenu === 'discounts' && (
+                <div className="rounded-xl overflow-hidden">
+                  <DiscountsPage />
+                </div>
+              )}
+
+              {activeMenu === 'messages' && (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-3">Tin nhắn</h2>
+                  <p className="text-gray-600 mb-4">Trao đổi với người dùng khác.</p>
+                  <button onClick={() => router.push('/auth/messages')}
+                    className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-sm">Mở hộp thoại</button>
+                </div>
+              )}
+
+              {activeMenu === 'settings' && (
+                <div className="rounded-xl overflow-hidden">
+                  <UserProfileHeader
           userProfile={normalizedUserProfile} 
           onEditClick={handleEditClick}
           onAvatarEditClick={handleAvatarEditClick}
         />
+                </div>
+              )}
 
-        <div className="container mx-auto px-4 py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Left Column - spans 4 columns */}
-            <div className="lg:col-span-4 space-y-6">
-              <AccountStatusCard userProfile={normalizedUserProfile} />
-              {/* <WalletCard userProfile={userProfile} onTopUpClick={handleTopUpClick} /> */}
-              <StatisticsCard userProfile={normalizedUserProfile} />
-            </div>
+              {activeMenu === 'security' && (
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 pt-6 scroll-mt-24">
+                    <div className="mb-4 flex items-center gap-3">
+                      <h3 className="text-lg font-semibold text-gray-900">Xác minh tài khoản</h3>
+                    </div>
+                    <AccountVerification />
+                  </div>
+              )}
 
-            {/* Center Column - spans 5 columns */}
-            <div className="lg:col-span-5">
-              <DetailedInfoCard ref={detailRef} userProfile={normalizedUserProfile} />
-            </div>
+              {activeMenu === 'changePassword' && (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+                  <h2 className="text-lg font-semibold text-gray-900">Đổi mật khẩu</h2>
+                  <form onSubmit={submitInlineChangePassword} className="space-y-4 max-w-lg">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu hiện tại</label>
+                      <div className="relative">
+                        <input
+                          type={showPw.current ? 'text' : 'password'}
+                          value={pwForm.currentPassword}
+                          onChange={(e) => { setPwForm({ ...pwForm, currentPassword: e.target.value }); if (pwErrors.currentPassword) setPwErrors({ ...pwErrors, currentPassword: undefined }); }}
+                          className={`w-full px-3 py-2 border rounded-md ${pwErrors.currentPassword ? 'border-red-500' : 'border-gray-300'}`}
+                          placeholder="Nhập mật khẩu hiện tại"
+                        />
+                        <button type="button" onClick={() => setShowPw({ ...showPw, current: !showPw.current })} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">{showPw.current ? 'Ẩn' : 'Hiện'}</button>
+                      </div>
+                      {pwErrors.currentPassword && <p className="text-sm text-red-600 mt-1">{pwErrors.currentPassword}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu mới</label>
+                      <div className="relative">
+                        <input
+                          type={showPw.new ? 'text' : 'password'}
+                          value={pwForm.newPassword}
+                          onChange={(e) => { setPwForm({ ...pwForm, newPassword: e.target.value }); if (pwErrors.newPassword) setPwErrors({ ...pwErrors, newPassword: undefined }); }}
+                          className={`w-full px-3 py-2 border rounded-md ${pwErrors.newPassword ? 'border-red-500' : 'border-gray-300'}`}
+                          placeholder="Nhập mật khẩu mới"
+                        />
+                        <button type="button" onClick={() => setShowPw({ ...showPw, new: !showPw.new })} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">{showPw.new ? 'Ẩn' : 'Hiện'}</button>
+                      </div>
+                      {pwErrors.newPassword && <p className="text-sm text-red-600 mt-1">{pwErrors.newPassword}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Nhập lại mật khẩu mới</label>
+                      <div className="relative">
+                        <input
+                          type={showPw.confirm ? 'text' : 'password'}
+                          value={pwForm.confirmPassword}
+                          onChange={(e) => { setPwForm({ ...pwForm, confirmPassword: e.target.value }); if (pwErrors.confirmPassword) setPwErrors({ ...pwErrors, confirmPassword: undefined }); }}
+                          className={`w-full px-3 py-2 border rounded-md ${pwErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'}`}
+                          placeholder="Nhập lại mật khẩu mới"
+                        />
+                        <button type="button" onClick={() => setShowPw({ ...showPw, confirm: !showPw.confirm })} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">{showPw.confirm ? 'Ẩn' : 'Hiện'}</button>
+                      </div>
+                      {pwErrors.confirmPassword && <p className="text-sm text-red-600 mt-1">{pwErrors.confirmPassword}</p>}
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="submit" disabled={isChangingPassword} className="px-4 py-2 rounded-md bg-gray-900 hover:bg-black text-white text-sm disabled:opacity-60">{isChangingPassword ? 'Đang đổi...' : 'Đổi mật khẩu'}</button>
+                      <button type="button" onClick={() => setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' })} className="px-4 py-2 rounded-md border text-sm">Làm mới</button>
+                    </div>
+                  </form>
+                </div>
+              )}
 
-            {/* Right Column - spans 3 columns */}
-            <div className="lg:col-span-3">
-              <QuickActionsCard 
-                onEditProfile={handleEditClick} 
-                onChangePassword={handleChangePasswordClick}
-                onRegisterRental={handleRegisterRentalClick}
-                userRole={userProfile?.role}
-                isPhoneConfirmed={userProfile?.isPhoneConfirmed || false}
-                isIdVerified={userProfile?.isIdVerified || false}
-              />
+              {activeMenu === 'addresses' && (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-3">Địa chỉ nhận hàng/nhận đồ</h2>
+                  <p className="text-gray-600 mb-4">Quản lý địa chỉ nhận hàng/nhận đồ.</p>
+                  <AddressSelector />
             </div>
+              )}
+
+              {activeMenu === 'ownership' && (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+                  <h2 className="text-lg font-semibold text-gray-900">Yêu cầu quyền Owner</h2>
+                  {userProfile?.role === 'owner' ? (
+                    <p className="text-green-700">Bạn đã là Owner. Bạn có thể đăng đồ cho thuê.</p>
+                  ) : (
+                    <>
+                      {showOwnerForm && (
+                        <div className="space-y-3 max-w-xl">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Lý do <span className="text-red-500">*</span></label>
+                            <input
+                              value={ownerReason}
+                              onChange={(e) => setOwnerReason(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                              placeholder="Vì sao bạn muốn trở thành Owner?"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Thông tin bổ sung</label>
+                            <textarea
+                              value={ownerInfo}
+                              onChange={(e) => setOwnerInfo(e.target.value)}
+                              rows={3}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                              placeholder="Ví dụ: Kinh nghiệm, mô tả cửa hàng, khu vực..."
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={submitOwnerRequest}
+                              disabled={ownerSubmitting}
+                              className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-sm disabled:opacity-60"
+                            >
+                              {ownerSubmitting ? 'Đang gửi...' : 'Gửi yêu cầu'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {activeMenu === 'signature' && (
+                <SignatureManagement
+                  isOpen={true}
+                  onClose={() => {}}
+                  onSuccess={() => toast.success('Cập nhật chữ ký thành công')}
+                  inline
+                />
+              )}
+            </section>
           </div>
         </div>
       </div>
       
-      {/* Edit Profile Modal */}
-      {userProfile && (
-        <EditProfileModal 
-          userProfile={normalizedUserProfile} 
-          open={showEditModal}
-          onOpenChange={setShowEditModal}
-          onProfileUpdate={handleProfileUpdate}
-        />
-      )}
+      {/* Edit Profile Modal removed - inline editing in settings */}
 
       {/* Change Password Modal */}
-      <ChangePasswordModal 
-        open={showChangePasswordModal}
-        onOpenChange={setShowChangePasswordModal}
-      />
+      {/* Modal không dùng khi đổi inline; vẫn giữ để tái sử dụng nơi khác */}
+      <ChangePasswordModal open={false} onOpenChange={() => {}} />
 
       {/* Avatar Upload Modal */}
       {userProfile && (

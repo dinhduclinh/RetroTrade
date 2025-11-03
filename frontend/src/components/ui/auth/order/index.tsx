@@ -52,7 +52,7 @@ interface DecodedToken {
   role?: string;
 }
 
-export default function OrderListPage() {
+export default function OrderListPage({ onOpenDetail }: { onOpenDetail?: (id: string) => void }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
@@ -81,7 +81,7 @@ export default function OrderListPage() {
     const fetchOrders = async () => {
       try {
         setLoading(true);
-      const res = await listOrders();
+        const res = await listOrders();
         if (res.code === 200 && Array.isArray(res.data)) {
           setOrders(res.data);
         }
@@ -89,7 +89,7 @@ export default function OrderListPage() {
         console.error("Error fetching orders:", error);
         toast.error("Không thể tải danh sách đơn hàng");
       } finally {
-      setLoading(false);
+        setLoading(false);
       }
     };
     fetchOrders();
@@ -169,13 +169,13 @@ export default function OrderListPage() {
   };
 
   const paymentStatusConfig: Record<string, { label: string; color: string }> =
-    {
-      pending: { label: "Chờ thanh toán", color: "text-yellow-700" },
-      not_paid: { label: "Chưa thanh toán", color: "text-yellow-700" },
-      paid: { label: "Đã thanh toán", color: "text-green-700" },
-      refunded: { label: "Đã hoàn tiền", color: "text-blue-700" },
-      partial: { label: "Thanh toán một phần", color: "text-amber-700" },
-    };
+  {
+    pending: { label: "Chờ thanh toán", color: "text-yellow-700" },
+    not_paid: { label: "Chưa thanh toán", color: "text-yellow-700" },
+    paid: { label: "Đã thanh toán", color: "text-green-700" },
+    refunded: { label: "Đã hoàn tiền", color: "text-blue-700" },
+    partial: { label: "Thanh toán một phần", color: "text-amber-700" },
+  };
 
   // Filter orders by status
   const filteredOrders = useMemo(() => {
@@ -184,7 +184,7 @@ export default function OrderListPage() {
   }, [orders, selectedStatus]);
 
   // Pagination calculations
-  const paginationState: PaginationState = useMemo(() => 
+  const paginationState: PaginationState = useMemo(() =>
     createPaginationState({
       page: currentPage,
       limit: itemsPerPage,
@@ -252,51 +252,10 @@ export default function OrderListPage() {
     );
   }
 
-  // Breadcrumb data
-  const breadcrumbs = [
-    { label: "Trang chủ", href: "/home", icon: Home },
-    { label: "Đơn hàng", href: "/order", icon: ShoppingBag },
-  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50 py-10 px-6">
       <div className="max-w-7xl mx-auto">
-        {/* Breadcrumb Navigation */}
-        <nav className="mb-6">
-          <div className="flex items-center space-x-2 text-sm">
-            {breadcrumbs.map((breadcrumb, index) => {
-              const IconComponent = breadcrumb.icon;
-              const isLast = index === breadcrumbs.length - 1;
-
-              return (
-                <div
-                  key={breadcrumb.href}
-                  className="flex items-center space-x-2"
-                >
-                  {index > 0 && (
-                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                  )}
-
-                  {isLast ? (
-                    <span className="flex items-center space-x-1 text-gray-900 font-medium">
-                      {IconComponent && <IconComponent className="w-4 h-4" />}
-                      <span>{breadcrumb.label}</span>
-                    </span>
-                  ) : (
-                    <Link
-                      href={breadcrumb.href}
-                      className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 transition-colors"
-                    >
-                      {IconComponent && <IconComponent className="w-4 h-4" />}
-                      <span>{breadcrumb.label}</span>
-                    </Link>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </nav>
-
         {/* Header */}
         <div className="text-center mb-10">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-800 flex items-center justify-center gap-4">
@@ -319,20 +278,18 @@ export default function OrderListPage() {
               <button
                 key={tab.key}
                 onClick={() => setSelectedStatus(tab.key)}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                  selectedStatus === tab.key
+                className={`px-4 py-2 rounded-lg font-medium transition-all ${selectedStatus === tab.key
                     ? "bg-emerald-600 text-white shadow-md"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                }`}
+                  }`}
               >
                 {tab.label}
                 {tab.count > 0 && (
                   <span
-                    className={`ml-2 px-2 py-0.5 rounded-full text-xs ${
-                      selectedStatus === tab.key
+                    className={`ml-2 px-2 py-0.5 rounded-full text-xs ${selectedStatus === tab.key
                         ? "bg-white/20 text-white"
                         : "bg-emerald-600 text-white"
-                    }`}
+                      }`}
                   >
                     {tab.count}
                   </span>
@@ -373,192 +330,207 @@ export default function OrderListPage() {
           <div className="space-y-6">
             <div className="grid gap-6">
               {currentOrders.map((order) => {
-              const statusInfo =
-                statusConfig[order.orderStatus] || statusConfig.pending;
-              const paymentInfo =
-                paymentStatusConfig[order.paymentStatus] ||
-                paymentStatusConfig.pending;
-              const isRenter =
-                userRole === "renter" ||
-                order.renterId?._id?.toString() === userId?.toString();
-              const canReturn =
-                isRenter &&
-                order.orderStatus === "progress" &&
-                order.renterId?._id?.toString() === userId?.toString();
+                const statusInfo =
+                  statusConfig[order.orderStatus] || statusConfig.pending;
+                const paymentInfo =
+                  paymentStatusConfig[order.paymentStatus] ||
+                  paymentStatusConfig.pending;
+                const isRenter =
+                  userRole === "renter" ||
+                  order.renterId?._id?.toString() === userId?.toString();
+                const canReturn =
+                  isRenter &&
+                  order.orderStatus === "progress" &&
+                  order.renterId?._id?.toString() === userId?.toString();
 
-  return (
-                <div
-            key={order._id}
-                  className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-300"
-                >
-                  <div className="flex flex-col md:flex-row gap-6">
-                    {/* Product Image */}
-                    <div className="bg-gray-200 border-2 border-dashed rounded-xl w-full md:w-32 h-32 flex-shrink-0 overflow-hidden">
-                      {order.itemSnapshot?.images?.[0] ||
-                      order.itemId?.Images?.[0] ? (
-              <img
-                src={
-                            order.itemSnapshot?.images?.[0] ||
-                            order.itemId?.Images?.[0]
-                          }
-                          alt={
-                            order.itemSnapshot?.title || order.itemId?.Title
-                          }
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400">
-                          <Package className="w-14 h-14" />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Order Info */}
-                    <div className="flex-1 space-y-4">
-                      {/* Header */}
-                      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-              <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="text-xl font-semibold text-gray-800 line-clamp-2">
-                  {order.itemSnapshot?.title || order.itemId?.Title}
-                            </h3>
-                            <span
-                              className={`px-3 py-1 rounded-full text-xs font-semibold border ${statusInfo.bgColor} ${statusInfo.color}`}
-                            >
-                              {statusInfo.label}
-                            </span>
+                return (
+                  <div
+                    key={order._id}
+                    className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-300"
+                  >
+                    <div className="flex flex-col md:flex-row gap-6">
+                      {/* Product Image */}
+                      <div className="bg-gray-200 border-2 border-dashed rounded-xl w-full md:w-32 h-32 flex-shrink-0 overflow-hidden">
+                        {order.itemSnapshot?.images?.[0] ||
+                          order.itemId?.Images?.[0] ? (
+                          <img
+                            src={
+                              order.itemSnapshot?.images?.[0] ||
+                              order.itemId?.Images?.[0]
+                            }
+                            alt={
+                              order.itemSnapshot?.title || order.itemId?.Title
+                            }
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400">
+                            <Package className="w-14 h-14" />
                           </div>
-                          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                            <div className="flex items-center gap-2">
-                              <FileText className="w-4 h-4" />
-                              <span className="font-mono font-medium">
-                                {order.orderGuid}
-                  </span>
-                </div>
-                            <div className="flex items-center gap-2">
-                              <Calendar className="w-4 h-4" />
-                              <span>{formatDate(order.createdAt)}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-2xl font-bold text-emerald-600">
-                            {order.totalAmount.toLocaleString("vi-VN")}{" "}
-                            {order.currency}
-                          </p>
-                          <p
-                            className={`text-sm font-medium ${paymentInfo.color}`}
-                          >
-                            {paymentInfo.label}
-                          </p>
-                </div>
-              </div>
-
-                      {/* Rental Period & Details */}
-                      <div className="grid md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-gray-700">
-                            <Calendar className="w-5 h-5 text-emerald-600" />
-                            <span className="font-medium">Thời gian thuê:</span>
-                          </div>
-                          <div className="text-sm text-gray-600 ml-7">
-                            {formatDateTime(order.startAt)} →{" "}
-                            {formatDateTime(order.endAt)}
-                          </div>
-                          {order.rentalDuration && (
-                            <div className="text-xs text-gray-500 ml-7">
-                              Thời lượng: {order.rentalDuration}{" "}
-                              {order.rentalUnit || "ngày"}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-gray-700">
-                            <Package className="w-5 h-5 text-blue-600" />
-                            <span className="font-medium">Số lượng:</span>
-                          </div>
-                          <div className="text-sm text-gray-600 ml-7">
-                            {order.unitCount} cái
-                          </div>
-                          {order.depositAmount && (
-                            <div className="text-xs text-gray-500 ml-7">
-                              Cọc: {order.depositAmount.toLocaleString("vi-VN")}{" "}
-                              {order.currency}
-                            </div>
-                          )}
-                        </div>
-              </div>
-
-                      {/* User Info */}
-                      <div className="grid md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
-                        <div className="flex items-start gap-3">
-                          <div className="p-2 bg-blue-100 rounded-lg">
-                            <User className="w-5 h-5 text-blue-600" />
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500 mb-1">
-                              {isRenter ? "Người cho thuê" : "Người thuê"}
-                            </p>
-                            <p className="text-sm font-medium text-gray-800">
-                              {isRenter
-                                ? order.ownerId?.fullName || "N/A"
-                                : order.renterId?.fullName || "N/A"}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {isRenter
-                                ? order.ownerId?.email
-                                : order.renterId?.email}
-                            </p>
-                          </div>
-                        </div>
+                        )}
                       </div>
 
-                      {/* Actions */}
-                      <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-gray-200">
-                        <div className="flex gap-3">
-                          <Link href={`/auth/order/${order._id}`}>
-                            <Button
-                              variant="outline"
-                              className="border-emerald-600 text-emerald-600 hover:bg-emerald-50"
+                      {/* Order Info */}
+                      <div className="flex-1 space-y-4">
+                        {/* Header */}
+                        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h3 className="text-xl font-semibold text-gray-800 line-clamp-2">
+                                {order.itemSnapshot?.title || order.itemId?.Title}
+                              </h3>
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-semibold border ${statusInfo.bgColor} ${statusInfo.color}`}
+                              >
+                                {statusInfo.label}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                              <div className="flex items-center gap-2">
+                                <FileText className="w-4 h-4" />
+                                <span className="font-mono font-medium">
+                                  {order.orderGuid}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Calendar className="w-4 h-4" />
+                                <span>{formatDate(order.createdAt)}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-2xl font-bold text-emerald-600">
+                              {order.totalAmount.toLocaleString("vi-VN")}{" "}
+                              {order.currency}
+                            </p>
+                            <p
+                              className={`text-sm font-medium ${paymentInfo.color}`}
                             >
-                              <Eye className="w-4 h-4 mr-2" />
-                              Xem chi tiết
-                            </Button>
-                          </Link>
-                          {canReturn && (
-                  <Button
-                              className="bg-teal-600 hover:bg-teal-700 text-white"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedOrder(order);
-                      setOpenConfirm(true);
-                    }}
-                    disabled={processing === order._id}
-                  >
-                              {processing === order._id ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                  Đang xử lý...
-                                </>
-                              ) : (
-                                <>
-                                  <CheckCircle className="w-4 h-4 mr-2" />
-                                  Trả hàng
-                                </>
-                              )}
-                  </Button>
-                )}
+                              {paymentInfo.label}
+                            </p>
+                          </div>
                         </div>
-                        <div className="text-xs text-gray-500">
-                          Cập nhật: {formatDateTime(order.updatedAt)}
+
+                        {/* Rental Period & Details */}
+                        <div className="grid md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-gray-700">
+                              <Calendar className="w-5 h-5 text-emerald-600" />
+                              <span className="font-medium">Thời gian thuê:</span>
+                            </div>
+                            <div className="text-sm text-gray-600 ml-7">
+                              {formatDateTime(order.startAt)} →{" "}
+                              {formatDateTime(order.endAt)}
+                            </div>
+                            {order.rentalDuration && (
+                              <div className="text-xs text-gray-500 ml-7">
+                                Thời lượng: {order.rentalDuration}{" "}
+                                {order.rentalUnit || "ngày"}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-gray-700">
+                              <Package className="w-5 h-5 text-blue-600" />
+                              <span className="font-medium">Số lượng:</span>
+                            </div>
+                            <div className="text-sm text-gray-600 ml-7">
+                              {order.unitCount} cái
+                            </div>
+                            {order.depositAmount && (
+                              <div className="text-xs text-gray-500 ml-7">
+                                Cọc: {order.depositAmount.toLocaleString("vi-VN")}{" "}
+                                {order.currency}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* User Info */}
+                        <div className="grid md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+                          <div className="flex items-start gap-3">
+                            <div className="p-2 bg-blue-100 rounded-lg">
+                              <User className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">
+                                {isRenter ? "Người cho thuê" : "Người thuê"}
+                              </p>
+                              <p className="text-sm font-medium text-gray-800">
+                                {isRenter
+                                  ? order.ownerId?.fullName || "N/A"
+                                  : order.renterId?.fullName || "N/A"}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {isRenter
+                                  ? order.ownerId?.email
+                                  : order.renterId?.email}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-gray-200">
+                          <div className="flex gap-3">
+                            {onOpenDetail ? (
+                              <Button
+                                variant="outline"
+                                className="border-emerald-600 text-emerald-600 hover:bg-emerald-50"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  onOpenDetail(order._id);
+                                }}
+                              >
+                                <Eye className="w-4 h-4 mr-2" />
+                                Xem chi tiết
+                              </Button>
+                            ) : (
+                              <Link href={`/auth/order/${order._id}`}>
+                                <Button
+                                  variant="outline"
+                                  className="border-emerald-600 text-emerald-600 hover:bg-emerald-50"
+                                >
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  Xem chi tiết
+                                </Button>
+                              </Link>
+                            )}
+                            {canReturn && (
+                              <Button
+                                className="bg-teal-600 hover:bg-teal-700 text-white"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedOrder(order);
+                                  setOpenConfirm(true);
+                                }}
+                                disabled={processing === order._id}
+                              >
+                                {processing === order._id ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    Đang xử lý...
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle className="w-4 h-4 mr-2" />
+                                    Trả hàng
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Cập nhật: {formatDateTime(order.updatedAt)}
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
             </div>
 
             {/* Pagination */}
@@ -576,7 +548,7 @@ export default function OrderListPage() {
                     startIndex: paginationState.startIndex,
                     endIndex: paginationState.endIndex,
                   })}
-      </div>
+                </div>
 
                 {/* Pagination Controls */}
                 <div className="flex items-center justify-center gap-2 flex-wrap">
@@ -627,14 +599,14 @@ export default function OrderListPage() {
         )}
 
         {/* Confirm Return Dialog */}
-      <Dialog open={openConfirm} onOpenChange={setOpenConfirm}>
+        <Dialog open={openConfirm} onOpenChange={setOpenConfirm}>
           <DialogContent className="max-w-md">
-          <DialogHeader>
+            <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <CheckCircle className="w-5 h-5 text-teal-600" />
                 Xác nhận trả hàng
               </DialogTitle>
-          </DialogHeader>
+            </DialogHeader>
             <div className="space-y-4">
               <p className="text-gray-700">
                 Bạn có chắc chắn muốn xác nhận đã trả hàng cho đơn hàng này không?
@@ -657,8 +629,8 @@ export default function OrderListPage() {
                 onClick={() => setOpenConfirm(false)}
                 disabled={!!processing}
               >
-              Hủy
-            </Button>
+                Hủy
+              </Button>
               <Button
                 className="bg-teal-600 hover:bg-teal-700 text-white"
                 onClick={handleConfirmReturn}
@@ -675,10 +647,10 @@ export default function OrderListPage() {
                     Xác nhận
                   </>
                 )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

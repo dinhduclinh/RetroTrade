@@ -31,11 +31,11 @@ import {
   User,
   Mail,
   Store,
+  ArrowLeft,
 } from "lucide-react";
 import type { Order } from "@/services/auth/order.api";
 import Image from "next/image";
 import Link from "next/link";
-import { getCurrentTax } from "@/services/tax/tax.api";
 interface TimelineStep {
   status: string;
   label: string;
@@ -89,15 +89,16 @@ const getPaymentStatusLabel = (status: string): string => {
   return statusMap[status.toLowerCase()] || status;
 };
 
-export default function OrderDetail() {
+export default function OrderDetail({ id: propId }: { id?: string }) {
   const router = useRouter();
-  const { id } = router.query;
+  const { id: routeId, orderId: queryOrderId } = router.query as { id?: string; orderId?: string };
+  const id = propId || queryOrderId || routeId;
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingAction, setPendingAction] = useState<() => Promise<void>>(
-    () => async () => {}
+    () => async () => { }
   );
   const [taxRate, setTaxRate] = useState<number | null>(null);
 
@@ -121,17 +122,7 @@ export default function OrderDetail() {
           const calculatedTaxRate = Math.round((serviceFee / rentalAmount) * 100);
           setTaxRate(calculatedTaxRate);
         } else {
-          // Fetch current tax rate as fallback
-          try {
-            const taxResponse = await getCurrentTax();
-            if (taxResponse.success && taxResponse.data) {
-              setTaxRate(taxResponse.data.taxRate);
-            } else {
-              setTaxRate(3); // Default fallback
-            }
-          } catch {
-            setTaxRate(3); // Default fallback
-          }
+          setTaxRate(3);
         }
       }
     } catch (error) {
@@ -215,51 +206,31 @@ export default function OrderDetail() {
   const canComplete = order.orderStatus === "returned";
   const canCancel = ["pending", "confirmed"].includes(order.orderStatus);
 
-  // Breadcrumb data
-  const breadcrumbs = [
-    { label: "Trang chủ", href: "/home", icon: Home },
-    { label: "Đơn hàng", href: "/order", icon: ShoppingBag },
-    { label: "Chi tiết đơn hàng", href: `/order/${id}`, icon: Eye },
-  ];
+  // Breadcrumb removed in inline render
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50 py-8 px-4">
       <div className="max-w-5xl mx-auto">
-        {/* Breadcrumb Navigation */}
-        <nav className="mb-6">
-          <div className="flex items-center space-x-2 text-sm">
-            {breadcrumbs.map((breadcrumb, index) => {
-              const IconComponent = breadcrumb.icon;
-              const isLast = index === breadcrumbs.length - 1;
+        <div className="mb-4">
+          <button
+            onClick={() => {
+              const { pathname, query } = router;
+              const q = query as Record<string, string | string[]>;
+              if (Object.prototype.hasOwnProperty.call(q, 'orderId')) {
+                const newQuery: Record<string, string | string[]> = { ...q };
+                delete (newQuery as Record<string, unknown>).orderId;
+                router.replace({ pathname, query: newQuery }, undefined, { shallow: true });
+              } else {
+                router.back();
+              }
+            }}
+            className="inline-flex items-center gap-2 text-sm text-gray-700 hover:text-emerald-700 hover:underline"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Quay lại
+          </button>
+        </div>
 
-              return (
-                <div
-                  key={breadcrumb.href}
-                  className="flex items-center space-x-2"
-                >
-                  {index > 0 && (
-                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                  )}
-
-                  {isLast ? (
-                    <span className="flex items-center space-x-1 text-gray-900 font-medium">
-                      {IconComponent && <IconComponent className="w-4 h-4" />}
-                      <span>{breadcrumb.label}</span>
-                    </span>
-                  ) : (
-                    <Link
-                      href={breadcrumb.href}
-                      className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 transition-colors"
-                    >
-                      {IconComponent && <IconComponent className="w-4 h-4" />}
-                      <span>{breadcrumb.label}</span>
-                    </Link>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </nav>
 
         {/* Header */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
@@ -277,15 +248,14 @@ export default function OrderDetail() {
             <div className="text-right">
               <span
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium
-                ${
-                  order.orderStatus === "completed"
+                ${order.orderStatus === "completed"
                     ? "bg-green-100 text-green-700"
                     : order.orderStatus === "cancelled"
-                    ? "bg-red-100 text-red-700"
-                    : order.orderStatus === "progress"
-                    ? "bg-blue-100 text-blue-700"
-                    : "bg-yellow-100 text-yellow-700"
-                }`}
+                      ? "bg-red-100 text-red-700"
+                      : order.orderStatus === "progress"
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-yellow-100 text-yellow-700"
+                  }`}
               >
                 {getOrderStatusLabel(order.orderStatus)}
               </span>
@@ -504,13 +474,12 @@ export default function OrderDetail() {
                     .map((step, idx) => (
                       <div key={idx} className="flex items-center gap-4">
                         <div
-                          className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                            step.current
+                          className={`w-10 h-10 rounded-full flex items-center justify-center ${step.current
                               ? "bg-emerald-600 text-white"
                               : step.active
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-gray-200 text-gray-400"
-                          }`}
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-gray-200 text-gray-400"
+                            }`}
                         >
                           {step.active || step.current ? (
                             <CheckCircle2 className="w-5 h-5" />
@@ -520,13 +489,12 @@ export default function OrderDetail() {
                         </div>
                         <div className="flex-1">
                           <p
-                            className={`font-medium ${
-                              step.current
+                            className={`font-medium ${step.current
                                 ? "text-emerald-700"
                                 : step.active
-                                ? "text-gray-700"
-                                : "text-gray-400"
-                            }`}
+                                  ? "text-gray-700"
+                                  : "text-gray-400"
+                              }`}
                           >
                             {step.label}
                           </p>
@@ -616,14 +584,13 @@ export default function OrderDetail() {
                 <span className="text-gray-700">Thanh toán</span>
                 <span
                   className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium
-                    ${
-                      order.paymentStatus === "paid"
-                        ? "bg-green-100 text-green-700"
-                        : order.paymentStatus === "not_paid"
+                    ${order.paymentStatus === "paid"
+                      ? "bg-green-100 text-green-700"
+                      : order.paymentStatus === "not_paid"
                         ? "bg-yellow-100 text-yellow-700"
                         : order.paymentStatus === "refunded"
-                        ? "bg-blue-100 text-blue-700"
-                        : "bg-gray-100 text-gray-700"
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-gray-100 text-gray-700"
                     }`}
                 >
                   {order.paymentStatus === "paid" && (
@@ -647,10 +614,9 @@ export default function OrderDetail() {
                 <span className="text-gray-700">Hợp đồng</span>
                 <span
                   className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium
-                    ${
-                      order.isContractSigned
-                        ? "bg-green-100 text-green-700"
-                        : "bg-red-100 text-red-700"
+                    ${order.isContractSigned
+                      ? "bg-green-100 text-green-700"
+                      : "bg-red-100 text-red-700"
                     }`}
                 >
                   {order.isContractSigned ? (
