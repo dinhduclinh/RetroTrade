@@ -34,7 +34,7 @@ module.exports = {
       const finalStartAt = startAt || rentalStartDate;
       const finalEndAt = endAt || rentalEndDate;
 
-      // === VALIDATE ===
+ 
       if (!itemId || !finalStartAt || !finalEndAt || !shippingAddress) {
         await session.abortTransaction();
         return res.status(400).json({
@@ -63,7 +63,6 @@ module.exports = {
         .lean()
         .session(session);
 
-      // === TÍNH TOÁN ===
       const result = await calculateTotals(
         item,
         quantity,
@@ -89,7 +88,6 @@ module.exports = {
       const { totalAmount, depositAmount, serviceFee, duration, unitName } =
         result;
 
-      // === TẠO ORDER ===
       const orderDoc = await Order.create(
         [
           {
@@ -100,7 +98,7 @@ module.exports = {
               title: item.Title,
               images: images.map((img) => img.Url),
               basePrice: item.BasePrice,
-              priceUnit: String(item.PriceUnitId), // ← CHUYỂN SANG STRING
+              priceUnit: String(item.PriceUnitId),
             },
             unitCount: quantity,
             startAt: new Date(finalStartAt),
@@ -388,6 +386,7 @@ module.exports = {
     }
   },
 
+
   cancelOrder: async (req, res) => {
     const session = await mongoose.startSession();
     try {
@@ -431,7 +430,6 @@ module.exports = {
       }
 
       if (order.orderStatus === "confirmed") {
-        // only owner can cancel confirmed order and must restore inventory
         if (userId.toString() !== order.ownerId.toString()) {
           await session.abortTransaction();
           return res
@@ -439,7 +437,6 @@ module.exports = {
             .json({ message: "Only owner can cancel a confirmed order" });
         }
 
-        // restore inventory (since confirm decremented)
         const item = await Item.findById(order.itemId).session(session);
         if (item) {
           item.AvailableQuantity = (item.AvailableQuantity || 0) + 1;
@@ -461,7 +458,7 @@ module.exports = {
         });
       }
 
-      // cannot cancel in progress/completed/disputed via this endpoint
+      
       await session.abortTransaction();
       session.endSession();
       return res.status(400).json({
@@ -607,7 +604,6 @@ module.exports = {
       const userId = req.user._id;
       const { status, paymentStatus, search, page = 1, limit = 20 } = req.query;
 
-      // Cho phép mọi role xem đơn hàng của mình (là owner của sản phẩm)
       const filter = { 
         isDeleted: false,
         ownerId: userId

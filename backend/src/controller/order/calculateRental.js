@@ -1,4 +1,4 @@
-// utils/calculateRental.js
+
 function getTimeUnitInDays(unitId) {
   const units = { 1: 1 / 24, 2: 1, 3: 7, 4: 30 };
   return units[unitId] ?? 1;
