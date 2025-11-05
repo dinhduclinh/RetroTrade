@@ -1,12 +1,10 @@
 const mongoose = require("mongoose");
 const { Types } = mongoose;
-const Order = require("../../models/Order/Order.model"); 
+const Order = require("../../models/Order/Order.model");
 const Item = require("../../models/Product/Item.model");
 const User = require("../../models/User.model");
 const ItemImages = require("../../models/Product/ItemImage.model");
 const { calculateTotals } = require("./calculateRental");
-
-
 
 function isTimeRangeOverlap(aStart, aEnd, bStart, bEnd) {
   return new Date(aStart) < new Date(bEnd) && new Date(bStart) < new Date(aEnd);
@@ -34,7 +32,6 @@ module.exports = {
       const finalStartAt = startAt || rentalStartDate;
       const finalEndAt = endAt || rentalEndDate;
 
- 
       if (!itemId || !finalStartAt || !finalEndAt || !shippingAddress) {
         await session.abortTransaction();
         return res.status(400).json({
@@ -126,7 +123,7 @@ module.exports = {
       const newOrder = orderDoc[0];
 
       return res.status(201).json({
-        message: "Order created successfully",
+        message: "Tạo đơn hàng thành công",
         data: {
           orderId: newOrder._id,
           orderGuid: newOrder.orderGuid,
@@ -140,9 +137,9 @@ module.exports = {
     } catch (err) {
       await session.abortTransaction();
       session.endSession();
-      console.error("createOrder ERROR:", err);
+      console.error("Lỗi khi tạo đơn hàng :", err);
       return res.status(500).json({
-        message: "Server error",
+        message: "Lỗi máy chủ",
         error: err.message,
       });
     }
@@ -386,7 +383,6 @@ module.exports = {
     }
   },
 
-
   cancelOrder: async (req, res) => {
     const session = await mongoose.startSession();
     try {
@@ -458,7 +454,6 @@ module.exports = {
         });
       }
 
-      
       await session.abortTransaction();
       session.endSession();
       return res.status(400).json({
@@ -555,12 +550,9 @@ module.exports = {
       const { status, paymentStatus, search, page = 1, limit = 20 } = req.query;
 
       // Cho phép mọi role xem đơn hàng của mình (là renter hoặc owner)
-      const filter = { 
+      const filter = {
         isDeleted: false,
-        $or: [
-          { renterId: userId },
-          { ownerId: userId }
-        ]
+        $or: [{ renterId: userId }, { ownerId: userId }],
       };
 
       if (status) filter.orderStatus = status;
@@ -604,9 +596,9 @@ module.exports = {
       const userId = req.user._id;
       const { status, paymentStatus, search, page = 1, limit = 20 } = req.query;
 
-      const filter = { 
+      const filter = {
         isDeleted: false,
-        ownerId: userId
+        ownerId: userId,
       };
 
       if (status) filter.orderStatus = status;
@@ -646,8 +638,3 @@ module.exports = {
     }
   },
 };
-
-
-  
-
-

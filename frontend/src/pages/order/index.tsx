@@ -239,6 +239,16 @@ export default function OrderListPage() {
       label: "Hoàn tất",
       count: orders.filter((o) => o.orderStatus === "completed").length,
     },
+    {
+      key: "cancelled",
+      label: "Đã hủy",
+      count: orders.filter((o) => o.orderStatus === "cancelled").length,
+    },
+    {
+      key: "disputed",
+      label: "Tranh chấp",
+      count: orders.filter((o) => o.orderStatus === "disputed").length,
+    },
   ];
 
   if (loading) {
@@ -517,7 +527,7 @@ export default function OrderListPage() {
                       {/* Actions */}
                       <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-gray-200">
                         <div className="flex gap-3">
-                          <Link href={`/auth/order/${order._id}`}>
+                          <Link href={`/order/${order._id}`}>
                             <Button
                               variant="outline"
                               className="border-emerald-600 text-emerald-600 hover:bg-emerald-50"

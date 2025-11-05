@@ -183,7 +183,7 @@ export default function Checkout() {
     fetchTaxRate();
   }, []);
 
-  // Load user info and auto-fill shipping address
+
   useEffect(() => {
     const loadUserInfo = async () => {
       try {
@@ -409,7 +409,7 @@ export default function Checkout() {
     const address = userAddresses.find(addr => addr._id === addressId);
     if (!address) return;
 
-    // Check if this is the only default address and there are other addresses
+    
     const otherAddresses = userAddresses.filter(addr => addr._id !== addressId);
     if (address.IsDefault && otherAddresses.length > 0) {
       toast.error("Không thể xóa địa chỉ mặc định. Vui lòng chọn một địa chỉ khác làm mặc định trước khi xóa.");
@@ -492,7 +492,7 @@ export default function Checkout() {
     }
   };
 
-  // Get current location and reverse geocode
+
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
       toast.error("Trình duyệt của bạn không hỗ trợ lấy vị trí");
@@ -529,13 +529,12 @@ export default function Checkout() {
           if (data && data.address) {
             const addr = data.address;
             
-            // Map OpenStreetMap address to our format (Vietnam-specific)
-            // For Vietnam, we typically have: house_number, road, ward, district, city, state
+           
             const street = addr.road || addr.street || addr.pedestrian || "";
             const houseNumber = addr.house_number || "";
             const fullStreet = houseNumber && street ? `${houseNumber} ${street}`.trim() : (street || houseNumber);
             
-            // Vietnam address structure: ward (phường/xã), district (quận/huyện), city (tỉnh/thành phố)
+    
             const ward = addr.ward || addr.suburb || addr.neighbourhood || "";
             const district = addr.district || addr.county || addr.city_district || "";
             const city = addr.city || addr.town || addr.municipality || "";
@@ -1512,7 +1511,7 @@ const handleSubmit = async () => {
               )}
 
 
-              {/* Manual Address Input - Hidden when adding/editing address or when an address is selected */}
+             
               {!isEditingAddress && !editingAddressId && !selectedAddressId && (
                 <div className="mt-6 space-y-4">
                 <div className="space-y-2 sm:col-span-2">

@@ -113,24 +113,21 @@ export default function OrderDetail() {
       const res = await getOrderDetails(id as string);
       if (res.data) {
         setOrder(res.data);
-        // Calculate tax rate from order data if available
         const rentalAmount = calculateRentalAmount(res.data);
         const serviceFee = res.data.serviceFee || 0;
         if (rentalAmount > 0 && serviceFee > 0) {
-          // Calculate tax rate from serviceFee
           const calculatedTaxRate = Math.round((serviceFee / rentalAmount) * 100);
           setTaxRate(calculatedTaxRate);
         } else {
-          // Fetch current tax rate as fallback
           try {
             const taxResponse = await getCurrentTax();
             if (taxResponse.success && taxResponse.data) {
               setTaxRate(taxResponse.data.taxRate);
             } else {
-              setTaxRate(3); // Default fallback
+              setTaxRate(3);
             }
           } catch {
-            setTaxRate(3); // Default fallback
+            setTaxRate(3); 
           }
         }
       }
@@ -180,7 +177,9 @@ export default function OrderDetail() {
     {
       status: "confirmed",
       label: "Đã xác nhận",
-      active: ["confirmed", "progress", "completed"].includes(order.orderStatus),
+      active: ["confirmed", "progress", "completed"].includes(
+        order.orderStatus
+      ),
       current: order.orderStatus === "confirmed",
     },
     {
@@ -194,6 +193,13 @@ export default function OrderDetail() {
       label: "Đã trả",
       active: ["returned", "completed"].includes(order.orderStatus),
       current: order.orderStatus === "returned",
+    },
+    {
+      status: "disputed",
+      label: "Tranh chấp",
+      active: order.orderStatus === "disputed",
+      current: order.orderStatus === "disputed",
+      cancelled: false,
     },
     {
       status: "completed",
@@ -376,7 +382,9 @@ export default function OrderDetail() {
                       )}
                     </div>
                     <div>
-                      <h3 className="font-bold text-lg text-gray-800 mb-1">Người thuê</h3>
+                      <h3 className="font-bold text-lg text-gray-800 mb-1">
+                        Người thuê
+                      </h3>
                       <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-100 px-3 py-1 rounded-full w-fit">
                         <User className="w-3 h-3" />
                         <span>Người mua</span>
@@ -390,7 +398,9 @@ export default function OrderDetail() {
                       </div>
                       <div className="flex-1">
                         <p className="text-xs text-gray-500 mb-1">Họ và tên</p>
-                        <p className="text-base font-semibold text-gray-800">{order.renterId.fullName}</p>
+                        <p className="text-base font-semibold text-gray-800">
+                          {order.renterId.fullName}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -399,7 +409,9 @@ export default function OrderDetail() {
                       </div>
                       <div className="flex-1">
                         <p className="text-xs text-gray-500 mb-1">Email</p>
-                        <p className="text-sm text-gray-700 break-all">{order.renterId.email}</p>
+                        <p className="text-sm text-gray-700 break-all">
+                          {order.renterId.email}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -424,7 +436,9 @@ export default function OrderDetail() {
                       )}
                     </div>
                     <div>
-                      <h3 className="font-bold text-lg text-gray-800 mb-1">Người cho thuê</h3>
+                      <h3 className="font-bold text-lg text-gray-800 mb-1">
+                        Người cho thuê
+                      </h3>
                       <div className="flex items-center gap-2 text-sm text-emerald-600 bg-emerald-100 px-3 py-1 rounded-full w-fit">
                         <Store className="w-3 h-3" />
                         <span>Chủ cửa hàng</span>
@@ -438,7 +452,9 @@ export default function OrderDetail() {
                       </div>
                       <div className="flex-1">
                         <p className="text-xs text-gray-500 mb-1">Họ và tên</p>
-                        <p className="text-base font-semibold text-gray-800">{order.ownerId.fullName || "Chủ sở hữu"}</p>
+                        <p className="text-base font-semibold text-gray-800">
+                          {order.ownerId.fullName || "Chủ sở hữu"}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -447,12 +463,18 @@ export default function OrderDetail() {
                       </div>
                       <div className="flex-1">
                         <p className="text-xs text-gray-500 mb-1">Email</p>
-                        <p className="text-sm text-gray-700 break-all">{order.ownerId.email || "Không có email"}</p>
+                        <p className="text-sm text-gray-700 break-all">
+                          {order.ownerId.email || "Không có email"}
+                        </p>
                       </div>
                     </div>
                   </div>
                   <div className="pt-4 mt-4 border-t border-emerald-200">
-                    <Link href={`/store/${order.ownerId.userGuid || order.ownerId._id}`}>
+                    <Link
+                      href={`/store/${
+                        order.ownerId.userGuid || order.ownerId._id
+                      }`}
+                    >
                       <button className="w-full px-4 py-2 text-sm font-medium text-emerald-600 bg-white border border-emerald-300 rounded-lg hover:bg-emerald-50 transition-colors flex items-center justify-center gap-2">
                         <Store className="w-4 h-4" />
                         Xem cửa hàng
@@ -496,6 +518,27 @@ export default function OrderDetail() {
                           </p>
                         </div>
                       )}
+                    </div>
+                  </div>
+                ) : order.orderStatus === "disputed" ? (
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-red-100 text-red-700">
+                      <AlertCircle className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-red-700">
+                        Đang Tranh chấp
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {format(new Date(order.updatedAt), "dd/MM/yyyy HH:mm")}
+                      </p>
+                      <button
+                        onClick={() => router.push(`/dispute/${id}`)}
+                        className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-red-600 hover:text-red-700 underline underline-offset-2 transition-colors group"
+                      >
+                        <Eye className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                        Chi tiết tranh chấp
+                      </button>
                     </div>
                   </div>
                 ) : (
