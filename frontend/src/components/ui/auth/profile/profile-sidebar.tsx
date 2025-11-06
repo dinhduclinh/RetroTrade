@@ -3,7 +3,7 @@
 import React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/common/avatar";
 
-type MenuKey = "orders" | "wallet" | "discounts" | "messages" | "settings" | "security" | "addresses" | "ownership" | "changePassword" | "signature";
+type MenuKey = "orders" | "wallet" | "discounts" | "messages" | "settings" | "security" | "addresses" | "ownership" | "changePassword" | "signature" | "loyalty";
 
 export interface ProfileSidebarProps {
   active: MenuKey;
@@ -17,8 +17,8 @@ const MENU_SECTIONS: Array<{ title: string; items: Array<{ key: MenuKey; label: 
     items: [
       { key: "orders", label: "Đơn hàng của tôi" },
       { key: "wallet", label: "Ví & giao dịch" },
-
       { key: "discounts", label: "Mã giảm giá" },
+      { key: "loyalty", label: "RT Points" },
     ],
   },
   {

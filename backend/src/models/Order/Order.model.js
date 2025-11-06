@@ -46,12 +46,20 @@ const orderSchema = new mongoose.Schema(
       },
     },
     totalAmount: { type: Number, required: true, min: 0 },
-    // discount fields
+    // discount fields - hỗ trợ cả public và private discount
     discount: {
+      // Public discount
       code: String,
       type: { type: String, enum: ["percent", "fixed"] },
       value: Number,
       amountApplied: { type: Number, default: 0, min: 0 },
+      // Private discount (secondary)
+      secondaryCode: String,
+      secondaryType: { type: String, enum: ["percent", "fixed"] },
+      secondaryValue: Number,
+      secondaryAmountApplied: { type: Number, default: 0, min: 0 },
+      // Total discount amount
+      totalAmountApplied: { type: Number, default: 0, min: 0 },
     },
     finalAmount: { type: Number, min: 0 },
     depositAmount: { type: Number, default: 0, min: 0 },

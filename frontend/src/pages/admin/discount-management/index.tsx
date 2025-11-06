@@ -2,13 +2,12 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/common/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/common/dialog";
 import { Input } from "@/components/ui/common/input";
 import { Label } from "@/components/ui/common/label";
 import { Textarea } from "@/components/ui/common/textarea";
 // (not using Radix Select here; native select is sufficient)
-import { AlertCircle, Plus, XCircle, CheckCircle } from "lucide-react";
-import { createDiscount, deactivateDiscount, activateDiscount, listDiscounts, assignUsersToDiscount, setDiscountPublic, type CreateDiscountRequest, type Discount } from "@/services/products/discount/discount.api";
+import { AlertCircle, Plus, XCircle, CheckCircle, X, Info } from "lucide-react";
+import { createDiscount, deactivateDiscount, activateDiscount, listDiscounts, setDiscountPublic, updateDiscount, type CreateDiscountRequest, type UpdateDiscountRequest, type Discount } from "@/services/products/discount/discount.api";
 
 export default function DiscountManagementPage() {
   const [items, setItems] = useState<Discount[]>([]);
@@ -17,9 +16,20 @@ export default function DiscountManagementPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [assignOpen, setAssignOpen] = useState(false);
-  const [assignTarget, setAssignTarget] = useState<Discount | null>(null);
-  const [assignForm, setAssignForm] = useState<{ userIds: string; perUserLimit: number; effectiveFrom?: string; effectiveTo?: string }>({ userIds: "", perUserLimit: 1 });
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingDiscount, setEditingDiscount] = useState<Discount | null>(null);
+  const [notification, setNotification] = useState<{
+    type: "success" | "error" | "info";
+    message: string;
+    isVisible: boolean;
+  } | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+  } | null>(null);
 
   const [form, setForm] = useState<CreateDiscountRequest>({
     type: "percent",
@@ -45,6 +55,24 @@ export default function DiscountManagementPage() {
     return Math.max(0, Math.floor(Number(digits)));
   };
 
+  const showNotification = (type: "success" | "error" | "info", message: string) => {
+    setNotification({ type, message, isVisible: true });
+    setTimeout(() => {
+      setNotification(prev => prev ? { ...prev, isVisible: false } : null);
+      setTimeout(() => setNotification(null), 300);
+    }, 3000);
+  };
+
+  const showConfirmDialog = (title: string, message: string, onConfirm: () => void) => {
+    setConfirmDialog({
+      isOpen: true,
+      title,
+      message,
+      onConfirm,
+      onCancel: () => setConfirmDialog(null),
+    });
+  };
+
   const load = useCallback(async (): Promise<void> => {
     try {
       setLoading(true);
@@ -54,11 +82,22 @@ export default function DiscountManagementPage() {
         setItems(res.data);
         setTotalPages(res.pagination?.totalPages || 1);
       } else {
-        setError(res.message || "Không thể tải danh sách mã giảm giá");
+        const errorMsg = res.message || "Không thể tải danh sách mã giảm giá";
+        setError(errorMsg);
+        showNotification("error", errorMsg);
       }
     } catch (e) {
       const err = e as Error;
-      setError(err.message || "Lỗi khi tải danh sách mã giảm giá");
+      // Check if it's a network/CORS error
+      let errorMsg: string;
+      if (err.message.includes("Failed to fetch") || err.message.includes("Network or CORS")) {
+        errorMsg = "Không thể kết nối đến server. Vui lòng kiểm tra xem backend server có đang chạy không (http://localhost:9999)";
+      } else {
+        errorMsg = err.message || "Lỗi khi tải danh sách mã giảm giá";
+      }
+      setError(errorMsg);
+      showNotification("error", errorMsg);
+      console.warn("Error loading discounts (backend may not be running):", err.message);
     } finally {
       setLoading(false);
     }
@@ -82,30 +121,52 @@ export default function DiscountManagementPage() {
       const res = await createDiscount(payload);
       if (res.status === "success") {
         setIsCreateDialogOpen(false);
+        showNotification("success", "Tạo mã giảm giá thành công!");
         await load();
       } else {
-        setError(res.message || "Không thể tạo mã giảm giá");
+        const errorMsg = res.message || "Không thể tạo mã giảm giá";
+        setError(errorMsg);
+        showNotification("error", errorMsg);
       }
     } catch (e) {
       const err = e as Error;
-      setError(err.message || "Lỗi khi tạo mã giảm giá");
+      let errorMsg: string;
+      if (err.message.includes("Failed to fetch") || err.message.includes("Network or CORS")) {
+        errorMsg = "Không thể kết nối đến server. Vui lòng kiểm tra xem backend server có đang chạy không.";
+      } else {
+        errorMsg = err.message || "Lỗi khi tạo mã giảm giá";
+      }
+      setError(errorMsg);
+      showNotification("error", errorMsg);
+      console.warn("Error creating discount:", err.message);
     }
   }
 
   async function handleDeactivate(id: string) {
-    if (!confirm("Vô hiệu hóa mã giảm giá này?")) return;
-    try {
-      setError(null);
-      const res = await deactivateDiscount(id);
-      if (res.status === "success") {
-        await load();
-      } else {
-        setError(res.message || "Không thể vô hiệu hóa");
+    showConfirmDialog(
+      "Xác nhận vô hiệu hóa",
+      "Bạn có chắc chắn muốn vô hiệu hóa mã giảm giá này?",
+      async () => {
+        setConfirmDialog(null);
+        try {
+          setError(null);
+          const res = await deactivateDiscount(id);
+          if (res.status === "success") {
+            showNotification("success", "Vô hiệu hóa mã giảm giá thành công!");
+            await load();
+          } else {
+            const errorMsg = res.message || "Không thể vô hiệu hóa";
+            setError(errorMsg);
+            showNotification("error", errorMsg);
+          }
+        } catch (e) {
+          const err = e as Error;
+          const errorMsg = err.message || "Lỗi khi vô hiệu hóa";
+          setError(errorMsg);
+          showNotification("error", errorMsg);
+        }
       }
-    } catch (e) {
-      const err = e as Error;
-      setError(err.message || "Lỗi khi vô hiệu hóa");
-    }
+    );
   }
 
   async function handleActivate(id: string) {
@@ -113,43 +174,18 @@ export default function DiscountManagementPage() {
       setError(null);
       const res = await activateDiscount(id);
       if (res.status === "success") {
+        showNotification("success", "Kích hoạt mã giảm giá thành công!");
         await load();
       } else {
-        setError(res.message || "Không thể kích hoạt lại");
+        const errorMsg = res.message || "Không thể kích hoạt lại";
+        setError(errorMsg);
+        showNotification("error", errorMsg);
       }
     } catch (e) {
       const err = e as Error;
-      setError(err.message || "Lỗi khi kích hoạt lại");
-    }
-  }
-
-  async function handleAssign() {
-    if (!assignTarget) return;
-    try {
-      setError(null);
-      const userIds = assignForm.userIds
-        .split(/[\s,;]+/)
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const payload: { userIds: string[]; perUserLimit?: number; effectiveFrom?: string; effectiveTo?: string } = {
-        userIds,
-        perUserLimit: Number(assignForm.perUserLimit) || 1,
-      };
-      if (assignForm.effectiveFrom) payload.effectiveFrom = new Date(assignForm.effectiveFrom).toISOString();
-      if (assignForm.effectiveTo) payload.effectiveTo = new Date(assignForm.effectiveTo).toISOString();
-
-      const res = await assignUsersToDiscount(assignTarget._id, payload);
-      if (res.status === "success") {
-        setAssignOpen(false);
-        setAssignTarget(null);
-        setAssignForm({ userIds: "", perUserLimit: 1 });
-        await load();
-      } else {
-        setError(res.message || "Không thể gán người dùng");
-      }
-    } catch (e) {
-      const err = e as Error;
-      setError(err.message || "Lỗi khi gán người dùng");
+      const errorMsg = err.message || "Lỗi khi kích hoạt lại";
+      setError(errorMsg);
+      showNotification("error", errorMsg);
     }
   }
 
@@ -158,13 +194,75 @@ export default function DiscountManagementPage() {
       setError(null);
       const res = await setDiscountPublic(id);
       if (res.status === "success") {
+        showNotification("success", "Đặt mã giảm giá công khai thành công!");
         await load();
       } else {
-        setError(res.message || "Không thể đặt công khai");
+        const errorMsg = res.message || "Không thể đặt công khai";
+        setError(errorMsg);
+        showNotification("error", errorMsg);
       }
     } catch (e) {
       const err = e as Error;
-      setError(err.message || "Lỗi khi đặt công khai");
+      const errorMsg = err.message || "Lỗi khi đặt công khai";
+      setError(errorMsg);
+      showNotification("error", errorMsg);
+    }
+  }
+
+  function handleEdit(discount: Discount) {
+    setEditingDiscount(discount);
+    setForm({
+      type: discount.type,
+      value: discount.value,
+      maxDiscountAmount: discount.maxDiscountAmount || 0,
+      minOrderAmount: discount.minOrderAmount || 0,
+      startAt: new Date(discount.startAt).toISOString().slice(0, 16),
+      endAt: new Date(discount.endAt).toISOString().slice(0, 16),
+      usageLimit: discount.usageLimit || 0,
+      notes: discount.notes || "",
+      codeLength: discount.code?.length || 10,
+      codePrefix: "",
+    });
+    setIsEditDialogOpen(true);
+  }
+
+  async function handleUpdate() {
+    if (!editingDiscount) return;
+    try {
+      setError(null);
+      const payload: UpdateDiscountRequest = {
+        type: form.type,
+        value: Number(form.value) || 0,
+        maxDiscountAmount: Number(form.maxDiscountAmount) || 0,
+        minOrderAmount: Number(form.minOrderAmount) || 0,
+        startAt: form.startAt,
+        endAt: form.endAt,
+        usageLimit: Number(form.usageLimit) || 0,
+        notes: form.notes,
+        isPublic: editingDiscount.isPublic,
+      };
+      const res = await updateDiscount(editingDiscount._id, payload);
+      if (res.status === "success") {
+        setIsEditDialogOpen(false);
+        setEditingDiscount(null);
+        showNotification("success", "Cập nhật mã giảm giá thành công!");
+        await load();
+      } else {
+        const errorMsg = res.message || "Không thể cập nhật mã giảm giá";
+        setError(errorMsg);
+        showNotification("error", errorMsg);
+      }
+    } catch (e) {
+      const err = e as Error;
+      let errorMsg: string;
+      if (err.message.includes("Failed to fetch") || err.message.includes("Network or CORS")) {
+        errorMsg = "Không thể kết nối đến server. Vui lòng kiểm tra xem backend server có đang chạy không.";
+      } else {
+        errorMsg = err.message || "Lỗi khi cập nhật mã giảm giá";
+      }
+      setError(errorMsg);
+      showNotification("error", errorMsg);
+      console.warn("Error updating discount:", err.message);
     }
   }
 
@@ -175,12 +273,6 @@ export default function DiscountManagementPage() {
         <p className="text-gray-600">Tạo, xem danh sách và vô hiệu hóa mã giảm giá</p>
       </div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-2 text-red-700 mb-4">
-          <AlertCircle className="w-5 h-5" />
-          <span>{error}</span>
-        </div>
-      )}
 
       <div className="flex justify-end mb-4">
         <Button
@@ -252,6 +344,14 @@ export default function DiscountManagementPage() {
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(d)}
+                            className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                          >
+                            Chỉnh sửa
+                          </Button>
                           {d.active ? (
                             <Button
                               variant="ghost"
@@ -271,14 +371,6 @@ export default function DiscountManagementPage() {
                               Kích hoạt lại
                             </Button>
                           )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => { setAssignTarget(d); setAssignForm({ userIds: "", perUserLimit: 1 }); setAssignOpen(true); }}
-                            className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
-                          >
-                            Gán người dùng
-                          </Button>
                           {!d.isPublic && (
                             <Button
                               variant="ghost"
@@ -310,12 +402,20 @@ export default function DiscountManagementPage() {
         </div>
       )}
 
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="bg-white border-gray-200 text-gray-900">
-          <DialogHeader>
-            <DialogTitle>Tạo mã giảm giá</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
+      {/* Create Pop-up Modal */}
+      {isCreateDialogOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl border-2 border-gray-200 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">Tạo mã giảm giá</h2>
+              <button
+                onClick={() => setIsCreateDialogOpen(false)}
+                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
              <div>
                <Label>Loại</Label>
                <select
@@ -435,68 +535,229 @@ export default function DiscountManagementPage() {
               <Label>Ghi chú</Label>
              <Textarea value={form.notes || ""} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setForm({ ...form, notes: e.target.value })} className="bg-white border-gray-300 text-gray-900" />
             </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setIsCreateDialogOpen(false)} className="text-gray-600 hover:text-gray-900">Hủy</Button>
-              <Button onClick={handleCreate} className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white">Tạo</Button>
+              <div className="flex justify-end gap-2 pt-4 border-t border-gray-200">
+                <Button variant="ghost" onClick={() => setIsCreateDialogOpen(false)} className="text-gray-600 hover:text-gray-900">Hủy</Button>
+                <Button onClick={handleCreate} className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white">Tạo</Button>
+              </div>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
 
-      {/* Assign Users Dialog */}
-      <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
-        <DialogContent className="bg-white border-gray-200 text-gray-900">
-          <DialogHeader>
-            <DialogTitle>Gán người dùng cho mã {assignTarget?.code}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Danh sách User ID (phân tách bởi dấu phẩy, khoảng trắng hoặc dấu chấm phẩy)</Label>
-              <Textarea
-                value={assignForm.userIds}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setAssignForm({ ...assignForm, userIds: e.target.value })}
-                className="bg-white border-gray-300 text-gray-900"
-                rows={4}
-              />
+      {/* Edit Pop-up Modal */}
+      {isEditDialogOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl border-2 border-gray-200 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">Chỉnh sửa mã giảm giá: {editingDiscount?.code}</h2>
+              <button
+                onClick={() => {
+                  setIsEditDialogOpen(false);
+                  setEditingDiscount(null);
+                }}
+                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label>Số lần dùng tối đa mỗi người (0 = không giới hạn)</Label>
+            <div className="p-6 space-y-4">
+            <div className="bg-gray-50 p-3 rounded-lg">
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">Mã giảm giá:</span> {editingDiscount?.code}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">Mã giảm giá không thể thay đổi</p>
+              {editingDiscount?.isPublic && (
+                <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
+                  <p className="text-xs text-blue-700 font-medium">
+                    ⚠️ Discount công khai không thể gán với người dùng. Discount công khai có thể được sử dụng bởi tất cả người dùng.
+                  </p>
+                </div>
+              )}
+            </div>
+            <div>
+              <Label>Loại</Label>
+              <select
+                value={form.type}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                  const nextType = e.target.value as "percent" | "fixed";
+                  setForm((prev) => ({
+                    ...prev,
+                    type: nextType,
+                    value:
+                      nextType === "fixed"
+                        ? Math.max(0, Math.floor(Number(prev.value) || 0))
+                        : Math.min(100, Math.max(0, Number(prev.value) || 0)),
+                  }));
+                }}
+                className="bg-white border border-gray-300 text-gray-900 w-full rounded-md h-10 px-3"
+              >
+                <option value="percent">Phần trăm</option>
+                <option value="fixed">Cố định</option>
+              </select>
+            </div>
+            <div>
+              <Label>
+                Giá trị {form.type === "percent" ? "(%)" : "(₫)"}
+              </Label>
+              {form.type === "percent" ? (
                 <Input
                   type="number"
-                  value={assignForm.perUserLimit}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAssignForm({ ...assignForm, perUserLimit: Number(e.target.value) })}
+                  value={form.value}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    const raw = Number(e.target.value);
+                    const clamped = Math.min(100, Math.max(0, isFinite(raw) ? raw : 0));
+                    setForm({ ...form, value: clamped });
+                  }}
+                  className="bg-white border-gray-300 text-gray-900"
+                />
+              ) : (
+                <Input
+                  type="text"
+                  value={formatVND(form.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    const vnd = parseVND(e.target.value);
+                    setForm({ ...form, value: vnd });
+                  }}
+                  className="bg-white border-gray-300 text-gray-900"
+                />
+              )}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label>Giảm tối đa (₫)</Label>
+                <Input
+                  type="text"
+                  value={formatVND(form.maxDiscountAmount || 0)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setForm({ ...form, maxDiscountAmount: parseVND(e.target.value) })
+                  }
                   className="bg-white border-gray-300 text-gray-900"
                 />
               </div>
               <div>
-                <Label>Từ ngày (tùy chọn)</Label>
+                <Label>Đơn tối thiểu (₫)</Label>
                 <Input
-                  type="datetime-local"
-                  value={assignForm.effectiveFrom || ""}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAssignForm({ ...assignForm, effectiveFrom: e.target.value })}
+                  type="text"
+                  value={formatVND(form.minOrderAmount || 0)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setForm({ ...form, minOrderAmount: parseVND(e.target.value) })
+                  }
                   className="bg-white border-gray-300 text-gray-900"
                 />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label>Đến ngày (tùy chọn)</Label>
-                <Input
-                  type="datetime-local"
-                  value={assignForm.effectiveTo || ""}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAssignForm({ ...assignForm, effectiveTo: e.target.value })}
-                  className="bg-white border-gray-300 text-gray-900"
-                />
+                <Label>Bắt đầu</Label>
+                <Input type="datetime-local" value={form.startAt} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, startAt: e.target.value })} className="bg-white border-gray-300 text-gray-900" />
+              </div>
+              <div>
+                <Label>Kết thúc</Label>
+                <Input type="datetime-local" value={form.endAt} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, endAt: e.target.value })} className="bg-white border-gray-300 text-gray-900" />
               </div>
             </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setAssignOpen(false)} className="text-gray-600 hover:text-gray-900">Hủy</Button>
-              <Button onClick={handleAssign} className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white">Gán</Button>
+            <div>
+              <Label>Giới hạn sử dụng (0 = không giới hạn)</Label>
+              <Input type="number" value={form.usageLimit || 0} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, usageLimit: Number(e.target.value) })} className="bg-white border-gray-300 text-gray-900" />
+            </div>
+            <div>
+              <Label>Ghi chú</Label>
+              <Textarea value={form.notes || ""} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setForm({ ...form, notes: e.target.value })} className="bg-white border-gray-300 text-gray-900" />
+            </div>
+              <div className="flex justify-end gap-2 pt-4 border-t border-gray-200">
+                <Button variant="ghost" onClick={() => { setIsEditDialogOpen(false); setEditingDiscount(null); }} className="text-gray-600 hover:text-gray-900">Hủy</Button>
+                <Button onClick={handleUpdate} className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white">Cập nhật</Button>
+              </div>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
+
+      {/* Notification Pop-up */}
+      {notification && (
+        <div
+          className={`fixed top-4 right-4 z-[10000] transition-all duration-300 ease-in-out ${
+            notification.isVisible
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 -translate-y-2 pointer-events-none"
+          }`}
+        >
+          <div
+            className={`min-w-[320px] max-w-md rounded-lg shadow-2xl border-2 p-4 flex items-start gap-3 ${
+              notification.type === "success"
+                ? "bg-green-50 border-green-200 text-green-800"
+                : notification.type === "error"
+                ? "bg-red-50 border-red-200 text-red-800"
+                : "bg-blue-50 border-blue-200 text-blue-800"
+            }`}
+          >
+            <div className="flex-shrink-0 mt-0.5">
+              {notification.type === "success" ? (
+                <CheckCircle className="w-5 h-5 text-green-600" />
+              ) : notification.type === "error" ? (
+                <AlertCircle className="w-5 h-5 text-red-600" />
+              ) : (
+                <Info className="w-5 h-5 text-blue-600" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm leading-tight">{notification.message}</p>
+            </div>
+            <button
+              onClick={() => {
+                setNotification(prev => prev ? { ...prev, isVisible: false } : null);
+                setTimeout(() => setNotification(null), 300);
+              }}
+              className={`flex-shrink-0 ml-2 p-1 rounded hover:bg-black/10 transition-colors ${
+                notification.type === "success"
+                  ? "text-green-700 hover:bg-green-100"
+                  : notification.type === "error"
+                  ? "text-red-700 hover:bg-red-100"
+                  : "text-blue-700 hover:bg-blue-100"
+              }`}
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Dialog Pop-up */}
+      {confirmDialog && confirmDialog.isOpen && (
+        <div className="fixed inset-0 z-[10001] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl border-2 border-gray-200 w-full max-w-md p-6">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="flex-shrink-0 p-2 bg-yellow-100 rounded-lg">
+                <AlertCircle className="w-6 h-6 text-yellow-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-gray-900 mb-2">{confirmDialog.title}</h3>
+                <p className="text-sm text-gray-600">{confirmDialog.message}</p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  if (confirmDialog.onCancel) confirmDialog.onCancel();
+                  setConfirmDialog(null);
+                }}
+                className="text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              >
+                Hủy
+              </Button>
+              <Button
+                onClick={() => {
+                  if (confirmDialog.onConfirm) confirmDialog.onConfirm();
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                Xác nhận
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

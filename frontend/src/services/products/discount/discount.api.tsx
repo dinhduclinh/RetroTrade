@@ -16,8 +16,10 @@ export type Discount = {
   active: boolean;
   isPublic?: boolean;
   allowedUsers?: string[];
+  notes?: string;
   createdAt: string;
   updatedAt: string;
+  isClaimed?: boolean; // Thêm field để track việc user đã claim mã chưa
 };
 
 export type CreateDiscountRequest = {
@@ -82,6 +84,23 @@ export async function assignUsersToDiscount(
   id: string,
   payload: { userIds: string[]; perUserLimit?: number; effectiveFrom?: string; effectiveTo?: string }
 ) {
+  // Kiểm tra discount có phải public không trước khi gán
+  // Lấy thông tin discount trước
+  try {
+    const discountRes = await api.get(`/discounts/${id}`);
+    const discountJson: ApiSingleResponse<Discount> = await discountRes.json();
+    
+    if (discountJson.status === "success" && discountJson.data?.isPublic === true) {
+      return {
+        status: "error" as const,
+        message: "Không thể gán discount công khai với người dùng. Discount công khai có thể được sử dụng bởi tất cả người dùng.",
+      };
+    }
+  } catch (error) {
+    // Nếu không lấy được thông tin discount, tiếp tục gọi API assign (backend sẽ validate)
+    console.warn("Could not check discount status before assigning:", error);
+  }
+  
   const res = await api.post(`/discounts/${id}/assign-users`, payload);
   const json: ApiSingleResponse<Discount> = await res.json();
   return json;
@@ -89,6 +108,24 @@ export async function assignUsersToDiscount(
 
 export async function setDiscountPublic(id: string) {
   const res = await api.post(`/discounts/${id}/set-public`);
+  const json: ApiSingleResponse<Discount> = await res.json();
+  return json;
+}
+
+export type UpdateDiscountRequest = {
+  type?: "percent" | "fixed";
+  value?: number;
+  maxDiscountAmount?: number;
+  minOrderAmount?: number;
+  startAt?: string;
+  endAt?: string;
+  usageLimit?: number;
+  notes?: string;
+  isPublic?: boolean;
+};
+
+export async function updateDiscount(id: string, payload: UpdateDiscountRequest) {
+  const res = await api.put(`/discounts/${id}`, payload);
   const json: ApiSingleResponse<Discount> = await res.json();
   return json;
 }
@@ -106,6 +143,12 @@ export async function listAvailableDiscounts(page = 1, limit = 20, ownerId?: str
 export async function validateDiscount(payload: { code: string; baseAmount: number; ownerId?: string; itemId?: string }) {
   const res = await api.post(`/discounts/validate`, payload);
   const json: { status: "success" | "error"; message: string; data?: { amount: number; discount: Discount } } = await res.json();
+  return json;
+}
+
+export async function claimDiscount(discountId: string) {
+  const res = await api.post(`/discounts/claim`, { discountId });
+  const json: ApiSingleResponse<{ discount: Discount; assignment?: any; alreadyClaimed?: boolean }> = await res.json();
   return json;
 }
 

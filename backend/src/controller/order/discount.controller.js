@@ -164,6 +164,21 @@ module.exports = {
       }
       const DiscountAssignment = require("../../models/Discount/DiscountAssignment.model");
       const DiscountModel = require("../../models/Discount/Discount.model");
+      
+      // Kiểm tra discount trước khi gán
+      const discount = await DiscountModel.findById(id).lean();
+      if (!discount) {
+        return res.status(404).json({ status: "error", message: "Không tìm thấy mã giảm giá" });
+      }
+      
+      // Không cho phép gán discount công khai với người dùng
+      if (discount.isPublic === true) {
+        return res.status(400).json({ 
+          status: "error", 
+          message: "Không thể gán discount công khai với người dùng. Discount công khai có thể được sử dụng bởi tất cả người dùng." 
+        });
+      }
+      
       const updated = await DiscountModel.findByIdAndUpdate(id, { isPublic: false }, { new: true });
       if (!updated) return res.status(404).json({ status: "error", message: "Không tìm thấy mã giảm giá" });
 
@@ -195,13 +210,105 @@ module.exports = {
   setPublic: async (req, res) => {
     try {
       const { id } = req.params;
+      const DiscountAssignment = require("../../models/Discount/DiscountAssignment.model");
+      
+      // Xóa tất cả assignment cũ khi set discount thành công khai
+      // Vì discount công khai không cần assignment (tất cả người dùng đều có thể sử dụng)
+      await DiscountAssignment.deleteMany({ discountId: id });
+      
       const updated = await Discount.findByIdAndUpdate(
         id,
         { isPublic: true },
         { new: true }
       );
       if (!updated) return res.status(404).json({ status: "error", message: "Không tìm thấy mã giảm giá" });
-      return res.json({ status: "success", message: "Đã đặt mã ở chế độ công khai", data: updated });
+      return res.json({ status: "success", message: "Đã đặt mã ở chế độ công khai. Tất cả assignment cũ đã được xóa.", data: updated });
+    } catch (err) {
+      return res.status(500).json({ status: "error", message: "Cập nhật thất bại", error: err.message });
+    }
+  },
+
+  update: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const {
+        type,
+        value,
+        maxDiscountAmount = 0,
+        minOrderAmount = 0,
+        startAt,
+        endAt,
+        usageLimit = 0,
+        notes,
+        isPublic,
+      } = req.body;
+
+      const discount = await Discount.findById(id);
+      if (!discount) {
+        return res.status(404).json({ status: "error", message: "Không tìm thấy mã giảm giá" });
+      }
+
+      // Validate dữ liệu
+      if (type && !["percent", "fixed"].includes(type)) {
+        return res.status(400).json({ status: "error", message: "Loại giảm giá không hợp lệ" });
+      }
+
+      if (startAt && endAt && new Date(endAt) <= new Date(startAt)) {
+        return res.status(400).json({ status: "error", message: "Thời gian kết thúc phải sau thời gian bắt đầu" });
+      }
+
+      // Chuẩn hóa giá trị
+      const updateData = {};
+      
+      if (type !== undefined) updateData.type = type;
+      
+      if (value !== undefined) {
+        let normalizedValue = Number(value);
+        const currentType = type !== undefined ? type : discount.type;
+        if (currentType === "percent") {
+          if (!(normalizedValue >= 0 && normalizedValue <= 100)) {
+            return res.status(400).json({ status: "error", message: "Giá trị phần trăm phải từ 0 đến 100" });
+          }
+          normalizedValue = Math.max(0, Math.min(100, Number.isFinite(normalizedValue) ? normalizedValue : 0));
+        } else {
+          normalizedValue = Math.max(0, Math.floor(Number.isFinite(normalizedValue) ? normalizedValue : 0));
+          if (normalizedValue <= 0) {
+            return res.status(400).json({ status: "error", message: "Giá trị giảm cố định (VNĐ) phải lớn hơn 0" });
+          }
+        }
+        updateData.value = normalizedValue;
+      }
+
+      if (maxDiscountAmount !== undefined) {
+        const normalizedMax = Math.max(0, Math.floor(Number(maxDiscountAmount) || 0));
+        updateData.maxDiscountAmount = normalizedMax;
+      }
+
+      if (minOrderAmount !== undefined) {
+        const normalizedMinOrder = Math.max(0, Math.floor(Number(minOrderAmount) || 0));
+        updateData.minOrderAmount = normalizedMinOrder;
+      }
+
+      if (startAt !== undefined) updateData.startAt = startAt;
+      if (endAt !== undefined) updateData.endAt = endAt;
+      if (usageLimit !== undefined) updateData.usageLimit = Number(usageLimit) || 0;
+      if (notes !== undefined) updateData.notes = notes;
+      
+      // Nếu set discount thành công khai, xóa tất cả assignment cũ
+      // Vì discount công khai không cần assignment (tất cả người dùng đều có thể sử dụng)
+      if (isPublic !== undefined && isPublic === true) {
+        const DiscountAssignment = require("../../models/Discount/DiscountAssignment.model");
+        await DiscountAssignment.deleteMany({ discountId: id });
+      }
+      
+      if (isPublic !== undefined) updateData.isPublic = Boolean(isPublic);
+
+      const updated = await Discount.findByIdAndUpdate(id, updateData, { new: true });
+      if (!updated) {
+        return res.status(404).json({ status: "error", message: "Không tìm thấy mã giảm giá" });
+      }
+
+      return res.json({ status: "success", message: "Cập nhật mã giảm giá thành công", data: updated });
     } catch (err) {
       return res.status(500).json({ status: "error", message: "Cập nhật thất bại", error: err.message });
     }
@@ -223,27 +330,94 @@ module.exports = {
       if (itemId) filter.itemId = itemId;
       const skip = (Number(page) - 1) * Number(limit);
       const DiscountAssignment = require("../../models/Discount/DiscountAssignment.model");
-      const [publicRows, publicTotal, privateAssignments] = await Promise.all([
+      
+      // Lấy user assignments với filter effectiveFrom/effectiveTo
+      const userAssignmentsQuery = req.user?._id 
+        ? DiscountAssignment.find({ 
+            userId: req.user._id, 
+            active: true,
+            $and: [
+              {
+                $or: [
+                  { effectiveFrom: { $exists: false } },
+                  { effectiveFrom: null },
+                  { effectiveFrom: { $lte: now } }
+                ]
+              },
+              {
+                $or: [
+                  { effectiveTo: { $exists: false } },
+                  { effectiveTo: null },
+                  { effectiveTo: { $gte: now } }
+                ]
+              }
+            ]
+          }).select("discountId").lean()
+        : Promise.resolve([]);
+      
+      const [publicRows, publicTotal, userAssignments] = await Promise.all([
         Discount.find(filter).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)).lean(),
         Discount.countDocuments(filter),
-        DiscountAssignment.find({ userId: req.user?._id, active: true }).select("discountId").lean(),
+        userAssignmentsQuery,
       ]);
-      const assignedIds = privateAssignments.map(a => a.discountId);
-      const privateRows = assignedIds.length
+      
+      // Filter assignments properly (double check với date)
+      const validAssignments = userAssignments.filter(assignment => {
+        const from = assignment.effectiveFrom ? new Date(assignment.effectiveFrom) : null;
+        const to = assignment.effectiveTo ? new Date(assignment.effectiveTo) : null;
+        if (from && now < from) return false;
+        if (to && now > to) return false;
+        return true;
+      });
+      
+      const assignedIds = validAssignments.map(a => a.discountId);
+      const assignedIdsSet = new Set(assignedIds.map(id => String(id)));
+      const claimedIds = new Set(validAssignments.map(a => String(a.discountId)));
+      
+      // Lấy TẤT CẢ discount được assign (bất kể isPublic) - không paginate để đảm bảo user thấy tất cả discount được assign
+      const allAssignedDiscounts = assignedIds.length
         ? await Discount.find({
             _id: { $in: assignedIds },
             active: true,
             startAt: { $lte: now },
             endAt: { $gte: now },
-            isPublic: false,
-            ...(ownerId ? { ownerId } : {}),
-            ...(itemId ? { itemId } : {}),
+            // Không filter isPublic để lấy cả discount công khai được assign
+            // Không filter ownerId/itemId ở đây vì đây là discount được assign cho user
+            // User có quyền sử dụng discount đã được assign, không cần match ownerId/itemId
           })
             .sort({ createdAt: -1 })
             .lean()
         : [];
-      const rows = [...publicRows, ...privateRows];
-      const total = publicTotal + privateRows.length; // approximate
+      
+      // Phân loại assigned discounts thành public và private
+      const assignedPublicDiscounts = allAssignedDiscounts.filter(d => d.isPublic === true);
+      const assignedPrivateDiscounts = allAssignedDiscounts.filter(d => d.isPublic === false);
+      
+      // Loại bỏ các discount đã được assign khỏi publicRows để tránh duplicate
+      const assignedPublicIdsSet = new Set(assignedPublicDiscounts.map(d => String(d._id)));
+      const publicRowsFiltered = publicRows.filter(row => !assignedPublicIdsSet.has(String(row._id)));
+      
+      // Public rows: lấy discount công khai KHÔNG được assign + đánh dấu claimed cho các discount được assign
+      const publicRowsWithClaimStatus = publicRowsFiltered.map(row => ({
+        ...row,
+        isClaimed: claimedIds.has(String(row._id)),
+      }));
+      
+      // Thêm các discount công khai được assign vào public rows (với isClaimed: true)
+      const assignedPublicRowsWithClaimStatus = assignedPublicDiscounts.map(row => ({
+        ...row,
+        isClaimed: true, // Đã được assign
+      }));
+      
+      // Private rows: chỉ lấy discount riêng tư được assign
+      const privateRowsWithClaimStatus = assignedPrivateDiscounts.map(row => ({
+        ...row,
+        isClaimed: true, // Private rows đã được assign nên mặc định là claimed
+      }));
+      
+      // Kết hợp: public (không assign) + public (đã assign) + private (đã assign)
+      const rows = [...publicRowsWithClaimStatus, ...assignedPublicRowsWithClaimStatus, ...privateRowsWithClaimStatus];
+      const total = publicTotal + assignedPublicDiscounts.length + assignedPrivateDiscounts.length; // approximate
       return res.json({ status: "success", message: "Thành công", data: rows, pagination: { total, page: Number(page), limit: Number(limit), totalPages: Math.ceil(total / Number(limit)) } });
     } catch (err) {
       return res.status(500).json({ status: "error", message: "Không thể tải danh sách mã", error: err.message });
@@ -286,6 +460,75 @@ module.exports = {
     }
   },
 
+  // Claim a public discount (add to user's account)
+  claimDiscount: async (req, res) => {
+    try {
+      const { discountId } = req.body;
+      const userId = req.user?._id;
+      
+      if (!discountId) {
+        return res.status(400).json({ status: "error", message: "Thiếu mã giảm giá" });
+      }
+      
+      if (!userId) {
+        return res.status(401).json({ status: "error", message: "Chưa đăng nhập" });
+      }
+
+      const now = new Date();
+      const discount = await Discount.findOne({ 
+        _id: discountId, 
+        active: true,
+        isPublic: true, // Chỉ cho phép claim mã công khai
+        startAt: { $lte: now },
+        endAt: { $gte: now }
+      }).lean();
+
+      if (!discount) {
+        return res.status(404).json({ status: "error", message: "Mã giảm giá không tồn tại hoặc không khả dụng" });
+      }
+
+      // Kiểm tra xem user đã claim mã này chưa
+      const DiscountAssignment = require("../../models/Discount/DiscountAssignment.model");
+      const existingAssignment = await DiscountAssignment.findOne({ 
+        discountId: discount._id, 
+        userId: userId 
+      }).lean();
+
+      if (existingAssignment) {
+        return res.json({ 
+          status: "success", 
+          message: "Bạn đã lấy mã này rồi", 
+          data: { discount, assignment: existingAssignment, alreadyClaimed: true } 
+        });
+      }
+
+      // Tạo assignment cho user (claim mã)
+      const assignment = await DiscountAssignment.create({
+        discountId: discount._id,
+        userId: userId,
+        perUserLimit: discount.usageLimit > 0 ? 1 : 0, // Nếu có giới hạn tổng thì mỗi user chỉ được dùng 1 lần
+        usedCount: 0,
+        active: true,
+      });
+
+      return res.json({ 
+        status: "success", 
+        message: "Lấy mã giảm giá thành công", 
+        data: { discount, assignment } 
+      });
+    } catch (err) {
+      if (err.code === 11000) {
+        // Duplicate key error
+        return res.json({ 
+          status: "success", 
+          message: "Bạn đã lấy mã này rồi", 
+          data: { alreadyClaimed: true } 
+        });
+      }
+      return res.status(500).json({ status: "error", message: "Lỗi khi lấy mã giảm giá", error: err.message });
+    }
+  },
+
     // Internal helper used by order create
   validateAndCompute: async ({ code, baseAmount, ownerId, itemId, userId }) => {
         const now = new Date();
@@ -308,6 +551,15 @@ module.exports = {
     }
 
         const amount = clampDiscountAmount(discount.type, discount.value, baseAmount, discount.maxDiscountAmount || 0);
+        console.log("validateAndCompute result:", {
+          code: discount.code,
+          type: discount.type,
+          value: discount.value,
+          baseAmount: baseAmount,
+          maxDiscountAmount: discount.maxDiscountAmount || 0,
+          calculatedAmount: discount.type === "percent" ? (baseAmount * discount.value) / 100 : discount.value,
+          finalAmount: amount,
+        });
         return { valid: true, discount, amount };
     },
 };

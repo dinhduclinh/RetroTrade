@@ -20,6 +20,7 @@ import { AvatarUploadModal } from '@/components/ui/auth/profile/avatar-upload-mo
 import { AddressSelector } from '@/components/ui/auth/address/address-selector';
 import { AccountVerification } from '@/components/ui/auth/profile/account-verification';
 import { SignatureManagement } from '@/components/ui/auth/signature/signature-management';
+import { LoyaltyManagement } from '@/components/ui/auth/profile/loyalty-management';
 import { ownerRequestApi } from '@/services/auth/ownerRequest.api';
 import dynamic from 'next/dynamic';
 
@@ -34,7 +35,7 @@ const DiscountsPage = dynamic(() => import('@/components/ui/auth/discounts'), { 
 export default function ProfilePage() {
   const router = useRouter();
   const { accessToken } = useSelector((state: RootState) => state.auth);
-  
+
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +76,7 @@ export default function ProfilePage() {
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
-      
+
       if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
         setError('Không thể kết nối đến server');
         toast.error('Không thể kết nối đến server');
@@ -96,7 +97,7 @@ export default function ProfilePage() {
   }, [accessToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // const detailRef = React.useRef<DetailedInfoCardHandle | null>(null);
-  
+
   const handleEditClick = () => { };
 
   // Change password modal is opened via sidebar selection
@@ -137,18 +138,7 @@ export default function ProfilePage() {
       setOwnerSubmitting(false);
     }
   };
-
-  // const handleProfileUpdate = (updatedProfile: UserProfile) => {
-  //   setUserProfile(updatedProfile);
-  //   toast.success('Cập nhật thông tin người dùng thành công');
-  // };
-
-  // const handleTopUpClick = () => {
-  //   toast.info('Tính năng nạp tiền đang được phát triển');
-  // };
-
-  // Sidebar layout (Shopee-like) - MUST be before any returns to respect hook rules
-  type MenuKey = 'orders' | 'wallet' | 'discounts' | 'messages' | 'settings' | 'security' | 'addresses' | 'ownership' | 'changePassword' | 'signature';
+  type MenuKey = 'orders' | 'wallet' | 'discounts' | 'messages' | 'settings' | 'security' | 'addresses' | 'ownership' | 'changePassword' | 'signature' | 'loyalty';
   const [activeMenu, setActiveMenu] = useState<MenuKey>('settings');
   // Verification renders inline; no toggle button
 
@@ -191,7 +181,7 @@ export default function ProfilePage() {
         <div className="text-center text-gray-900">
           <h1 className="text-2xl font-bold mb-4">Chưa đăng nhập</h1>
           <p className="text-gray-600 mb-6">Vui lòng đăng nhập để xem thông tin cá nhân</p>
-          <button 
+          <button
             onClick={() => router.push('/auth/login')}
             className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all duration-300"
           >
@@ -220,7 +210,7 @@ export default function ProfilePage() {
           <div className="text-red-400 text-6xl mb-4">⚠️</div>
           <h1 className="text-2xl font-bold mb-4">Có lỗi xảy ra</h1>
           <p className="text-gray-600 mb-6">{error}</p>
-          <button 
+          <button
             onClick={fetchUserProfile}
             className="px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all duration-300"
           >
@@ -297,20 +287,20 @@ export default function ProfilePage() {
               {activeMenu === 'settings' && (
                 <div className="rounded-xl overflow-hidden">
                   <UserProfileHeader
-          userProfile={normalizedUserProfile} 
-          onEditClick={handleEditClick}
-          onAvatarEditClick={handleAvatarEditClick}
-        />
+                    userProfile={normalizedUserProfile}
+                    onEditClick={handleEditClick}
+                    onAvatarEditClick={handleAvatarEditClick}
+                  />
                 </div>
               )}
 
               {activeMenu === 'security' && (
-                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 pt-6 scroll-mt-24">
-                    <div className="mb-4 flex items-center gap-3">
-                      <h3 className="text-lg font-semibold text-gray-900">Xác minh tài khoản</h3>
-                    </div>
-                    <AccountVerification />
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 pt-6 scroll-mt-24">
+                  <div className="mb-4 flex items-center gap-3">
+                    <h3 className="text-lg font-semibold text-gray-900">Xác minh tài khoản</h3>
                   </div>
+                  <AccountVerification />
+                </div>
               )}
 
               {activeMenu === 'changePassword' && (
@@ -372,7 +362,7 @@ export default function ProfilePage() {
                   <h2 className="text-lg font-semibold text-gray-900 mb-3">Địa chỉ nhận hàng/nhận đồ</h2>
                   <p className="text-gray-600 mb-4">Quản lý địa chỉ nhận hàng/nhận đồ.</p>
                   <AddressSelector />
-            </div>
+                </div>
               )}
 
               {activeMenu === 'ownership' && (
@@ -422,21 +412,28 @@ export default function ProfilePage() {
               {activeMenu === 'signature' && (
                 <SignatureManagement
                   isOpen={true}
-                  onClose={() => {}}
+                  onClose={() => { }}
                   onSuccess={() => toast.success('Cập nhật chữ ký thành công')}
                   inline
                 />
+              )}
+
+              {activeMenu === 'loyalty' && (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">RT Points - Hệ thống điểm thưởng</h2>
+                  <LoyaltyManagement />
+                </div>
               )}
             </section>
           </div>
         </div>
       </div>
-      
+
       {/* Edit Profile Modal removed - inline editing in settings */}
 
       {/* Change Password Modal */}
       {/* Modal không dùng khi đổi inline; vẫn giữ để tái sử dụng nơi khác */}
-      <ChangePasswordModal open={false} onOpenChange={() => {}} />
+      <ChangePasswordModal open={false} onOpenChange={() => { }} />
 
       {/* Avatar Upload Modal */}
       {userProfile && (

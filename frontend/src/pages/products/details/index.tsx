@@ -4,8 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useRouter } from "next/router";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store/redux_store";
 import AddToCartButton from "@/components/ui/common/AddToCartButton";
 import { getPublicItemById, getTopViewedItemsByOwner, getProductsByCategoryId } from "@/services/products/product.api";
+import { createConversation, getConversations, Conversation } from "@/services/messages/messages.api";
 import {
   ChevronLeft,
   ChevronRight,
@@ -72,6 +75,8 @@ export default function ProductDetailPage() {
   const [dateError, setDateError] = useState<string>("");
   const [ownerTopItems, setOwnerTopItems] = useState<any[]>([]);
   const [similarItems, setSimilarItems] = useState<any[]>([]);
+  
+  const accessToken = useSelector((state: RootState) => state.auth.accessToken);
 
   useEffect(() => {
     if (!id) return;
@@ -625,11 +630,58 @@ const handleRentNow = () => {
                   </div>
                   <div className="mt-2 flex gap-2">
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         const ownerId = (product as any)?.Owner?._id || (product as any)?.Owner?.userGuid || (product as any)?.Owner?.UserGuid;
-                        if (!ownerId) return;
-                        // TODO: update to actual chat route when available
-                        toast.info("Tính năng chat đang phát triển");
+                        if (!ownerId) {
+                          toast.error("Không tìm thấy thông tin người bán");
+                          return;
+                        }
+                        
+                        if (!accessToken) {
+                          toast.error("Vui lòng đăng nhập để sử dụng tính năng chat");
+                          router.push("/auth/login");
+                          return;
+                        }
+                        
+                        try {
+                          // Load conversations first
+                          const conversationsRes = await getConversations();
+                          if (conversationsRes.ok) {
+                            const conversationsData = await conversationsRes.json();
+                            const conversations = conversationsData.data || [];
+                            
+                            // Find existing conversation with this owner
+                            const existingConversation = conversations.find((conv: Conversation) => {
+                              const userId1 = String(conv.userId1._id || conv.userId1);
+                              const userId2 = String(conv.userId2._id || conv.userId2);
+                              const ownerIdStr = String(ownerId);
+                              return userId1 === ownerIdStr || userId2 === ownerIdStr;
+                            });
+                            
+                            if (existingConversation) {
+                              // Navigate to messages page with conversation ID
+                              router.push(`/auth/messages?conversationId=${existingConversation._id}`);
+                            } else {
+                              // Create new conversation
+                              const createRes = await createConversation(ownerId);
+                              if (createRes.ok) {
+                                const createData = await createRes.json();
+                                const newConversation = createData.data || createData;
+                                // Navigate to messages page with new conversation ID
+                                router.push(`/auth/messages?conversationId=${newConversation._id}`);
+                                toast.success("Đã tạo cuộc trò chuyện mới");
+                              } else {
+                                const errorData = await createRes.json();
+                                toast.error(errorData.message || "Không thể tạo cuộc trò chuyện");
+                              }
+                            }
+                          } else {
+                            toast.error("Không thể tải danh sách cuộc trò chuyện");
+                          }
+                        } catch (error) {
+                          console.error("Error opening chat:", error);
+                          toast.error("Có lỗi xảy ra khi mở chat");
+                        }
                       }}
                       className="px-3 py-1.5 text-sm rounded-md border text-red-600 border-red-200 bg-red-50 hover:bg-red-100"
                     >

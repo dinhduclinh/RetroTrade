@@ -38,9 +38,7 @@ import {
   ShoppingBag,
   Filter,
   Eye,
-  FileText,
   User,
-  Home,
   ChevronRight,
   ChevronLeft,
 } from "lucide-react";
@@ -123,7 +121,6 @@ export default function OrderListPage({ onOpenDetail }: { onOpenDetail?: (id: st
     }
   };
 
-  const formatDate = (date: string) => format(new Date(date), "dd/MM/yyyy");
   const formatDateTime = (date: string) =>
     format(new Date(date), "dd/MM/yyyy HH:mm");
 
@@ -238,6 +235,16 @@ export default function OrderListPage({ onOpenDetail }: { onOpenDetail?: (id: st
       key: "completed",
       label: "Hoàn tất",
       count: orders.filter((o) => o.orderStatus === "completed").length,
+    },
+    {
+      key: "cancelled",
+      label: "Đã hủy",
+      count: orders.filter((o) => o.orderStatus === "cancelled").length,
+    },
+    {
+      key: "disputed",
+      label: "Tranh chấp",
+      count: orders.filter((o) => o.orderStatus === "disputed").length,
     },
   ];
 
@@ -370,44 +377,15 @@ export default function OrderListPage({ onOpenDetail }: { onOpenDetail?: (id: st
                         )}
                       </div>
 
-                      {/* Order Info */}
+                      {/* Order Details */}
                       <div className="flex-1 space-y-4">
-                        {/* Header */}
-                        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <h3 className="text-xl font-semibold text-gray-800 line-clamp-2">
-                                {order.itemSnapshot?.title || order.itemId?.Title}
-                              </h3>
-                              <span
-                                className={`px-3 py-1 rounded-full text-xs font-semibold border ${statusInfo.bgColor} ${statusInfo.color}`}
-                              >
-                                {statusInfo.label}
-                              </span>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                              <div className="flex items-center gap-2">
-                                <FileText className="w-4 h-4" />
-                                <span className="font-mono font-medium">
-                                  {order.orderGuid}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Calendar className="w-4 h-4" />
-                                <span>{formatDate(order.createdAt)}</span>
-                              </div>
-                            </div>
+                        {/* Order Status & Payment Status */}
+                        <div className="flex flex-wrap items-center gap-3">
+                          <div className={`px-3 py-1.5 rounded-lg border text-sm font-medium ${statusInfo.bgColor} ${statusInfo.color}`}>
+                            {statusInfo.label}
                           </div>
-                          <div className="text-right">
-                            <p className="text-2xl font-bold text-emerald-600">
-                              {order.totalAmount.toLocaleString("vi-VN")}{" "}
-                              {order.currency}
-                            </p>
-                            <p
-                              className={`text-sm font-medium ${paymentInfo.color}`}
-                            >
-                              {paymentInfo.label}
-                            </p>
+                          <div className={`px-3 py-1.5 rounded-lg border text-sm font-medium ${paymentInfo.color}`}>
+                            {paymentInfo.label}
                           </div>
                         </div>
 

@@ -87,6 +87,7 @@ export default function NotificationsPage() {
         case 'Order Confirmed':
         case 'Payment Received':
         case 'Product Approved':
+        case 'Loyalty':
           return <CheckCircle className={`${iconClass} text-white`} />;
         case 'Profile Updated':
         case 'Avatar Updated':
@@ -119,6 +120,8 @@ export default function NotificationsPage() {
         return <CheckCircle className={`${iconClass} text-emerald-500`} />;
       case 'Product Rejected':
         return <AlertCircle className={`${iconClass} text-red-500`} />;
+      case 'Loyalty':
+        return <CheckCircle className={`${iconClass} text-purple-500`} />;
       default:
         return <Info className={`${iconClass} text-blue-500`} />;
     }
@@ -142,6 +145,8 @@ export default function NotificationsPage() {
         return 'from-orange-500 to-amber-600';
       case 'Product Rejected':
         return 'from-red-500 to-rose-600';
+      case 'Loyalty':
+        return 'from-purple-500 to-pink-600';
       default:
         return 'from-gray-500 to-gray-600';
     }
