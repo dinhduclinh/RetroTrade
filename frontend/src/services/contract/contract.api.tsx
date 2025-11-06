@@ -13,10 +13,12 @@ export interface UpdateContractTemplateData {
   isActive?: boolean;
 }
 
+//admin quản lý mẫu
 export const createContractTemplate = async (templateData: ContractTemplateData): Promise<Response> => {
   return await instance.post("/contract/templates", templateData);
 };
 
+//2 thằng get user xem được
 export const getContractTemplates = async (): Promise<Response> => {
   return await instance.get("/contract/templates");
 };
@@ -31,4 +33,98 @@ export const updateContractTemplate = async (id: string, templateData: UpdateCon
 
 export const deleteContractTemplate = async (id: string): Promise<Response> => {
   return await instance.delete(`/contract/templates/${id}`);
+};
+
+//user
+export interface PreviewTemplateData {
+  orderId: string;
+  templateId: string;
+}
+
+export const previewTemplate = async (data: PreviewTemplateData): Promise<Response> => {
+  return await instance.post("/contract/preview", data);
+};
+
+export interface ConfirmCreateData {
+  orderId: string;
+  templateId: string;
+}
+
+export const confirmCreateContract = async (data: ConfirmCreateData): Promise<Response> => {
+  return await instance.post("/contract/confirm-create", data);
+};
+
+export interface GetOrCreateContractResponse {
+  hasContract: boolean;
+  data?: any;
+  availableTemplates?: any[];
+}
+
+export const getOrCreateContractForOrder = async (orderId: string): Promise<Response> => {
+  return await instance.get(`/contract/order/${orderId}`);
+};
+
+export const getContractById = async (contractId: string): Promise<Response> => {
+  return await instance.get(`/contract/${contractId}`);
+};
+
+export const exportContractPDF = async (contractId: string): Promise<Response> => {
+  return await instance.get(`/contract/${contractId}/export-pdf`, { responseType: 'blob' });
+};
+
+export interface SignContractData {
+  contractId: string;
+  signatureData?: string;
+  useExistingSignature?: boolean;
+  positionX?: number;
+  positionY?: number;
+}
+
+export const signContract = async (contractId: string, signData: SignContractData): Promise<Response> => {
+  const formData = new FormData();
+  if (signData.signatureData) {
+    formData.append("signatureData", signData.signatureData);
+  }
+  formData.append("useExistingSignature", signData.useExistingSignature?.toString() || "false");
+  formData.append("contractId", contractId);
+  if (signData.positionX !== undefined) formData.append("positionX", signData.positionX.toString());
+  if (signData.positionY !== undefined) formData.append("positionY", signData.positionY.toString());
+  return await instance.post(`/contract/${contractId}/sign`, formData);
+};
+
+export const getContractSignatures = async (contractId: string): Promise<Response> => {
+  return await instance.get(`/contract/${contractId}/signatures`);
+};
+
+export interface UpdatePositionData {
+  positionX: number;
+  positionY: number;
+}
+
+export const updateSignaturePosition = async (contractSignatureId: string, data: UpdatePositionData): Promise<Response> => {
+  return await instance.put(`/contract/signatures/${contractSignatureId}/position`, data);
+};
+
+export const decryptSignature = async (signatureId: string): Promise<Response> => {
+  return await instance.get(`/contract/signatures/${signatureId}/decrypt`);
+};
+
+export interface SignatureResponse {
+  signatureUrl: string;
+  decryptedData: string | null;
+  validTo: string;
+  isActive: boolean;
+}
+
+export const getUserSignature = async (): Promise<Response> => {
+  return await instance.get("/signature");
+};
+
+export const saveUserSignature = async (signatureData: string): Promise<Response> => {
+  const data = { signatureData };
+  return await instance.post("/signature", data);
+};
+
+export const deleteUserSignature = async (): Promise<Response> => {
+  return await instance.delete("/signature");
 };

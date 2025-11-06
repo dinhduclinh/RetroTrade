@@ -259,7 +259,7 @@ export function ContractTemplateForm({
                   rows={14}
                   required
                   placeholder="Nhập nội dung chi tiết của hợp đồng tại đây...&#10;&#10;Bạn có thể sử dụng các biến động như {{TEN_KHACH_HANG}}, {{DIA_CHI}}, v.v."
-                  className="border-2 border-gray-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 rounded-xl transition-all duration-200 text-base px-4 py-3 font-mono resize-none"
+                  className="border-2 border-gray-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 rounded-xl transition-all duration-200 text-base px-4 py-3 font-mono resize-none whitespace-pre-wrap"
                 />
                 <div className="absolute bottom-3 right-3 text-xs text-gray-400 bg-white px-2 py-1 rounded">
                   {formData.templateContent.length} ký tự

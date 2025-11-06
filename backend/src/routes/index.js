@@ -1,5 +1,5 @@
 const userAuthRouter = require("../routes/auth/auth.router");
-const signatureRouter = require("./auth/signature.router");
+const signatureRouter = require("./auth/signature.routes");
 
 const categoryRouter = require("./products/category.routes");
 const productRouter = require("./products/product.routes")
