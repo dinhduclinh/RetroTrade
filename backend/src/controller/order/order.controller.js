@@ -523,6 +523,14 @@ module.exports = {
       const order = await Order.findById(orderId)
         .populate("renterId", "fullName email avatarUrl userGuid")
         .populate("ownerId", "fullName email avatarUrl userGuid")
+        .populate({
+          path: "disputeId",
+          select: "status reason createdAt resolution",
+          populate: {
+            path: "handledBy",
+            select: "fullName",
+          },
+        })
         .lean();
 
       if (!order || order.isDeleted)

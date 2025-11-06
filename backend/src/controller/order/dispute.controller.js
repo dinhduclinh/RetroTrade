@@ -1,17 +1,18 @@
 const mongoose = require("mongoose");
 const Report = require("../../models/Order/Reports.model.js");
 const Order = require("../../models/Order/Order.model.js");
+const { uploadToCloudinary } = require("../../middleware/upload.middleware");
 
 const createDispute = async (req, res) => {
   try {
     const { orderId, reason, description, evidenceUrls } = req.body;
 
+    // 1. Kiểm tra ID hợp lệ
     if (!mongoose.Types.ObjectId.isValid(orderId)) {
       return res.status(400).json({ message: "ID đơn hàng không hợp lệ." });
     }
-    // console.log("orderId received:", orderId);
-    // console.log("isValid:", mongoose.Types.ObjectId.isValid(orderId));
 
+    // 2. Tìm đơn hàng
     const order = await Order.findById(orderId)
       .populate("renterId", "fullName email")
       .populate("ownerId", "fullName email");
@@ -19,13 +20,16 @@ const createDispute = async (req, res) => {
     if (!order) {
       return res.status(404).json({ message: "Không tìm thấy đơn hàng." });
     }
-    const allowedStatuses = ["pending", "confirmed"];
-    if (allowedStatuses.includes(order.orderStatus)) {
+
+    // 3. Kiểm tra trạng thái đơn hàng
+    const allowedStatuses = ["progress", "returned", "completed"]; 
+    if (!allowedStatuses.includes(order.orderStatus)) {
       return res.status(400).json({
-        message: `Không thể tạo tranh chấp khi đơn hàng là "${order.orderStatus}"`,
+        message: `Không thể tạo tranh chấp khi đơn hàng ở trạng thái "${order.orderStatus}"`,
       });
     }
 
+    // 4. Kiểm tra quyền
     const userId = req.user._id.toString();
     const renterId = order.renterId._id.toString();
     const ownerId = order.ownerId._id.toString();
@@ -38,6 +42,7 @@ const createDispute = async (req, res) => {
 
     const reportedUserId = userId === renterId ? ownerId : renterId;
 
+    // 5. Kiểm tra tranh chấp đang tồn tại
     const existing = await Report.findOne({
       orderId,
       type: "dispute",
@@ -49,22 +54,36 @@ const createDispute = async (req, res) => {
         message: "Đơn hàng này đã có tranh chấp đang được xử lý.",
       });
     }
+    //upload images
+     let evidence = [];
+     if (req.files && req.files.length > 0) {
+       const uploadedImages = await uploadToCloudinary(
+         req.files,
+         "retrotrade/disputes/"
+       );
+       evidence = uploadedImages.map((img) => img.Url);
+     }
 
+    // 6. Tạo Report
     const newReport = await Report.create({
       orderId,
       reporterId: userId,
       reportedUserId,
+      reportedItemId: order.itemId,
       reason,
       description,
-      evidenceUrls,
+      evidence,
       type: "dispute",
       status: "Pending",
     });
 
+
     order.orderStatus = "disputed";
+    order.disputeId = newReport._id; 
     await order.save();
 
     return res.status(201).json({
+      code: 201,
       message: "Tạo tranh chấp thành công.",
       data: {
         _id: newReport._id,
@@ -74,6 +93,7 @@ const createDispute = async (req, res) => {
         reason: newReport.reason,
         status: newReport.status,
         createdAt: newReport.createdAt,
+        disputeId: newReport._id,
       },
     });
   } catch (error) {
@@ -85,7 +105,8 @@ const createDispute = async (req, res) => {
   }
 };
 
-// Lấy danh sách tất cả tranh chấp
+
+
 const getAllDisputes = async (req, res) => {
   try {
     const { status, reporterId, orderId } = req.query;

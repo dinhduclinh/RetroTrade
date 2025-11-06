@@ -25,7 +25,7 @@ const uploadImages = async (req, res) => {
       });
       images.push(image);
 
-      // Xóa file tạm nếu còn tồn tại trong pho đờ upload
+      
       try {
         if (fs.existsSync(req.files[i].path)) {
           fs.unlinkSync(req.files[i].path);

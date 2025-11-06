@@ -1,7 +1,5 @@
-
 import api from "@/services/customizeAPI";
 import type { ApiResponse } from "@iService";
-
 
 export interface Dispute {
   _id: string;
@@ -16,7 +14,7 @@ export interface Dispute {
   reportedUserId: { _id: string; fullName: string; email: string };
   reason: string;
   description?: string;
-  evidenceUrls?: string[];
+  evidence?: string[];
   type: "dispute";
   status: "Pending" | "Reviewed" | "Resolved" | "Rejected";
   resolution?: {
@@ -34,7 +32,7 @@ export interface CreateDisputeRequest {
   orderId: string;
   reason: string;
   description?: string;
-  evidenceUrls?: string[];
+  evidenceFiles?: File[];
 }
 
 const parseResponse = async <T,>(
@@ -52,15 +50,35 @@ const parseResponse = async <T,>(
   };
 };
 
-// TẠO TRANH CHẤP (dùng DisputeController)
 export const createDispute = async (
   payload: CreateDisputeRequest
 ): Promise<ApiResponse<Dispute>> => {
-  const response = await api.post("/dispute", payload);
-  return await parseResponse(response);
+  const formData = new FormData();
+
+  formData.append("orderId", payload.orderId);
+  formData.append("reason", payload.reason);
+  if (payload.description?.trim()) {
+    formData.append("description", payload.description.trim());
+  }
+
+  if (payload.evidenceFiles && payload.evidenceFiles.length > 0) {
+    if (payload.evidenceFiles.length > 5) {
+      throw new Error("Chỉ được upload tối đa 5 ảnh bằng chứng.");
+    }
+
+    payload.evidenceFiles.forEach((file) => {
+      if (file.size > 10 * 1024 * 1024) {
+        throw new Error(`File "${file.name}" quá lớn. Tối đa 10MB.`);
+      }
+      formData.append("evidence", file);
+    });
+  }
+
+  const response = await api.post("/dispute", formData);
+  return await parseResponse<Dispute>(response);
 };
 
-// LẤY DANH SÁCH TRANH CHẤP (của owner hoặc admin)
+// Các hàm khác giữ nguyên
 export const getDisputes = async (params?: {
   status?: string;
   orderId?: string;
@@ -76,7 +94,6 @@ export const getDisputes = async (params?: {
   return await parseResponse(response);
 };
 
-// LẤY CHI TIẾT TRANH CHẤP
 export const getDisputeById = async (
   id: string
 ): Promise<ApiResponse<Dispute>> => {
@@ -84,7 +101,6 @@ export const getDisputeById = async (
   return await parseResponse(response);
 };
 
-// XỬ LÝ TRANH CHẤP 
 export const resolveDispute = async (
   id: string,
   payload: { decision: string; notes?: string; refundAmount?: number }

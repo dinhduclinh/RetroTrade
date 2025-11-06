@@ -532,13 +532,35 @@ export default function OrderDetail() {
                       <p className="text-xs text-gray-500">
                         {format(new Date(order.updatedAt), "dd/MM/yyyy HH:mm")}
                       </p>
-                      <button
-                        onClick={() => router.push(`/dispute/${id}`)}
-                        className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-red-600 hover:text-red-700 underline underline-offset-2 transition-colors group"
-                      >
-                        <Eye className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-                        Chi tiết tranh chấp
-                      </button>
+
+                      {/* NÚT CHỈ HIỆN KHI CÓ disputeId */}
+                      {order.disputeId ? (
+                        <button
+                          onClick={() => {
+                            const disputeId =
+                              typeof order.disputeId === "string"
+                                ? order.disputeId
+                                : order.disputeId?._id;
+
+                            if (disputeId) {
+                              router.push(`/dispute/${disputeId}`);
+                            } else {
+                              console.error(
+                                "Không tìm thấy disputeId hợp lệ:",
+                                order.disputeId
+                              );
+                            }
+                          }}
+                          className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-red-600 hover:text-red-700 underline underline-offset-2 transition-colors group"
+                        >
+                          <Eye className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                          Chi tiết tranh chấp
+                        </button>
+                      ) : (
+                        <p className="text-xs text-gray-400 mt-3">
+                          Đang tải thông tin tranh chấp...
+                        </p>
+                      )}
                     </div>
                   </div>
                 ) : (

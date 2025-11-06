@@ -69,6 +69,7 @@ export interface Order {
   paymentStatus: string;
   orderStatus: string;
   isContractSigned: boolean;
+  disputeId?: string | { _id: string };
   isDeleted: boolean;
   createdAt: string;
   updatedAt: string;

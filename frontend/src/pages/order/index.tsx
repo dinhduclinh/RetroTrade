@@ -43,8 +43,11 @@ import {
   Home,
   ChevronRight,
   ChevronLeft,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+import DisputeModal from "@/components/ui/owner/add-dispute-form";
+import { createDispute } from "@/services/moderator/disputeOrder.api";
 
 interface DecodedToken {
   id?: string;
@@ -62,8 +65,10 @@ export default function OrderListPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10; // Hiển thị 10 đơn hàng mỗi trang
 
+  const [openDisputeModal, setOpenDisputeModal] = useState(false);
+  const [selectedDisputeOrder, setSelectedDisputeOrder] =useState<Order | null>(null);
   const accessToken = useSelector((state: RootState) => state.auth.accessToken);
-
+ 
   // Decode token
   let userRole: string | undefined;
   let userId: string | undefined;
@@ -322,7 +327,9 @@ export default function OrderListPage() {
         <div className="mb-8 bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
           <div className="flex items-center gap-2 mb-4">
             <Filter className="w-5 h-5 text-gray-600" />
-            <span className="font-semibold text-gray-700">Lọc theo trạng thái:</span>
+            <span className="font-semibold text-gray-700">
+              Lọc theo trạng thái:
+            </span>
           </div>
           <div className="flex flex-wrap gap-3">
             {statusTabs.map((tab) => (
@@ -367,7 +374,10 @@ export default function OrderListPage() {
               <EmptyDescription className="text-gray-600">
                 {selectedStatus === "all"
                   ? "Bạn chưa có đơn hàng nào. Hãy khám phá các sản phẩm để thuê ngay!"
-                  : `Không có đơn hàng nào ở trạng thái "${statusTabs.find((t) => t.key === selectedStatus)?.label || ""}"`}
+                  : `Không có đơn hàng nào ở trạng thái "${
+                      statusTabs.find((t) => t.key === selectedStatus)?.label ||
+                      ""
+                    }"`}
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
@@ -383,192 +393,213 @@ export default function OrderListPage() {
           <div className="space-y-6">
             <div className="grid gap-6">
               {currentOrders.map((order) => {
-              const statusInfo =
-                statusConfig[order.orderStatus] || statusConfig.pending;
-              const paymentInfo =
-                paymentStatusConfig[order.paymentStatus] ||
-                paymentStatusConfig.pending;
-              const isRenter =
-                userRole === "renter" ||
-                order.renterId?._id?.toString() === userId?.toString();
-              const canReturn =
-                isRenter &&
-                order.orderStatus === "progress" &&
-                order.renterId?._id?.toString() === userId?.toString();
-
-  return (
-                <div
-            key={order._id}
-                  className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-300"
-                >
-                  <div className="flex flex-col md:flex-row gap-6">
-                    {/* Product Image */}
-                    <div className="bg-gray-200 border-2 border-dashed rounded-xl w-full md:w-32 h-32 flex-shrink-0 overflow-hidden">
-                      {order.itemSnapshot?.images?.[0] ||
-                      order.itemId?.Images?.[0] ? (
-              <img
-                src={
-                            order.itemSnapshot?.images?.[0] ||
-                            order.itemId?.Images?.[0]
-                          }
-                          alt={
-                            order.itemSnapshot?.title || order.itemId?.Title
-                          }
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400">
-                          <Package className="w-14 h-14" />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Order Info */}
-                    <div className="flex-1 space-y-4">
-                      {/* Header */}
-                      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-              <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h3 className="text-xl font-semibold text-gray-800 line-clamp-2">
-                  {order.itemSnapshot?.title || order.itemId?.Title}
-                            </h3>
-                            <span
-                              className={`px-3 py-1 rounded-full text-xs font-semibold border ${statusInfo.bgColor} ${statusInfo.color}`}
-                            >
-                              {statusInfo.label}
-                            </span>
+                const statusInfo =
+                  statusConfig[order.orderStatus] || statusConfig.pending;
+                const paymentInfo =
+                  paymentStatusConfig[order.paymentStatus] ||
+                  paymentStatusConfig.pending;
+                const isRenter =
+                  userRole === "renter" ||
+                  order.renterId?._id?.toString() === userId?.toString();
+               const canReturn =
+                 isRenter &&
+                 order.orderStatus === "progress" &&
+                 !["disputed", "returned", "completed"].includes(
+                   order.orderStatus
+                 ) &&
+                 order.renterId?._id?.toString() === userId?.toString();
+                const canDispute =
+                  isRenter &&
+                  ["progress", ].includes(order.orderStatus) &&
+                  order.orderStatus !== "disputed" &&
+                  order.renterId?._id?.toString() === userId?.toString();
+                return (
+                  <div
+                    key={order._id}
+                    className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-300"
+                  >
+                    <div className="flex flex-col md:flex-row gap-6">
+                      <div className="bg-gray-200 border-2 border-dashed rounded-xl w-full md:w-32 h-32 flex-shrink-0 overflow-hidden">
+                        {order.itemSnapshot?.images?.[0] ||
+                        order.itemId?.Images?.[0] ? (
+                          <img
+                            src={
+                              order.itemSnapshot?.images?.[0] ||
+                              order.itemId?.Images?.[0]
+                            }
+                            alt={
+                              order.itemSnapshot?.title || order.itemId?.Title
+                            }
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400">
+                            <Package className="w-14 h-14" />
                           </div>
-                          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                            <div className="flex items-center gap-2">
-                              <FileText className="w-4 h-4" />
-                              <span className="font-mono font-medium">
-                                {order.orderGuid}
-                  </span>
-                </div>
-                            <div className="flex items-center gap-2">
-                              <Calendar className="w-4 h-4" />
-                              <span>{formatDate(order.createdAt)}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-2xl font-bold text-emerald-600">
-                            {order.totalAmount.toLocaleString("vi-VN")}{" "}
-                            {order.currency}
-                          </p>
-                          <p
-                            className={`text-sm font-medium ${paymentInfo.color}`}
-                          >
-                            {paymentInfo.label}
-                          </p>
-                </div>
-              </div>
-
-                      {/* Rental Period & Details */}
-                      <div className="grid md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-gray-700">
-                            <Calendar className="w-5 h-5 text-emerald-600" />
-                            <span className="font-medium">Thời gian thuê:</span>
-                          </div>
-                          <div className="text-sm text-gray-600 ml-7">
-                            {formatDateTime(order.startAt)} →{" "}
-                            {formatDateTime(order.endAt)}
-                          </div>
-                          {order.rentalDuration && (
-                            <div className="text-xs text-gray-500 ml-7">
-                              Thời lượng: {order.rentalDuration}{" "}
-                              {order.rentalUnit || "ngày"}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-gray-700">
-                            <Package className="w-5 h-5 text-blue-600" />
-                            <span className="font-medium">Số lượng:</span>
-                          </div>
-                          <div className="text-sm text-gray-600 ml-7">
-                            {order.unitCount} cái
-                          </div>
-                          {order.depositAmount && (
-                            <div className="text-xs text-gray-500 ml-7">
-                              Cọc: {order.depositAmount.toLocaleString("vi-VN")}{" "}
-                              {order.currency}
-                            </div>
-                          )}
-                        </div>
-              </div>
-
-                      {/* User Info */}
-                      <div className="grid md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
-                        <div className="flex items-start gap-3">
-                          <div className="p-2 bg-blue-100 rounded-lg">
-                            <User className="w-5 h-5 text-blue-600" />
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500 mb-1">
-                              {isRenter ? "Người cho thuê" : "Người thuê"}
-                            </p>
-                            <p className="text-sm font-medium text-gray-800">
-                              {isRenter
-                                ? order.ownerId?.fullName || "N/A"
-                                : order.renterId?.fullName || "N/A"}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {isRenter
-                                ? order.ownerId?.email
-                                : order.renterId?.email}
-                            </p>
-                          </div>
-                        </div>
+                        )}
                       </div>
 
-                      {/* Actions */}
-                      <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-gray-200">
-                        <div className="flex gap-3">
-                          <Link href={`/order/${order._id}`}>
-                            <Button
-                              variant="outline"
-                              className="border-emerald-600 text-emerald-600 hover:bg-emerald-50"
+                      <div className="flex-1 space-y-4">
+                        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h3 className="text-xl font-semibold text-gray-800 line-clamp-2">
+                                {order.itemSnapshot?.title ||
+                                  order.itemId?.Title}
+                              </h3>
+                              <span
+                                className={`px-3 py-1 rounded-full text-xs font-semibold border ${statusInfo.bgColor} ${statusInfo.color}`}
+                              >
+                                {statusInfo.label}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                              <div className="flex items-center gap-2">
+                                <FileText className="w-4 h-4" />
+                                <span className="font-mono font-medium">
+                                  {order.orderGuid}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Calendar className="w-4 h-4" />
+                                <span>{formatDate(order.createdAt)}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-2xl font-bold text-emerald-600">
+                              {order.totalAmount.toLocaleString("vi-VN")}{" "}
+                              {order.currency}
+                            </p>
+                            <p
+                              className={`text-sm font-medium ${paymentInfo.color}`}
                             >
-                              <Eye className="w-4 h-4 mr-2" />
-                              Xem chi tiết
-                            </Button>
-                          </Link>
-                          {canReturn && (
-                  <Button
-                              className="bg-teal-600 hover:bg-teal-700 text-white"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedOrder(order);
-                      setOpenConfirm(true);
-                    }}
-                    disabled={processing === order._id}
-                  >
-                              {processing === order._id ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                  Đang xử lý...
-                                </>
-                              ) : (
-                                <>
-                                  <CheckCircle className="w-4 h-4 mr-2" />
-                                  Trả hàng
-                                </>
-                              )}
-                  </Button>
-                )}
+                              {paymentInfo.label}
+                            </p>
+                          </div>
                         </div>
-                        <div className="text-xs text-gray-500">
-                          Cập nhật: {formatDateTime(order.updatedAt)}
+
+                        <div className="grid md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-gray-700">
+                              <Calendar className="w-5 h-5 text-emerald-600" />
+                              <span className="font-medium">
+                                Thời gian thuê:
+                              </span>
+                            </div>
+                            <div className="text-sm text-gray-600 ml-7">
+                              {formatDateTime(order.startAt)} →{" "}
+                              {formatDateTime(order.endAt)}
+                            </div>
+                            {order.rentalDuration && (
+                              <div className="text-xs text-gray-500 ml-7">
+                                Thời lượng: {order.rentalDuration}{" "}
+                                {order.rentalUnit || "ngày"}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-gray-700">
+                              <Package className="w-5 h-5 text-blue-600" />
+                              <span className="font-medium">Số lượng:</span>
+                            </div>
+                            <div className="text-sm text-gray-600 ml-7">
+                              {order.unitCount} cái
+                            </div>
+                            {order.depositAmount && (
+                              <div className="text-xs text-gray-500 ml-7">
+                                Cọc:{" "}
+                                {order.depositAmount.toLocaleString("vi-VN")}{" "}
+                                {order.currency}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+                          <div className="flex items-start gap-3">
+                            <div className="p-2 bg-blue-100 rounded-lg">
+                              <User className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">
+                                {isRenter ? "Người cho thuê" : "Người thuê"}
+                              </p>
+                              <p className="text-sm font-medium text-gray-800">
+                                {isRenter
+                                  ? order.ownerId?.fullName || "N/A"
+                                  : order.renterId?.fullName || "N/A"}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {isRenter
+                                  ? order.ownerId?.email
+                                  : order.renterId?.email}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-gray-200">
+                          <div className="flex gap-3">
+                            <Link href={`/order/${order._id}`}>
+                              <Button
+                                variant="outline"
+                                className="border-emerald-600 text-emerald-600 hover:bg-emerald-50"
+                              >
+                                <Eye className="w-4 h-4 mr-2" />
+                                Xem chi tiết
+                              </Button>
+                            </Link>
+                            {canReturn && (
+                              <Button
+                                className="bg-teal-600 hover:bg-teal-700 text-white"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedOrder(order);
+                                  setOpenConfirm(true);
+                                }}
+                                disabled={processing === order._id}
+                              >
+                                {processing === order._id ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    Đang xử lý...
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle className="w-4 h-4 mr-2" />
+                                    Trả hàng
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                            {canDispute && (
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                className="bg-red-600 hover:bg-red-700 text-white"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedDisputeOrder(order);
+                                  setOpenDisputeModal(true);
+                                }}
+                                disabled={processing === order._id}
+                              >
+                                <AlertCircle className="w-4 h-4 mr-2" />
+                                Tranh chấp
+                              </Button>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Cập nhật: {formatDateTime(order.updatedAt)}
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
             </div>
 
             {/* Pagination */}
@@ -586,7 +617,7 @@ export default function OrderListPage() {
                     startIndex: paginationState.startIndex,
                     endIndex: paginationState.endIndex,
                   })}
-      </div>
+                </div>
 
                 {/* Pagination Controls */}
                 <div className="flex items-center justify-center gap-2 flex-wrap">
@@ -595,7 +626,9 @@ export default function OrderListPage() {
                     size="sm"
                     variant="outline"
                     className="text-gray-600 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300"
-                    onClick={() => handlePageChange(paginationState.currentPage - 1)}
+                    onClick={() =>
+                      handlePageChange(paginationState.currentPage - 1)
+                    }
                     disabled={!paginationState.hasPrevPage}
                   >
                     <ChevronLeft className="w-4 h-4 mr-1" />
@@ -603,11 +636,19 @@ export default function OrderListPage() {
                   </Button>
 
                   {/* Page Numbers */}
-                  {generatePageNumbers(paginationState.currentPage, paginationState.totalPages, 5).map((pageNum) => (
+                  {generatePageNumbers(
+                    paginationState.currentPage,
+                    paginationState.totalPages,
+                    5
+                  ).map((pageNum) => (
                     <Button
                       key={pageNum}
                       size="sm"
-                      variant={pageNum === paginationState.currentPage ? "default" : "outline"}
+                      variant={
+                        pageNum === paginationState.currentPage
+                          ? "default"
+                          : "outline"
+                      }
                       className={
                         pageNum === paginationState.currentPage
                           ? "bg-emerald-600 text-white hover:bg-emerald-700 border-emerald-600"
@@ -624,7 +665,9 @@ export default function OrderListPage() {
                     size="sm"
                     variant="outline"
                     className="text-gray-600 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300"
-                    onClick={() => handlePageChange(paginationState.currentPage + 1)}
+                    onClick={() =>
+                      handlePageChange(paginationState.currentPage + 1)
+                    }
                     disabled={!paginationState.hasNextPage}
                   >
                     Sau
@@ -637,17 +680,18 @@ export default function OrderListPage() {
         )}
 
         {/* Confirm Return Dialog */}
-      <Dialog open={openConfirm} onOpenChange={setOpenConfirm}>
+        <Dialog open={openConfirm} onOpenChange={setOpenConfirm}>
           <DialogContent className="max-w-md">
-          <DialogHeader>
+            <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <CheckCircle className="w-5 h-5 text-teal-600" />
                 Xác nhận trả hàng
               </DialogTitle>
-          </DialogHeader>
+            </DialogHeader>
             <div className="space-y-4">
               <p className="text-gray-700">
-                Bạn có chắc chắn muốn xác nhận đã trả hàng cho đơn hàng này không?
+                Bạn có chắc chắn muốn xác nhận đã trả hàng cho đơn hàng này
+                không?
               </p>
               {selectedOrder && (
                 <div className="bg-gray-50 rounded-lg p-4 space-y-2">
@@ -667,8 +711,8 @@ export default function OrderListPage() {
                 onClick={() => setOpenConfirm(false)}
                 disabled={!!processing}
               >
-              Hủy
-            </Button>
+                Hủy
+              </Button>
               <Button
                 className="bg-teal-600 hover:bg-teal-700 text-white"
                 onClick={handleConfirmReturn}
@@ -685,10 +729,43 @@ export default function OrderListPage() {
                     Xác nhận
                   </>
                 )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        {/* Modal Tranh chấp */}
+        <DisputeModal
+          open={openDisputeModal}
+          onOpenChange={setOpenDisputeModal}
+          orderId={selectedDisputeOrder?._id || null}
+          onSubmit={async ({ reason, description, evidenceUrls }) => {
+            if (!selectedDisputeOrder) return;
+
+            try {
+              const res = await createDispute({
+                orderId: selectedDisputeOrder._id,
+                reason,
+                description,
+                evidenceUrls,
+              });
+
+              if (res.code === 201) {
+                toast.success("Đã gửi yêu cầu tranh chấp thành công!");
+                setOrders((prev) =>
+                  prev.map((o) =>
+                    o._id === selectedDisputeOrder._id
+                      ? { ...o, orderStatus: "disputed" }
+                      : o
+                  )
+                );
+              } else {
+                toast.error(res.message || "Gửi tranh chấp thất bại.");
+              }
+            } catch (err) {
+              toast.error("Lỗi hệ thống khi gửi tranh chấp.");
+            }
+          }}
+        />
       </div>
     </div>
   );
