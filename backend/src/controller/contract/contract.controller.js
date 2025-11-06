@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const { Types } = mongoose;
-const path = require("path"); // Thêm import path
+const path = require("path");
 const Contracts = require("../../models/Order/Contracts.model");
 const OrderModel = require("../../models/Order/Order.model");
 const ContractTemplate = require("../../models/ContractTemplate.model");
