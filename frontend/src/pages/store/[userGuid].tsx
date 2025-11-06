@@ -77,7 +77,6 @@ export default function OwnerStorePage() {
   // Build query params
   const buildQueryParams = useCallback(() => {
     const params: any = {
-      page: currentPage,
       limit: LIMIT,
     };
     if (searchQuery) params.q = searchQuery;
@@ -86,7 +85,33 @@ export default function OwnerStorePage() {
     if (filters.category) params.category = filters.category;
     if (filters.sortBy) params.sortBy = filters.sortBy;
     return params;
-  }, [currentPage, searchQuery, filters]);
+  }, [searchQuery, filters]);
+
+  // Update URL with current query params
+  const updateUrl = useCallback((page: number) => {
+    const query: any = { ...router.query };
+    if (page > 1) {
+      query.page = page.toString();
+    } else {
+      delete query.page;
+    }
+    router.replace(
+      {
+        pathname: router.pathname,
+        query: { ...query, ...buildQueryParams() },
+      },
+      undefined,
+      { shallow: true }
+    );
+  }, [router, buildQueryParams]);
+
+  // Read page from URL on initial load
+  useEffect(() => {
+    if (router.isReady) {
+      const page = parseInt(router.query.page as string) || 1;
+      setCurrentPage(page);
+    }
+  }, [router.isReady, router.query.page]);
 
   // Fetch store data
   const fetchStoreData = useCallback(async () => {
@@ -94,6 +119,20 @@ export default function OwnerStorePage() {
       setError("Không có userGuid");
       setLoading(false);
       return;
+    }
+    
+    // Update URL with current page
+    if (currentPage > 1) {
+      updateUrl(currentPage);
+    } else {
+      const { page, ...query } = router.query;
+      if (page) {
+        router.replace(
+          { pathname: router.pathname, query },
+          undefined,
+          { shallow: true }
+        );
+      }
     }
     try {
       setLoading(true);
@@ -112,10 +151,11 @@ export default function OwnerStorePage() {
     }
   }, [userGuid, buildQueryParams]);
 
-  // Handle page change with smooth scroll
+  // Handle page change with smooth scroll and URL update
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
       setCurrentPage(newPage);
+      updateUrl(newPage);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
@@ -126,7 +166,7 @@ export default function OwnerStorePage() {
       ...prev,
       [key]: value
     }));
-    setCurrentPage(1); // Reset to first page when filters change
+    setCurrentPage(1);
   };
 
   // Reset all filters
@@ -143,12 +183,14 @@ export default function OwnerStorePage() {
 
   // Initial load and when filters change
   useEffect(() => {
+    if (!router.isReady) return;
+    
     const timer = setTimeout(() => {
       fetchStoreData();
     }, 300); // Debounce search
 
     return () => clearTimeout(timer);
-  }, [fetchStoreData]);
+  }, [fetchStoreData, router.isReady]);
 
   const ownerInfo = useMemo(() => owner, [owner]);
 
@@ -371,8 +413,8 @@ export default function OwnerStorePage() {
         {/* Product grid */}
         <div className="bg-white rounded-3xl p-6 shadow-lg mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2 sm:mb-0">Sản phẩm đang bán</h2>
-            <div className="text-sm text-gray-500">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2 sm:mb-0">Sản phẩm đang cho thuê</h2>
+            {/* <div className="text-sm text-gray-500">
               {loading ? (
                 <div className="flex items-center">
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -383,7 +425,7 @@ export default function OwnerStorePage() {
               ) : (
                 <span>Không có sản phẩm nào</span>
               )}
-            </div>
+            </div> */}
           </div>
 
           {items.length === 0 ? (
