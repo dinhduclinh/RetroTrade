@@ -138,14 +138,18 @@ export const getConversations = async (): Promise<GetConversationsResponse> => {
       },
     };
   } catch (error) {
-    console.error("Error fetching conversations:", error);
+    // Handle network/CORS errors gracefully
+    const errorMessage = error instanceof Error ? error.message : "Failed to fetch conversations";
+    console.warn("Error fetching conversations (this may be normal if backend is not running):", errorMessage);
+    
+    // Return a valid response object instead of throwing
     return {
       ok: false,
       json: async () => ({ 
         code: 500, 
         success: false, 
         data: [], 
-        message: error instanceof Error ? error.message : "Failed to fetch conversations" 
+        message: "Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng." 
       }),
     };
   }

@@ -300,14 +300,7 @@ export function Header() {
                     <User className="mr-2 h-4 w-4" />
                     <span>Thông tin cá nhân</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    className="cursor-pointer"
-                    onClick={handleGoToOrders}
-                  >
-                    <Package className="mr-2 h-4 w-4" />
-                    <span>Đơn hàng của tôi</span>
-                  </DropdownMenuItem>
-
+                  
                   <DropdownMenuItem
                     className="cursor-pointer"
                     onClick={handleGoToMyfavirite}

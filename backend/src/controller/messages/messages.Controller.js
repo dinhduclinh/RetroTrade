@@ -1,5 +1,5 @@
-const ConversationModel = require("../../models/Conversation.model");
-const MessagesModel = require("../../models/Messages.model");
+const ConversationModel = require("../../models/Chat/Conversation.model");
+const MessagesModel = require("../../models/Chat/Messages.model");
 const { uploadToCloudinaryChat } = require("../../middleware/chatMedia.upload.middleware");
 const { emitNewMessage } = require("../../utils/emitMessage");
 

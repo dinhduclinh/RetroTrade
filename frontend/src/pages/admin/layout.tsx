@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
 import { jwtDecode } from "jwt-decode";
 import { toast } from "sonner";
-import { Crown, Users, BarChart3, Settings, Home, Wallet, Percent,Contact, History } from "lucide-react";
+import { Crown, Users, BarChart3, Settings, Home, Wallet, Percent,Contact, Tag } from "lucide-react";
 import { AdminHeader } from "@/components/ui/admin/admin-header";
 import { RootState } from "@/store/redux_store";
 import { logout } from "@/store/auth/authReducer";
@@ -89,6 +89,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { icon: Wallet, label: "Quản lý ví", key: "wallet", href: "/admin/wallet" },
     { icon: Contact, label: "Quản lý hợp đồng", key: "contract", href: "/admin/contract" },
     { icon: Percent, label: "Quản lý Thuế", key: "tax", href: "/admin/tax-management" },
+    { icon: Tag, label: "Mã giảm giá", key: "discounts", href: "/admin/discount-management" },
     { icon: BarChart3, label: "Lịch sử thay đổi", key: "audit", href: "/admin/audit-logs" },
     { icon: Settings, label: "Cài đặt", key: "settings", href: "/admin/settings" },
   ];

@@ -1,4 +1,4 @@
-// utils/calculateRental.js
+
 function getTimeUnitInDays(unitId) {
   const units = { 1: 1 / 24, 2: 1, 3: 7, 4: 30 };
   return units[unitId] ?? 1;
@@ -42,11 +42,15 @@ module.exports.calculateTotals = async function (
       throw new Error("Invalid input");
     }
 
+    // Lấy tax rate từ database
+    const Tax = require("../../models/Tax.model");
+    const taxRate = await Tax.getCurrentTaxRate();
+
     const duration = calculateDurationInUnit(startAt, endAt, priceUnitId);
     if (duration <= 0) throw new Error("Invalid date range");
 
     const rentalAmount = basePrice * duration * quantity;
-    const serviceFee = rentalAmount * 0.1;
+    const serviceFee = rentalAmount * (taxRate / 100);
     const depositAmount = depositPerUnit * quantity;
     const totalAmount = rentalAmount + serviceFee + depositAmount;
 
@@ -56,6 +60,8 @@ module.exports.calculateTotals = async function (
       duration,
       rentalAmount,
       totalAmount,
+      taxRate,
+      serviceFee,
       unitName,
     });
 

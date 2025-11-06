@@ -71,6 +71,26 @@ module.exports.login = async (req, res) => {
             { new: true }
         );
 
+        // Cộng RT Points cho đăng nhập hàng ngày (không block nếu lỗi) + tạo thông báo
+        try {
+            const loyaltyController = require("../loyalty/loyalty.controller");
+            const { createNotification } = require("../../middleware/createNotification");
+            const result = await loyaltyController.addDailyLoginPoints(user._id);
+            if (result && result.success && result.transaction) {
+                // Notify user about awarded points
+                await createNotification(
+                    user._id,
+                    "Loyalty",
+                    "Nhận RT Points thành công",
+                    `Bạn đã nhận ${result.transaction.points} RT Points cho đăng nhập hôm nay.`,
+                    { points: result.transaction.points, reason: "daily_login" }
+                );
+            }
+        } catch (loyaltyError) {
+            console.error("Error adding daily login points:", loyaltyError);
+            // Không block login nếu lỗi loyalty points
+        }
+
         return res.json({
             code: 200,
             message: "Đăng nhập thành công",

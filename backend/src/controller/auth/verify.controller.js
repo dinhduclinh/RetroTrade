@@ -1066,17 +1066,21 @@ module.exports.verifyFaceImages = async (req, res) => {
         }
 
         // Adaptive threshold based on image quality and face size
-        // Lower threshold for ID card images due to smaller face size
-        let threshold = 0.6;
-        
+        // Allow configuration via environment variables for easier tuning in different environments
+        const baseThresholdEnv = parseFloat(process.env.FACE_MATCH_BASE_THRESHOLD || "0.6");
+        const lowConfidenceThresholdEnv = parseFloat(process.env.FACE_MATCH_LOW_CONF_THRESHOLD || "0.7");
+        const smallFaceThresholdEnv = parseFloat(process.env.FACE_MATCH_SMALL_FACE_THRESHOLD || "0.78");
+
+        let threshold = isNaN(baseThresholdEnv) ? 0.6 : baseThresholdEnv;
+
         // Adjust threshold based on face detection confidence
         if (bestMatch.userFace.detection.score < 0.5 || bestMatch.idCardFace.detection.score < 0.5) {
-            threshold = 0.7; // More lenient for lower quality detections
+            threshold = isNaN(lowConfidenceThresholdEnv) ? Math.max(threshold, 0.7) : Math.max(threshold, lowConfidenceThresholdEnv);
         }
-        
+
         // Additional adjustment for ID card faces (usually smaller)
         if (bestMatch.idCardFace.detection.box.width < 50 || bestMatch.idCardFace.detection.box.height < 50) {
-            threshold = 0.75; // Even more lenient for very small faces
+            threshold = isNaN(smallFaceThresholdEnv) ? Math.max(threshold, 0.78) : Math.max(threshold, smallFaceThresholdEnv);
         }
 
         const isMatch = bestDistance < threshold;
@@ -1194,6 +1198,22 @@ module.exports.verifyFaceImages = async (req, res) => {
                 }
             }
         };
+
+        // Optional verbose debug (do not expose in production unless explicitly enabled)
+        const debugEnabled = (process.env.FACE_DEBUG === 'true') || req.query?.debug === '1';
+        if (debugEnabled) {
+            responseData.debug = {
+                notes: 'Debug information for tuning thresholds',
+                thresholds: {
+                    base: isNaN(baseThresholdEnv) ? 0.6 : baseThresholdEnv,
+                    lowConfidence: isNaN(lowConfidenceThresholdEnv) ? 0.7 : lowConfidenceThresholdEnv,
+                    smallFace: isNaN(smallFaceThresholdEnv) ? 0.78 : smallFaceThresholdEnv
+                },
+                userFaceDetectionScore: bestMatch.userFace.detection.score,
+                idCardFaceDetectionScore: bestMatch.idCardFace.detection.score,
+                idCardFaceBox: bestMatch.idCardFace.detection.box
+            };
+        }
 
         // Only include upload and user info if verification was successful
         if (isMatch && updatedUser) {

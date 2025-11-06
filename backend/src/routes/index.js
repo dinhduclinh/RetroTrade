@@ -5,7 +5,6 @@ const categoryRouter = require("./products/category.routes");
 const productRouter = require("./products/product.routes")
 const conditionsRouter = require("./products/conditions.routes");
 const priceUnitsRouter = require("./products/priceUnits.routes");
-
 const uploadproductRouter = require("./products/upload/upload.routes");
 
 const userRouter = require("./user/user.router")
@@ -18,11 +17,14 @@ const notificationRouter = require("./community/notification.routes");
 const ownerRequestUserRouter = require("./user/ownerRequest/ownerRequest.user.router");
 const ownerRequestModeratorRouter = require("./user/ownerRequest/ownerRequest.moderator.routes");
 const orderRouter = require("./order/order.routes");
-
 const contractRouter = require("./contract/contract.routes");
-
+const discountRouter = require("./order/discount.routes");
+const disputeRouter = require("./order/dispute.routes");
 const taxRouter = require("./tax/tax.routes");
 const auditRouter = require("./audit/audit.routes");
+const loyaltyRouter = require("./loyalty/loyalty.routes");
+
+
 module.exports = (app) => {
     const api = "/api/v1";
     app.use(api + "/auth", userAuthRouter);
@@ -44,6 +46,9 @@ module.exports = (app) => {
     app.use(api + "/owner-requests-user", ownerRequestUserRouter);
     app.use(api + "/owner-requests-moderator", ownerRequestModeratorRouter);
     app.use(api + "/order", orderRouter);
+    app.use(api + "/discounts", discountRouter);
+    app.use(api + "/dispute", disputeRouter);
     app.use(api + "/tax", taxRouter);
     app.use(api + "/audit", auditRouter);
+    app.use(api + "/loyalty", loyaltyRouter);
 }
