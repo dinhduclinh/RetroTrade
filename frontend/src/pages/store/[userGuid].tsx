@@ -77,7 +77,6 @@ export default function OwnerStorePage() {
   // Build query params
   const buildQueryParams = useCallback(() => {
     const params: any = {
-      page: currentPage,
       limit: LIMIT,
     };
     if (searchQuery) params.q = searchQuery;
@@ -86,7 +85,33 @@ export default function OwnerStorePage() {
     if (filters.category) params.category = filters.category;
     if (filters.sortBy) params.sortBy = filters.sortBy;
     return params;
-  }, [currentPage, searchQuery, filters]);
+  }, [searchQuery, filters]);
+
+  // Update URL with current query params
+  const updateUrl = useCallback((page: number) => {
+    const query: any = { ...router.query };
+    if (page > 1) {
+      query.page = page.toString();
+    } else {
+      delete query.page;
+    }
+    router.replace(
+      {
+        pathname: router.pathname,
+        query: { ...query, ...buildQueryParams() },
+      },
+      undefined,
+      { shallow: true }
+    );
+  }, [router, buildQueryParams]);
+
+  // Read page from URL on initial load
+  useEffect(() => {
+    if (router.isReady) {
+      const page = parseInt(router.query.page as string) || 1;
+      setCurrentPage(page);
+    }
+  }, [router.isReady, router.query.page]);
 
   // Fetch store data
   const fetchStoreData = useCallback(async () => {
@@ -94,6 +119,20 @@ export default function OwnerStorePage() {
       setError("Không có userGuid");
       setLoading(false);
       return;
+    }
+    
+    // Update URL with current page
+    if (currentPage > 1) {
+      updateUrl(currentPage);
+    } else {
+      const { page, ...query } = router.query;
+      if (page) {
+        router.replace(
+          { pathname: router.pathname, query },
+          undefined,
+          { shallow: true }
+        );
+      }
     }
     try {
       setLoading(true);
@@ -112,10 +151,11 @@ export default function OwnerStorePage() {
     }
   }, [userGuid, buildQueryParams]);
 
-  // Handle page change with smooth scroll
+  // Handle page change with smooth scroll and URL update
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
       setCurrentPage(newPage);
+      updateUrl(newPage);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
@@ -126,7 +166,7 @@ export default function OwnerStorePage() {
       ...prev,
       [key]: value
     }));
-    setCurrentPage(1); // Reset to first page when filters change
+    setCurrentPage(1);
   };
 
   // Reset all filters
@@ -143,12 +183,14 @@ export default function OwnerStorePage() {
 
   // Initial load and when filters change
   useEffect(() => {
+    if (!router.isReady) return;
+    
     const timer = setTimeout(() => {
       fetchStoreData();
     }, 300); // Debounce search
 
     return () => clearTimeout(timer);
-  }, [fetchStoreData]);
+  }, [fetchStoreData, router.isReady]);
 
   const ownerInfo = useMemo(() => owner, [owner]);
 
@@ -371,8 +413,8 @@ export default function OwnerStorePage() {
         {/* Product grid */}
         <div className="bg-white rounded-3xl p-6 shadow-lg mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2 sm:mb-0">Sản phẩm đang bán</h2>
-            <div className="text-sm text-gray-500">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2 sm:mb-0">Sản phẩm đang cho thuê</h2>
+            {/* <div className="text-sm text-gray-500">
               {loading ? (
                 <div className="flex items-center">
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -383,7 +425,7 @@ export default function OwnerStorePage() {
               ) : (
                 <span>Không có sản phẩm nào</span>
               )}
-            </div>
+            </div> */}
           </div>
 
           {items.length === 0 ? (
@@ -515,6 +557,145 @@ export default function OwnerStorePage() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Customer Reviews Section */}
+        <div className="bg-white rounded-3xl p-6 shadow-lg mb-8 mt-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Đánh giá và phản hồi từ khách hàng</h2>
+          
+          {/* Overall Rating */}
+          <div className="flex items-center justify-between mb-8 p-6 bg-gray-50 rounded-xl">
+            <div className="text-center">
+              <div className="text-5xl font-bold text-gray-900 mb-1">5.0</div>
+              <div className="flex justify-center mb-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star key={star} className="w-6 h-6 text-yellow-500 fill-yellow-500" />
+                ))}
+              </div>
+              <p className="text-gray-600 text-sm">Dựa trên 24 đánh giá</p>
+            </div>
+            
+            <div className="w-px h-20 bg-gray-200 mx-8"></div>
+            
+            <div className="flex-1">
+              {[5, 4, 3, 2, 1].map((rating) => (
+                <div key={rating} className="flex items-center mb-2">
+                  <span className="w-8 text-sm text-gray-600">{rating} sao</span>
+                  <div className="w-48 h-2 bg-gray-200 rounded-full mx-2 overflow-hidden">
+                    <div 
+                      className="h-full bg-yellow-500" 
+                      style={{ width: `${(rating === 5 ? 80 : rating === 4 ? 15 : rating === 3 ? 3 : rating === 2 ? 1 : 1) * 10}%` }}
+                    ></div>
+                  </div>
+                  <span className="text-sm text-gray-500 w-8 text-right">
+                    {rating === 5 ? 80 : rating === 4 ? 15 : rating === 3 ? 3 : rating === 2 ? 1 : 1}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Review List */}
+          <div className="space-y-6">
+            {/* Review Item 1 */}
+            <div className="border-b border-gray-200 pb-6">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg mr-3">
+                    KH
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900">Khách hàng 1</h4>
+                    <div className="flex items-center">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star key={star} className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                      ))}
+                      <span className="ml-2 text-sm text-gray-500">1 tuần trước</span>
+                    </div>
+                  </div>
+                </div>
+                <span className="text-sm text-gray-500">#ĐH123456</span>
+              </div>
+              <p className="text-gray-700 mb-3">Sản phẩm rất tốt, đóng gói cẩn thận, giao hàng nhanh. Sẽ ủng hộ shop dài dài.</p>
+              <div className="flex space-x-2">
+                <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden">
+                  <img 
+                    src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200&q=80&auto=format&fit=crop" 
+                    alt="Review" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Review Item 2 */}
+            <div className="border-b border-gray-200 pb-6">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg mr-3">
+                    NT
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900">Nguyễn Trang</h4>
+                    <div className="flex items-center">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star key={star} className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                      ))}
+                      <span className="ml-2 text-sm text-gray-500">2 tuần trước</span>
+                    </div>
+                  </div>
+                </div>
+                <span className="text-sm text-gray-500">#ĐH123455</span>
+              </div>
+              <p className="text-gray-700 mb-3">Hàng đẹp, đúng như mô tả. Shop tư vấn nhiệt tình, giao hàng đúng hẹn. Cảm ơn shop!</p>
+            </div>
+
+            {/* Review Item 3 */}
+            <div className="pb-2">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg mr-3">
+                    TL
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900">Trần Long</h4>
+                    <div className="flex items-center">
+                      {[1, 2, 3, 4].map((star) => (
+                        <Star key={star} className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                      ))}
+                      <Star className="w-4 h-4 text-gray-300" />
+                      <span className="ml-2 text-sm text-gray-500">3 tuần trước</span>
+                    </div>
+                  </div>
+                </div>
+                <span className="text-sm text-gray-500">#ĐH123454</span>
+              </div>
+              <p className="text-gray-700 mb-3">Sản phẩm tốt nhưng giao hàng hơi chậm. Đóng gói cẩn thận, nhân viên giao hàng thân thiện.</p>
+              <div className="flex space-x-2">
+                <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden">
+                  <img 
+                    src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200&q=80&auto=format&fit=crop" 
+                    alt="Review" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden">
+                  <img 
+                    src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200&q=80&auto=format&fit=crop" 
+                    alt="Review" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Load More Button */}
+          <div className="mt-8 text-center">
+            <button className="px-6 py-2 border border-gray-300 rounded-full text-gray-700 hover:bg-gray-50 transition-colors">
+              Xem thêm đánh giá
+            </button>
+          </div>
         </div>
       </div>
     </div>

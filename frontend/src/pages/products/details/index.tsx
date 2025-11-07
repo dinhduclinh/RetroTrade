@@ -79,7 +79,10 @@ const formatPrice = (price: number, currency: string) => {
 export default function ProductDetailPage() {
   const router = useRouter();
   const { id } = router.query as { id?: string };
+<<<<<<< HEAD
 
+=======
+>>>>>>> linhddhe173104
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,8 +97,11 @@ export default function ProductDetailPage() {
   const [dateError, setDateError] = useState<string>("");
   const [ownerTopItems, setOwnerTopItems] = useState<any[]>([]);
   const [similarItems, setSimilarItems] = useState<any[]>([]);
+<<<<<<< HEAD
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+=======
+>>>>>>> linhddhe173104
 
   const accessToken = useSelector((state: RootState) => state.auth.accessToken);
   const productId = product?._id;
@@ -131,7 +137,9 @@ export default function ProductDetailPage() {
         const res = await getTopViewedItemsByOwner(ownerId, 6);
         const data = res?.data ?? res;
         const items = data?.data?.items || data?.items || [];
-        const filtered = (items || []).filter((it: any) => it?._id !== product?._id).slice(0, 5);
+        const filtered = (items || [])
+          .filter((it: any) => it?._id !== product?._id)
+          .slice(0, 5);
         setOwnerTopItems(filtered);
       } catch (e) {
         console.warn("Failed to load owner's featured items", e);
@@ -146,10 +154,15 @@ export default function ProductDetailPage() {
       const catId = (product?.Category as any)?._id;
       if (!catId) return;
       try {
-        const res = await getProductsByCategoryId(catId, { page: 1, limit: 12 });
+        const res = await getProductsByCategoryId(catId, {
+          page: 1,
+          limit: 12,
+        });
         const data = res?.data ?? res;
         const items = data?.data?.items || data?.items || [];
-        const filtered = (items || []).filter((it: any) => it?._id !== product?._id).slice(0, 8);
+        const filtered = (items || [])
+          .filter((it: any) => it?._id !== product?._id)
+          .slice(0, 8);
         setSimilarItems(filtered);
       } catch (e) {
         console.warn("Failed to load similar items", e);
@@ -325,7 +338,14 @@ export default function ProductDetailPage() {
       const start = new Date(dateFrom);
       const end = new Date(dateTo);
       const msPerDay = 24 * 60 * 60 * 1000;
+<<<<<<< HEAD
       const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / msPerDay) + 1);
+=======
+      const days = Math.max(
+        1,
+        Math.ceil((end.getTime() - start.getTime()) / msPerDay) + 1
+      );
+>>>>>>> linhddhe173104
 
       let calculatedUnits = 0;
       if (selectedPlan === "hour") calculatedUnits = days * 24;
@@ -342,7 +362,15 @@ export default function ProductDetailPage() {
     }
 
     return 0;
-  }, [product, dateFrom, dateTo, dateError, selectedPlan, pricePerUnit, durationUnits]);
+  }, [
+    product,
+    dateFrom,
+    dateTo,
+    dateError,
+    selectedPlan,
+    pricePerUnit,
+    durationUnits,
+  ]);
 
   const handlePrev = () => {
     setSelectedImageIndex((prev) => (prev - 1 + images.length) % images.length);
@@ -675,7 +703,9 @@ export default function ProductDetailPage() {
                       <div className="text-3xl font-extrabold text-blue-600">
                         {formatPrice(baseUnitPrice, product.Currency)}
                       </div>
-                      <div className="text-sm text-gray-600">{baseUnitLabel}</div>
+                      <div className="text-sm text-gray-600">
+                        {baseUnitLabel}
+                      </div>
                     </div>
                   </div>
                   <div className="text-right">
@@ -727,7 +757,10 @@ export default function ProductDetailPage() {
                   <div className="flex items-start gap-3 p-3 bg-white rounded-lg shadow-sm border border-gray-100">
                     <Leaf className="w-6 h-6 text-green-600 mt-0.5 flex-shrink-0" />
                     <p className="text-sm text-gray-700">
-                      <span className="font-semibold text-gray-900">RetroTrade</span> - Nền tảng cho thuê đồ vì một trái đất xanh hơn!
+                      <span className="font-semibold text-gray-900">
+                        RetroTrade
+                      </span>{" "}
+                      - Nền tảng cho thuê đồ vì một trái đất xanh hơn!
                     </p>
                   </div>
                 </div>
@@ -749,18 +782,26 @@ export default function ProductDetailPage() {
                 {product.Owner?.AvatarUrl ? (
                   <img
                     src={product.Owner.AvatarUrl}
-                    alt={product.Owner?.DisplayName || product.Owner?.FullName || "avatar"}
+                    alt={
+                      product.Owner?.DisplayName ||
+                      product.Owner?.FullName ||
+                      "avatar"
+                    }
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-400">👤</div>
+                  <div className="w-full h-full flex items-center justify-center text-gray-400">
+                    👤
+                  </div>
                 )}
               </div>
               <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
                 <div className="md:col-span-5">
                   <div className="flex items-center gap-2">
                     <div className="font-medium text-gray-900">
-                      {product.Owner?.DisplayName || product.Owner?.FullName || "Người dùng"}
+                      {product.Owner?.DisplayName ||
+                        product.Owner?.FullName ||
+                        "Người dùng"}
                     </div>
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-orange-50 text-orange-700 border border-orange-200">
                       <CheckCircle className="w-3.5 h-3.5" /> Đã xác minh
@@ -772,14 +813,19 @@ export default function ProductDetailPage() {
                   <div className="mt-2 flex gap-2">
                     <button
                       onClick={async () => {
-                        const ownerId = (product as any)?.Owner?._id || (product as any)?.Owner?.userGuid || (product as any)?.Owner?.UserGuid;
+                        const ownerId =
+                          (product as any)?.Owner?._id ||
+                          (product as any)?.Owner?.userGuid ||
+                          (product as any)?.Owner?.UserGuid;
                         if (!ownerId) {
                           toast.error("Không tìm thấy thông tin người bán");
                           return;
                         }
 
                         if (!accessToken) {
-                          toast.error("Vui lòng đăng nhập để sử dụng tính năng chat");
+                          toast.error(
+                            "Vui lòng đăng nhập để sử dụng tính năng chat"
+                          );
                           router.push("/auth/login");
                           return;
                         }
@@ -788,7 +834,8 @@ export default function ProductDetailPage() {
                           // Load conversations first
                           const conversationsRes = await getConversations();
                           if (conversationsRes.ok) {
-                            const conversationsData = await conversationsRes.json();
+                            const conversationsData =
+                              await conversationsRes.json();
                             const conversations = conversationsData.data || [];
 
                             // Find existing conversation with this owner
@@ -801,23 +848,35 @@ export default function ProductDetailPage() {
 
                             if (existingConversation) {
                               // Navigate to messages page with conversation ID
-                              router.push(`/auth/messages?conversationId=${existingConversation._id}`);
+                              router.push(
+                                `/auth/messages?conversationId=${existingConversation._id}`
+                              );
                             } else {
                               // Create new conversation
-                              const createRes = await createConversation(ownerId);
+                              const createRes = await createConversation(
+                                ownerId
+                              );
                               if (createRes.ok) {
                                 const createData = await createRes.json();
-                                const newConversation = createData.data || createData;
+                                const newConversation =
+                                  createData.data || createData;
                                 // Navigate to messages page with new conversation ID
-                                router.push(`/auth/messages?conversationId=${newConversation._id}`);
+                                router.push(
+                                  `/auth/messages?conversationId=${newConversation._id}`
+                                );
                                 toast.success("Đã tạo cuộc trò chuyện mới");
                               } else {
                                 const errorData = await createRes.json();
-                                toast.error(errorData.message || "Không thể tạo cuộc trò chuyện");
+                                toast.error(
+                                  errorData.message ||
+                                    "Không thể tạo cuộc trò chuyện"
+                                );
                               }
                             }
                           } else {
-                            toast.error("Không thể tải danh sách cuộc trò chuyện");
+                            toast.error(
+                              "Không thể tải danh sách cuộc trò chuyện"
+                            );
                           }
                         } catch (error) {
                           console.error("Error opening chat:", error);
@@ -830,11 +889,12 @@ export default function ProductDetailPage() {
                     </button>
                     <button
                       onClick={() => {
-                        const ownerGuid = product?.Owner?.userGuid || product?.Owner?._id;
+                        const ownerGuid =
+                          product?.Owner?.userGuid || product?.Owner?._id;
                         if (ownerGuid) {
                           router.push(`/store/${ownerGuid}`);
                         } else {
-                          toast.error('Không tìm thấy thông tin cửa hàng');
+                          toast.error("Không tìm thấy thông tin cửa hàng");
                         }
                       }}
                       className="px-3 py-1.5 text-sm rounded-md border text-gray-700 hover:bg-gray-50"
@@ -855,7 +915,12 @@ export default function ProductDetailPage() {
                       <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
                         <Calendar className="w-5 h-5" />
                       </div>
-                      <div className="text-sm">Thành viên từ {product.CreatedAt ? new Date(product.CreatedAt).getFullYear() : "-"}</div>
+                      <div className="text-sm">
+                        Thành viên từ{" "}
+                        {product.CreatedAt
+                          ? new Date(product.CreatedAt).getFullYear()
+                          : "-"}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 text-gray-700">
                       <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -884,23 +949,40 @@ export default function ProductDetailPage() {
               <div className="space-y-2 text-sm text-gray-700">
                 <div className="flex justify-between">
                   <span>Tình trạng:</span>
-                  <span className="font-medium">{product.Condition?.ConditionName || "-"}</span>
+                  <span className="font-medium">
+                    {product.Condition?.ConditionName || "-"}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Khu vực:</span>
-                  <span className="font-medium">{product.District || ""}{product.City ? `, ${product.City}` : ""}</span>
+                  <span className="font-medium">
+                    {product.District || ""}
+                    {product.City ? `, ${product.City}` : ""}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Kho (sản phẩm):</span>
-                  <span className="font-medium">{typeof product.Quantity === "number" ? product.Quantity : "-"}</span>
+                  <span className="font-medium">
+                    {typeof product.Quantity === "number"
+                      ? product.Quantity
+                      : "-"}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Có sẵn (sản phẩm):</span>
-                  <span className="font-medium">{typeof product.AvailableQuantity === "number" ? product.AvailableQuantity : "-"}</span>
+                  <span className="font-medium">
+                    {typeof product.AvailableQuantity === "number"
+                      ? product.AvailableQuantity
+                      : "-"}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span>Ngày đăng:</span>
-                  <span className="font-medium">{product.CreatedAt ? new Date(product.CreatedAt).toLocaleDateString("vi-VN") : "-"}</span>
+                  <span className="font-medium">
+                    {product.CreatedAt
+                      ? new Date(product.CreatedAt).toLocaleDateString("vi-VN")
+                      : "-"}
+                  </span>
                 </div>
               </div>
             </div>
@@ -908,7 +990,9 @@ export default function ProductDetailPage() {
             <div className="bg-white border rounded-2xl p-4">
               <h3 className="font-semibold mb-3">Mô tả sản phẩm</h3>
               <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-                {product.Description || product.ShortDescription || "Chưa có mô tả."}
+                {product.Description ||
+                  product.ShortDescription ||
+                  "Chưa có mô tả."}
               </p>
             </div>
 
@@ -924,9 +1008,15 @@ export default function ProductDetailPage() {
                         <div className="rounded-xl border bg-white overflow-hidden cursor-pointer transition-transform duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
                           <div className="w-full aspect-video bg-gray-100">
                             {thumb ? (
-                              <img src={thumb} alt={it.Title} className="w-full h-full object-cover" />
+                              <img
+                                src={thumb}
+                                alt={it.Title}
+                                className="w-full h-full object-cover"
+                              />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-gray-400">No image</div>
+                              <div className="w-full h-full flex items-center justify-center text-gray-400">
+                                No image
+                              </div>
                             )}
                           </div>
                           <div className="p-3">
@@ -939,7 +1029,12 @@ export default function ProductDetailPage() {
                             {(it.City || it.District) && (
                               <div className="mt-1 flex items-center gap-1 text-xs text-gray-600">
                                 <MapPin className="w-3.5 h-3.5" />
-                                <span>{it.District || ""}{it.City ? `${it.District ? ", " : ""}${it.City}` : ""}</span>
+                                <span>
+                                  {it.District || ""}
+                                  {it.City
+                                    ? `${it.District ? ", " : ""}${it.City}`
+                                    : ""}
+                                </span>
                               </div>
                             )}
                           </div>
@@ -949,7 +1044,9 @@ export default function ProductDetailPage() {
                   })}
                 </div>
               ) : (
-                <div className="text-sm text-gray-500">Chưa có sản phẩm tương tự</div>
+                <div className="text-sm text-gray-500">
+                  Chưa có sản phẩm tương tự
+                </div>
               )}
             </div>
           </section>
@@ -966,9 +1063,15 @@ export default function ProductDetailPage() {
                       <div className="rounded-xl border bg-white overflow-hidden cursor-pointer transition-transform duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
                         <div className="w-full aspect-video bg-gray-100">
                           {thumb ? (
-                            <img src={thumb} alt={it.Title} className="w-full h-full object-cover" />
+                            <img
+                              src={thumb}
+                              alt={it.Title}
+                              className="w-full h-full object-cover"
+                            />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-gray-400">No image</div>
+                            <div className="w-full h-full flex items-center justify-center text-gray-400">
+                              No image
+                            </div>
                           )}
                         </div>
                         <div className="p-3">
@@ -981,7 +1084,12 @@ export default function ProductDetailPage() {
                           {(it.City || it.District) && (
                             <div className="mt-1 flex items-center gap-1 text-xs text-gray-600">
                               <MapPin className="w-3.5 h-3.5" />
-                              <span>{it.District || ""}{it.City ? `${it.District ? ", " : ""}${it.City}` : ""}</span>
+                              <span>
+                                {it.District || ""}
+                                {it.City
+                                  ? `${it.District ? ", " : ""}${it.City}`
+                                  : ""}
+                              </span>
                             </div>
                           )}
                         </div>
@@ -990,7 +1098,9 @@ export default function ProductDetailPage() {
                   );
                 })}
                 {ownerTopItems.length === 0 && (
-                  <div className="text-sm text-gray-500">Chưa có sản phẩm nổi bật</div>
+                  <div className="text-sm text-gray-500">
+                    Chưa có sản phẩm nổi bật
+                  </div>
                 )}
               </div>
             </div>
