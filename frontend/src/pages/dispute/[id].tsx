@@ -342,7 +342,7 @@ export default function DisputeDetailPage() {
           </Card>
         </section>
 
-        {/* Bằng chứng - ĐÃ HOÀN THIỆN */}
+     
         {dispute.evidence && dispute.evidence.length > 0 && (
           <section>
             <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
@@ -451,7 +451,7 @@ export default function DisputeDetailPage() {
   );
 }
 
-// Loading Skeleton
+
 function LoadingSkeleton() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50 py-10 px-6">

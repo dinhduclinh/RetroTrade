@@ -63,7 +63,7 @@ export default function OrderListPage() {
   const [openConfirm, setOpenConfirm] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10; // Hiển thị 10 đơn hàng mỗi trang
+  const itemsPerPage = 10; 
 
   const [openDisputeModal, setOpenDisputeModal] = useState(false);
   const [selectedDisputeOrder, setSelectedDisputeOrder] =useState<Order | null>(null);
@@ -78,7 +78,7 @@ export default function OrderListPage() {
       userRole = decoded.role?.toLowerCase();
       userId = decoded.id || decoded._id;
     } catch (err) {
-      console.error("❌ Decode error:", err);
+      console.error(" Decode error:", err);
     }
   }
 
@@ -182,13 +182,12 @@ export default function OrderListPage() {
       partial: { label: "Thanh toán một phần", color: "text-amber-700" },
     };
 
-  // Filter orders by status
+
   const filteredOrders = useMemo(() => {
     if (selectedStatus === "all") return orders;
     return orders.filter((order) => order.orderStatus === selectedStatus);
   }, [orders, selectedStatus]);
 
-  // Pagination calculations
   const paginationState: PaginationState = useMemo(() => 
     createPaginationState({
       page: currentPage,
@@ -199,13 +198,13 @@ export default function OrderListPage() {
     [currentPage, itemsPerPage, filteredOrders.length]
   );
 
-  // Get current orders for display
+
   const currentOrders = filteredOrders.slice(
     paginationState.startIndex,
     paginationState.endIndex + 1
   );
 
-  // Reset to page 1 when filter changes
+
   useEffect(() => {
     setCurrentPage(1);
   }, [selectedStatus]);
@@ -733,12 +732,12 @@ export default function OrderListPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-        {/* Modal Tranh chấp */}
+        
         <DisputeModal
           open={openDisputeModal}
           onOpenChange={setOpenDisputeModal}
           orderId={selectedDisputeOrder?._id || null}
-          onSubmit={async ({ reason, description, evidenceUrls }) => {
+          onSubmit={async ({ reason, description, evidence }) => {
             if (!selectedDisputeOrder) return;
 
             try {
@@ -746,7 +745,7 @@ export default function OrderListPage() {
                 orderId: selectedDisputeOrder._id,
                 reason,
                 description,
-                evidenceUrls,
+                evidence,
               });
 
               if (res.code === 201) {

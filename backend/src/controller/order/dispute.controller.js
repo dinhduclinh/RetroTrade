@@ -7,12 +7,10 @@ const createDispute = async (req, res) => {
   try {
     const { orderId, reason, description, evidenceUrls } = req.body;
 
-    // 1. Kiểm tra ID hợp lệ
     if (!mongoose.Types.ObjectId.isValid(orderId)) {
       return res.status(400).json({ message: "ID đơn hàng không hợp lệ." });
     }
 
-    // 2. Tìm đơn hàng
     const order = await Order.findById(orderId)
       .populate("renterId", "fullName email")
       .populate("ownerId", "fullName email");
@@ -21,7 +19,6 @@ const createDispute = async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy đơn hàng." });
     }
 
-    // 3. Kiểm tra trạng thái đơn hàng
     const allowedStatuses = ["progress", "returned", "completed"]; 
     if (!allowedStatuses.includes(order.orderStatus)) {
       return res.status(400).json({
@@ -29,7 +26,6 @@ const createDispute = async (req, res) => {
       });
     }
 
-    // 4. Kiểm tra quyền
     const userId = req.user._id.toString();
     const renterId = order.renterId._id.toString();
     const ownerId = order.ownerId._id.toString();
@@ -42,7 +38,6 @@ const createDispute = async (req, res) => {
 
     const reportedUserId = userId === renterId ? ownerId : renterId;
 
-    // 5. Kiểm tra tranh chấp đang tồn tại
     const existing = await Report.findOne({
       orderId,
       type: "dispute",
@@ -54,7 +49,6 @@ const createDispute = async (req, res) => {
         message: "Đơn hàng này đã có tranh chấp đang được xử lý.",
       });
     }
-    //upload images
      let evidence = [];
      if (req.files && req.files.length > 0) {
        const uploadedImages = await uploadToCloudinary(
@@ -64,7 +58,6 @@ const createDispute = async (req, res) => {
        evidence = uploadedImages.map((img) => img.Url);
      }
 
-    // 6. Tạo Report
     const newReport = await Report.create({
       orderId,
       reporterId: userId,
@@ -136,13 +129,13 @@ const getAllDisputes = async (req, res) => {
   }
 };
 
-// Admin xem chi tiết tranh chấp
+
 const getDisputeById = async (req, res) => {
   try {
     const dispute = await Report.findById(req.params.id)
-      .populate("orderId", "orderGuid orderStatus totalAmount renterId ownerId")
-      .populate("reporterId", "fullName email")
-      .populate("reportedUserId", "fullName email")
+      .populate("orderId")
+      .populate("reporterId", "fullName email avatarUrl")
+      .populate("reportedUserId", "fullName email avatarUrl")
       .populate("handledBy", "fullName email");
 
     if (!dispute) {
@@ -170,46 +163,168 @@ const getDisputeById = async (req, res) => {
   }
 };
 
+
 const resolveDispute = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
-    const { decision, notes, refundAmount } = req.body;
-    const dispute = await Report.findById(req.params.id);
+    const { decision, notes, refundAmount = 0 } = req.body;
+    const disputeId = req.params.id;
+
+    // 1. KIỂM TRA QUYỀN
+    if (!["admin", "moderator"].includes(req.user.role)) {
+      return res.status(403).json({ message: "Bạn không có quyền xử lý tranh chấp." });
+    }
+
+  
+    const validDecisions = ["refund_full", "refund_partial", "reject", "keep_for_seller"];
+    if (!validDecisions.includes(decision)) {
+      return res.status(400).json({
+        message: "Quyết định không hợp lệ. Chỉ chấp nhận: " + validDecisions.join(", "),
+      });
+    }
+
+    if (refundAmount < 0) {
+      return res.status(400).json({ message: "Số tiền hoàn không được âm." });
+    }
+
+    if (notes && notes.length > 1000) {
+      return res.status(400).json({ message: "Ghi chú không được quá 1000 ký tự." });
+    }
+
+    //  LẤY DISPUTE + ORDER (atomic)
+    const dispute = await Report.findById(disputeId)
+      .populate("orderId")
+      .populate("reporterId", "fullName walletBalance")
+      .populate("reportedUserId", "fullName")
+      .session(session);
 
     if (!dispute) {
+      await session.abortTransaction();
       return res.status(404).json({ message: "Không tìm thấy tranh chấp." });
     }
 
     if (dispute.status !== "Pending") {
-      return res
-        .status(400)
-        .json({ message: "Tranh chấp đã được xử lý hoặc đóng." });
+      await session.abortTransaction();
+      return res.status(400).json({ message: "Tranh chấp đã được xử lý hoặc đóng." });
     }
 
+    const order = dispute.orderId;
+    if (refundAmount > order.totalAmount) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        message: `Số tiền hoàn (${refundAmount}) không được lớn hơn tổng đơn (${order.totalAmount})`,
+      });
+    }
+
+    //  CẬP NHẬT DISPUTE
     dispute.status = "Resolved";
     dispute.resolution = {
       decision,
-      notes,
-      refundAmount,
+      notes: notes?.trim() || "",
+      refundAmount: Number(refundAmount),
     };
     dispute.handledBy = req.user._id;
     dispute.handledAt = new Date();
-    await dispute.save();
 
-    await Order.findByIdAndUpdate(dispute.orderId, {
-      orderStatus: "completed",
-      paymentStatus: refundAmount > 0 ? "refunded" : "paid",
+
+    let refundTransaction = null;
+    if (refundAmount > 0) {
+     
+      await User.findByIdAndUpdate(
+        dispute.reporterId._id,
+        { $inc: { walletBalance: refundAmount } },
+        { session }
+      );
+
+    
+      refundTransaction = await Transaction.create(
+        [{
+          userId: dispute.reporterId._id,
+          orderId: order._id,
+          type: "refund",
+          amount: refundAmount,
+          description: `Hoàn tiền tranh chấp #${dispute._id} - ${decision}`,
+          status: "completed",
+        }],
+        { session }
+      );
+    }
+
+ 
+    const isFullRefund = refundAmount === order.totalAmount;
+    const isPartialRefund = refundAmount > 0 && refundAmount < order.totalAmount;
+
+    const orderUpdate = {
+      disputeId: dispute._id,
+      orderStatus: "completed", // luôn hoàn thành sau khi xử lý tranh chấp
+      paymentStatus: isFullRefund
+        ? "refunded"
+        : isPartialRefund
+        ? "partially_refunded"
+        : "paid",
+    };
+
+    await Order.findByIdAndUpdate(order._id, orderUpdate, { session });
+
+
+    await dispute.save({ session });
+    await session.commitTransaction();
+
+    const messages = {
+      refund_full: `Tranh chấp đơn #${order.orderGuid} đã được giải quyết: Hoàn tiền toàn bộ ${refundAmount.toLocaleString()}₫`,
+      refund_partial: `Hoàn tiền một phần ${refundAmount.toLocaleString()}₫ cho đơn #${order.orderGuid}`,
+      reject: `Tranh chấp đơn #${order.orderGuid} đã bị từ chối.`,
+      keep_for_seller: `Tranh chấp bị từ chối. Tiền sẽ được chuyển cho người bán.`,
+    };
+
+    // Gửi cho người tố cáo 
+    await sendNotification(dispute.reporterId._id, {
+      title: "Tranh chấp đã được xử lý",
+      body: messages[decision],
+      data: { type: "dispute_resolved", disputeId: dispute._id.toString() },
+    });
+
+    // Gửi cho người bị tố cáo 
+    await sendNotification(dispute.reportedUserId, {
+      title: "Tranh chấp đã được xử lý",
+      body: messages[decision],
+      data: { type: "dispute_resolved", disputeId: dispute._id.toString() },
+    });
+
+
+    await AdminLog.create({
+      adminId: req.user._id,
+      action: "resolve_dispute",
+      targetId: dispute._id,
+      details: { decision, refundAmount, notes },
     });
 
     res.status(200).json({
-      message: "Đã xử lý tranh chấp thành công.",
-      data: dispute,
+      message: "Xử lý tranh chấp thành công!",
+      data: {
+        dispute: {
+          _id: dispute._id,
+          status: dispute.status,
+          resolution: dispute.resolution,
+          handledBy: req.user.fullName,
+          handledAt: dispute.handledAt,
+        },
+        refundAmount,
+        orderStatus: orderUpdate.orderStatus,
+        paymentStatus: orderUpdate.paymentStatus,
+      },
     });
   } catch (error) {
+    await session.abortTransaction();
     console.error("Error resolving dispute:", error);
     res.status(500).json({
       message: "Lỗi server khi xử lý tranh chấp.",
       error: error.message,
     });
+  } finally {
+    session.endSession();
   }
 };
 

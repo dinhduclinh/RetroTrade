@@ -32,6 +32,7 @@ import {
 import ProductCategoryManager from "@/components/ui/moderator/categories/category-management";
 import ProductManagement from "@/components/ui/moderator/product/product-management";
 import TopHighlightTable from "@/components/ui/moderator/product/top-highlight-table";
+import DisputeManagementPage from "./dispute";
 
 // JWT token payload interface
 interface JwtPayload {
@@ -55,7 +56,7 @@ export default function ModeratorDashboard() {
   const searchParams = useSearchParams();
   const { accessToken } = useSelector((state: RootState) => state.auth);
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "requests" | "verification" | "blog" | "productManagement" | "messages"
+    "dashboard" | "requests" | "verification" | "blog" | "productManagement" | "messages"| "dispute"
   >("dashboard");
   const [activeBlogTab, setActiveBlogTab] = useState<
     "posts" | "categories" | "comments" | "tags"
@@ -74,6 +75,7 @@ export default function ModeratorDashboard() {
       | "blog"
       | "productManagement"
       | "messages"
+      | "dispute"
   ) => {
     console.log("Moderator handleTabChange called with:", tab);
     
@@ -139,6 +141,7 @@ export default function ModeratorDashboard() {
         "blog",
         "productManagement",
         "messages",
+        "dispute"
       ].includes(tab)
     ) {
       console.log("Setting activeTab from URL query parameter:", tab);
@@ -250,6 +253,8 @@ export default function ModeratorDashboard() {
         return <OwnerRequestManagement />;
       case "verification":
         return <VerificationQueue />;
+      case "dispute":
+        return <DisputeManagementPage />;
       default:
         return <DashboardOverview />;
     }
@@ -289,6 +294,8 @@ export default function ModeratorDashboard() {
         return "Yêu cầu kiểm duyệt";
       case "verification":
         return "Xác thực tài khoản";
+      case "dispute":
+        return "Xử lý Tranh chấp Đơn hàng";
       default:
         return "Dashboard Tổng quan";
     }
@@ -328,6 +335,8 @@ export default function ModeratorDashboard() {
         return "Duyệt và phê duyệt các yêu cầu từ người dùng";
       case "verification":
         return "Xác thực danh tính và thông tin người dùng";
+      case "dispute":
+        return "Quản lý và giải quyết khiếu nại tranh chấp đơn hàng";
       default:
         return "Tổng quan về hoạt động và thống kê hệ thống";
     }

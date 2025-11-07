@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   Package,
   MessageCircle,
+  CircleAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/common/button";
 import { useState, useEffect } from "react";
@@ -22,7 +23,8 @@ interface ModeratorSidebarProps {
     | "verification"
     | "productManagement"
     | "blog"
-    | "messages";
+    | "messages"
+    | "dispute";
   activeProductTab?: "products" | "categories" | "highlights";
   activeBlogTab?: "posts" | "categories" | "comments" | "tags";
   onTabChange?: (
@@ -33,6 +35,7 @@ interface ModeratorSidebarProps {
       | "productManagement"
       | "blog"
       | "messages"
+      | "dispute"
   ) => void;
   onProductTabChange?: (tab: "products" | "categories" | "highlights") => void;
   onBlogTabChange?: (tab: "posts" | "categories" | "comments" | "tags") => void;
@@ -62,43 +65,40 @@ export function ModeratorSidebar({
     setIsCollapsed(collapsed);
     // Update CSS variable for sidebar width immediately
     const width = collapsed ? "80px" : "288px";
-    document.documentElement.style.setProperty("--moderator-sidebar-width", width);
+    document.documentElement.style.setProperty(
+      "--moderator-sidebar-width",
+      width
+    );
     setIsMounted(true);
   }, []);
 
-  // Close mobile menu when navigating - prevent auto-opening
+
   useEffect(() => {
-    // Always close mobile menu when tab changes or on mount
     setIsMobileMenuOpen(false);
   }, [activeTab]);
 
-  // Close dropdowns when navigating away from their tabs
-  // Don't auto-open dropdowns on initial load
   useEffect(() => {
     if (!isMounted) return; // Don't run until mounted
-    
+
     if (activeTab !== "blog") {
       setIsBlogDropdownOpen(false);
     }
-    
+
     if (activeTab !== "productManagement") {
       setIsProductDropdownOpen(false);
     }
   }, [activeTab, isMounted]);
 
-  // Save collapsed state to localStorage and update CSS variable
   const toggleCollapse = () => {
     setIsCollapsed((prev) => {
       const newState = !prev;
       localStorage.setItem("moderatorSidebarCollapsed", String(newState));
-      // Update CSS variable for sidebar width
       document.documentElement.style.setProperty(
         "--moderator-sidebar-width",
         newState ? "80px" : "288px"
       );
       return newState;
     });
-    // Close dropdowns when collapsing
     if (!isCollapsed) {
       setIsBlogDropdownOpen(false);
       setIsProductDropdownOpen(false);
@@ -147,6 +147,13 @@ export function ModeratorSidebar({
       icon: BookOpen,
       description: "Quản lý bài viết và nội dung",
       hasSubmenu: true,
+    },
+    {
+      id: "dispute" as const,
+      label: "Xử lý tranh chấp",
+      icon: CircleAlert,
+      description: "Xử lý tranh chấp",
+     
     },
   ];
 
@@ -208,6 +215,7 @@ export function ModeratorSidebar({
       | "productManagement"
       | "blog"
       | "messages"
+      | "dispute"
   ) => {
     if (onTabChange) {
       onTabChange(tab);
@@ -219,7 +227,9 @@ export function ModeratorSidebar({
     setIsMobileMenuOpen(false);
   };
 
-  const handleProductTabChange = (tab: "products" | "categories" | "highlights") => {
+  const handleProductTabChange = (
+    tab: "products" | "categories" | "highlights"
+  ) => {
     if (onProductTabChange) onProductTabChange(tab);
     setIsMobileMenuOpen(false);
   };
@@ -288,7 +298,9 @@ export function ModeratorSidebar({
 
       <div
         className={`fixed left-0 top-0 h-full bg-white border-r border-gray-200 shadow-sm z-20
-          ${isMounted ? "transform transition-all duration-300 ease-in-out" : ""}
+          ${
+            isMounted ? "transform transition-all duration-300 ease-in-out" : ""
+          }
           ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
           lg:translate-x-0
           ${isCollapsed ? "w-20" : "w-72"}
@@ -297,13 +309,27 @@ export function ModeratorSidebar({
           width: isCollapsed ? "80px" : "288px",
         }}
       >
-        <div className={`h-full flex flex-col ${isCollapsed ? "p-3" : "p-4 lg:p-6"}`}>
+        <div
+          className={`h-full flex flex-col ${
+            isCollapsed ? "p-3" : "p-4 lg:p-6"
+          }`}
+        >
           {/* Header with collapse button */}
-          <div className={`flex items-center mb-8 ${isCollapsed ? "justify-center flex-col gap-2" : "gap-3"}`}>
-            <div className={`bg-gradient-to-r from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0 transition-all duration-300 ${
-              isCollapsed ? "w-10 h-10" : "w-12 h-12"
-            }`}>
-              <Shield className={`text-white transition-all duration-300 ${isCollapsed ? "w-5 h-5" : "w-7 h-7"}`} />
+          <div
+            className={`flex items-center mb-8 ${
+              isCollapsed ? "justify-center flex-col gap-2" : "gap-3"
+            }`}
+          >
+            <div
+              className={`bg-gradient-to-r from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0 transition-all duration-300 ${
+                isCollapsed ? "w-10 h-10" : "w-12 h-12"
+              }`}
+            >
+              <Shield
+                className={`text-white transition-all duration-300 ${
+                  isCollapsed ? "w-5 h-5" : "w-7 h-7"
+                }`}
+              />
             </div>
             {!isCollapsed && (
               <div className="flex-1 min-w-0">
@@ -315,16 +341,26 @@ export function ModeratorSidebar({
             <button
               onClick={toggleCollapse}
               className={`hidden lg:flex flex-col items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-900 transition-all duration-200 flex-shrink-0 ${
-                isCollapsed 
-                  ? "w-6 h-6 gap-0.5 mt-1" 
-                  : "w-8 h-8 gap-1 ml-auto"
+                isCollapsed ? "w-6 h-6 gap-0.5 mt-1" : "w-8 h-8 gap-1 ml-auto"
               }`}
               aria-label={isCollapsed ? "Mở rộng sidebar" : "Thu nhỏ sidebar"}
               title={isCollapsed ? "Mở rộng sidebar" : "Thu nhỏ sidebar"}
             >
-              <div className={`bg-current transition-all duration-300 ${isCollapsed ? "w-3 h-[1.5px]" : "w-4 h-0.5"}`}></div>
-              <div className={`bg-current transition-all duration-300 ${isCollapsed ? "w-3 h-[1.5px]" : "w-4 h-0.5"}`}></div>
-              <div className={`bg-current transition-all duration-300 ${isCollapsed ? "w-3 h-[1.5px]" : "w-4 h-0.5"}`}></div>
+              <div
+                className={`bg-current transition-all duration-300 ${
+                  isCollapsed ? "w-3 h-[1.5px]" : "w-4 h-0.5"
+                }`}
+              ></div>
+              <div
+                className={`bg-current transition-all duration-300 ${
+                  isCollapsed ? "w-3 h-[1.5px]" : "w-4 h-0.5"
+                }`}
+              ></div>
+              <div
+                className={`bg-current transition-all duration-300 ${
+                  isCollapsed ? "w-3 h-[1.5px]" : "w-4 h-0.5"
+                }`}
+              ></div>
             </button>
           </div>
 
@@ -349,7 +385,7 @@ export function ModeratorSidebar({
                     }`}
                     onClick={() => {
                       if (item.hasSubmenu && !isCollapsed) {
-                        // Only toggle dropdown if clicking the same tab
+                      
                         if (isProduct && activeTab === "productManagement") {
                           setIsProductDropdownOpen(!isProductDropdownOpen);
                         } else if (isProduct) {
@@ -368,7 +404,11 @@ export function ModeratorSidebar({
                     }}
                     title={isCollapsed ? item.label : undefined}
                   >
-                    <div className={`flex items-center ${isCollapsed ? "justify-center" : "gap-3"} w-full`}>
+                    <div
+                      className={`flex items-center ${
+                        isCollapsed ? "justify-center" : "gap-3"
+                      } w-full`}
+                    >
                       <div
                         className={`p-2 rounded-lg transition-all duration-200 flex-shrink-0 ${
                           isActive
@@ -381,7 +421,9 @@ export function ModeratorSidebar({
                       {!isCollapsed && (
                         <>
                           <div className="text-left flex-1 min-w-0">
-                            <div className="font-medium truncate">{item.label}</div>
+                            <div className="font-medium truncate">
+                              {item.label}
+                            </div>
                             <div className="text-xs opacity-70 truncate">
                               {item.description}
                             </div>
@@ -404,24 +446,32 @@ export function ModeratorSidebar({
                     </div>
                   </Button>
 
-                  {isProduct && !isCollapsed &&
+                  {isProduct &&
+                    !isCollapsed &&
                     renderSubmenu(
                       item,
                       productSubmenuItems,
                       isProductDropdownOpen,
                       "product",
                       activeProductTab,
-                      (tab) => handleProductTabChange(tab as "products" | "categories" | "highlights")
+                      (tab) =>
+                        handleProductTabChange(
+                          tab as "products" | "categories" | "highlights"
+                        )
                     )}
 
-                  {isBlog && !isCollapsed &&
+                  {isBlog &&
+                    !isCollapsed &&
                     renderSubmenu(
                       item,
                       blogSubmenuItems,
                       isBlogDropdownOpen,
                       "blog",
                       activeBlogTab,
-                      (tab) => handleBlogTabChange(tab as "posts" | "categories" | "comments" | "tags")
+                      (tab) =>
+                        handleBlogTabChange(
+                          tab as "posts" | "categories" | "comments" | "tags"
+                        )
                     )}
                 </div>
               );

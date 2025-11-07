@@ -233,10 +233,16 @@ module.exports = {
       }
 
       order.orderStatus = "progress";
+      order.paymentStatus = "paid"; 
       order.lifecycle.startedAt = new Date();
       await order.save();
 
-      return res.json({ message: "Order started", orderGuid: order.orderGuid });
+      return res.json({
+        message: "Order started",
+        orderGuid: order.orderGuid,
+        orderStatus: order.orderStatus,
+        paymentStatus: order.paymentStatus,
+      });
     } catch (err) {
       console.error("startOrder err:", err);
       return res
@@ -557,7 +563,7 @@ module.exports = {
       const userId = req.user._id;
       const { status, paymentStatus, search, page = 1, limit = 20 } = req.query;
 
-      // Cho phép mọi role xem đơn hàng của mình (là renter hoặc owner)
+    
       const filter = {
         isDeleted: false,
         $or: [{ renterId: userId }, { ownerId: userId }],
