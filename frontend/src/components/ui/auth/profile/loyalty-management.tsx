@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/common/card";
 import { Button } from "@/components/ui/common/button";
 import { Badge } from "@/components/ui/common/badge";
@@ -16,7 +16,6 @@ import {
   TrendingUp,
   TrendingDown,
   History,
-  Clock,
   ShoppingBag,
   LogIn,
   Gamepad2,
@@ -29,6 +28,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { BambooGameCard } from "@/components/games/bamboo/BambooGameCard";
 
 const getTypeIcon = (type: LoyaltyPointTransaction["type"]) => {
   switch (type) {
@@ -98,7 +98,8 @@ export function LoyaltyManagement() {
       const res = await getLoyaltyHistory(pageNum, 20);
       if (res.code === 200 && res.data) {
         setHistory(res.data);
-        setTotalPages(res.pagination?.totalPages || 1);
+        const total = (res as { pagination?: { totalPages?: number } }).pagination?.totalPages || 1;
+        setTotalPages(total);
       }
     } catch (error) {
       console.error("Error loading loyalty history:", error);
@@ -129,7 +130,7 @@ export function LoyaltyManagement() {
       } else {
         toast.error(res.message || "Không thể nhận điểm đăng nhập");
       }
-    } catch (error) {
+    } catch {
       toast.error("Có lỗi xảy ra khi nhận điểm đăng nhập");
     } finally {
       setClaiming(false);
@@ -231,6 +232,14 @@ export function LoyaltyManagement() {
           </div>
         </CardContent>
       </Card>
+
+      <section className="space-y-3">
+        <div className="flex items-center gap-2 text-slate-800">
+          <Gamepad2 className="w-5 h-5 text-emerald-600" />
+          <h2 className="text-lg font-semibold">Mini Game: Bamboo Life</h2>
+        </div>
+        <BambooGameCard compact />
+      </section>
 
       {/* History */}
       <Card>

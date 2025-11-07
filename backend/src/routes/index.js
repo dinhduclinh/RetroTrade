@@ -23,6 +23,7 @@ const disputeRouter = require("./order/dispute.routes");
 const taxRouter = require("./tax/tax.routes");
 const auditRouter = require("./audit/audit.routes");
 const loyaltyRouter = require("./loyalty/loyalty.routes");
+const treeGameRouter = require("./games/tree.routes");
 module.exports = (app) => {
     const api = "/api/v1";
     app.use(api + "/auth", userAuthRouter);
@@ -48,4 +49,5 @@ module.exports = (app) => {
     app.use(api + "/tax", taxRouter);
     app.use(api + "/audit", auditRouter);
     app.use(api + "/loyalty", loyaltyRouter);
+    app.use(api + "/tree", treeGameRouter);
 }
