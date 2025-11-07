@@ -213,10 +213,12 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
             onClick={() => {
               const { pathname, query } = router;
               const q = query as Record<string, string | string[]>;
-              if (Object.prototype.hasOwnProperty.call(q, 'orderId')) {
+              if (Object.prototype.hasOwnProperty.call(q, "orderId")) {
                 const newQuery: Record<string, string | string[]> = { ...q };
                 delete (newQuery as Record<string, unknown>).orderId;
-                router.replace({ pathname, query: newQuery }, undefined, { shallow: true });
+                router.replace({ pathname, query: newQuery }, undefined, {
+                  shallow: true,
+                });
               } else {
                 router.back();
               }
@@ -227,7 +229,6 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
             Quay lại
           </button>
         </div>
-
 
         {/* Header */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
@@ -245,14 +246,15 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
             <div className="text-right">
               <span
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium
-                ${order.orderStatus === "completed"
+                ${
+                  order.orderStatus === "completed"
                     ? "bg-green-100 text-green-700"
                     : order.orderStatus === "cancelled"
-                      ? "bg-red-100 text-red-700"
-                      : order.orderStatus === "progress"
-                        ? "bg-blue-100 text-blue-700"
-                        : "bg-yellow-100 text-yellow-700"
-                  }`}
+                    ? "bg-red-100 text-red-700"
+                    : order.orderStatus === "progress"
+                    ? "bg-blue-100 text-blue-700"
+                    : "bg-yellow-100 text-yellow-700"
+                }`}
               >
                 {getOrderStatusLabel(order.orderStatus)}
               </span>
@@ -508,12 +510,13 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
                     .map((step, idx) => (
                       <div key={idx} className="flex items-center gap-4">
                         <div
-                          className={`w-10 h-10 rounded-full flex items-center justify-center ${step.current
+                          className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            step.current
                               ? "bg-emerald-600 text-white"
                               : step.active
-                                ? "bg-emerald-100 text-emerald-700"
-                                : "bg-gray-200 text-gray-400"
-                            }`}
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-gray-200 text-gray-400"
+                          }`}
                         >
                           {step.active || step.current ? (
                             <CheckCircle2 className="w-5 h-5" />
@@ -523,12 +526,13 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
                         </div>
                         <div className="flex-1">
                           <p
-                            className={`font-medium ${step.current
+                            className={`font-medium ${
+                              step.current
                                 ? "text-emerald-700"
                                 : step.active
-                                  ? "text-gray-700"
-                                  : "text-gray-400"
-                              }`}
+                                ? "text-gray-700"
+                                : "text-gray-400"
+                            }`}
                           >
                             {step.label}
                           </p>
@@ -596,32 +600,69 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
                 </div>
 
                 {/* Discount Information */}
-                {order.discount && (order.discount.amountApplied > 0 || order.discount.secondaryAmountApplied > 0 || order.discount.totalAmountApplied > 0) && (
-                  <div className="flex justify-between text-green-200 border-t border-emerald-400 pt-3">
-                    <span>Giảm giá</span>
-                    <span className="font-medium">
-                      -{(order.discount.totalAmountApplied || order.discount.amountApplied || 0).toLocaleString("vi-VN")}₫
-                    </span>
-                  </div>
-                )}
+                {order.discount &&
+                  (order.discount.amountApplied > 0 ||
+                    order.discount.secondaryAmountApplied > 0 ||
+                    order.discount.totalAmountApplied > 0) && (
+                    <div className="flex justify-between text-green-200 border-t border-emerald-400 pt-3">
+                      <span>Giảm giá</span>
+                      <span className="font-medium">
+                        -
+                        {(
+                          order.discount.totalAmountApplied ||
+                          order.discount.amountApplied ||
+                          0
+                        ).toLocaleString("vi-VN")}
+                        ₫
+                      </span>
+                    </div>
+                  )}
 
                 <div className="border-t border-emerald-400 pt-3">
                   <div className="flex justify-between text-lg font-bold">
                     <span>Tổng thanh toán</span>
                     <span className="text-2xl">
-                      {(order.finalAmount || order.totalAmount).toLocaleString("vi-VN")}₫
+                      {(order.finalAmount || order.totalAmount).toLocaleString(
+                        "vi-VN"
+                      )}
+                      ₫
                     </span>
                   </div>
-                  {order.discount && (order.discount.code || order.discount.secondaryCode) && (
-                    <div className="mt-2 text-xs text-emerald-200/80">
-                      {order.discount.code && (
-                        <div>Mã công khai: {order.discount.code} {order.discount.type === "percent" ? `(${order.discount.value}%)` : `(${order.discount.value.toLocaleString("vi-VN")}₫)`} - {(order.discount.amountApplied || 0).toLocaleString("vi-VN")}₫</div>
-                      )}
-                      {order.discount.secondaryCode && (
-                        <div>Mã riêng tư: {order.discount.secondaryCode} {order.discount.secondaryType === "percent" ? `(${order.discount.secondaryValue}%)` : `(${order.discount.secondaryValue?.toLocaleString("vi-VN")}₫)`} - {(order.discount.secondaryAmountApplied || 0).toLocaleString("vi-VN")}₫</div>
-                      )}
-                    </div>
-                  )}
+                  {order.discount &&
+                    (order.discount.code || order.discount.secondaryCode) && (
+                      <div className="mt-2 text-xs text-emerald-200/80">
+                        {order.discount.code && (
+                          <div>
+                            Mã công khai: {order.discount.code}{" "}
+                            {order.discount.type === "percent"
+                              ? `(${order.discount.value}%)`
+                              : `(${order.discount.value.toLocaleString(
+                                  "vi-VN"
+                                )}₫)`}{" "}
+                            -{" "}
+                            {(order.discount.amountApplied || 0).toLocaleString(
+                              "vi-VN"
+                            )}
+                            ₫
+                          </div>
+                        )}
+                        {order.discount.secondaryCode && (
+                          <div>
+                            Mã riêng tư: {order.discount.secondaryCode}{" "}
+                            {order.discount.secondaryType === "percent"
+                              ? `(${order.discount.secondaryValue}%)`
+                              : `(${order.discount.secondaryValue?.toLocaleString(
+                                  "vi-VN"
+                                )}₫)`}{" "}
+                            -{" "}
+                            {(
+                              order.discount.secondaryAmountApplied || 0
+                            ).toLocaleString("vi-VN")}
+                            ₫
+                          </div>
+                        )}
+                      </div>
+                    )}
                 </div>
               </div>
             </div>
@@ -635,13 +676,14 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
                 <span className="text-gray-700">Thanh toán</span>
                 <span
                   className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium
-                    ${order.paymentStatus === "paid"
-                      ? "bg-green-100 text-green-700"
-                      : order.paymentStatus === "not_paid"
+                    ${
+                      order.paymentStatus === "paid"
+                        ? "bg-green-100 text-green-700"
+                        : order.paymentStatus === "not_paid"
                         ? "bg-yellow-100 text-yellow-700"
                         : order.paymentStatus === "refunded"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-gray-100 text-gray-700"
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-gray-100 text-gray-700"
                     }`}
                 >
                   {order.paymentStatus === "paid" && (
@@ -684,9 +726,11 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
                 </span>
               </div>
               {!order.isContractSigned && (
-                <button className="mt-3 w-full bg-emerald-600 text-white py-2 rounded-xl font-medium hover:bg-emerald-700 transition">
-                  Ký hợp đồng ngay
-                </button>
+                <Link href={`/auth/contract/sign/${id}`}>
+                  <button className="mt-3 w-full bg-emerald-600 text-white py-2 rounded-xl font-medium hover:bg-emerald-700 transition">
+                    Ký hợp đồng ngay
+                  </button>
+                </Link>
               )}
             </div>
 
