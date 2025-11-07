@@ -1,6 +1,5 @@
 "use client";
-
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import Image from "next/image";
@@ -41,6 +40,9 @@ import {
 import { getOrderDetails, type Order } from "@/services/auth/order.api";
 import { getSignature, saveSignature } from "@/services/auth/auth.api";
 import SignaturePad from "@/components/ui/auth/signature/signature-pad";
+import { useSelector } from "react-redux";
+import { RootState } from "@/store/redux_store";
+import { decodeToken } from "@/utils/jwtHelper";
 
 interface SignatureResponse {
   signatureUrl?: string;
@@ -59,9 +61,11 @@ interface ContractTemplate {
 interface SignatureInfo {
   _id: string;
   signatureId: {
+    _id?: string;
     signatureImagePath?: string;
     signerName: string;
     signerRole?: number | null;
+    signerUserId?: string;
     validFrom: string;
     validTo?: string;
     isActive: boolean;
@@ -115,6 +119,9 @@ export default function SignContractPage() {
     useState<boolean>(false);
   const [showSavePositionDialog, setShowSavePositionDialog] =
     useState<boolean>(false);
+  const [showConfirmSignModal, setShowConfirmSignModal] =
+    useState<boolean>(false);
+  const [termsChecked, setTermsChecked] = useState<boolean>(false);
   const [tempPosition, setTempPosition] = useState<TempPosition | null>(null);
   const [pendingSigId, setPendingSigId] = useState<string | null>(null);
   const [pendingPosition, setPendingPosition] =
@@ -130,6 +137,11 @@ export default function SignContractPage() {
   const contractRef = useRef<HTMLDivElement>(null);
   const proseRef = useRef<HTMLPreElement | null>(null);
   const draggingRef = useRef<string | null>(null);
+
+  // Get current user from Redux token
+  const token = useSelector((state: RootState) => state.auth.accessToken);
+  const currentUser = useMemo(() => decodeToken(token), [token]);
+  const currentUserId = currentUser?._id;
 
   const loadUserSignature = useCallback(async (): Promise<void> => {
     try {
@@ -149,7 +161,6 @@ export default function SignContractPage() {
     if (typeof orderId !== "string" || !orderId) {
       return;
     }
-
     setLoading(true);
     try {
       const orderRes = await getOrderDetails(orderId);
@@ -159,14 +170,12 @@ export default function SignContractPage() {
         toast.error("Không thể tải thông tin đơn hàng");
         return;
       }
-
       const res = await getOrCreateContractForOrder(orderId);
       if (!res.ok) {
         throw new Error("API response not ok");
       }
       const contractRes: GetOrCreateContractResponse = await res.json();
       setPageData(contractRes);
-
       if (contractRes && contractRes.hasContract && contractRes.data) {
         setContractData(contractRes.data as ContractPayload);
       } else if (contractRes && !contractRes.hasContract) {
@@ -257,6 +266,14 @@ export default function SignContractPage() {
       toast.error("Không thể ký hợp đồng lúc này.");
       return;
     }
+    // Reset checkbox state when opening modal
+    setTermsChecked(false);
+    setShowConfirmSignModal(true);
+  };
+
+  const handleConfirmAndSign = async (): Promise<void> => {
+    if (!termsChecked) return;
+    setShowConfirmSignModal(false);
     if (useExistingSignature && userSignature?.signatureUrl) {
       await handleSignatureSave(userSignature.signatureUrl, true);
     } else {
@@ -268,7 +285,6 @@ export default function SignContractPage() {
     signatureUrl: string
   ): Promise<void> => {
     if (!contractData?.contractId) return;
-
     setSavingNewSignature(true);
     try {
       const saveRes = await saveSignature(signatureUrl);
@@ -277,9 +293,7 @@ export default function SignContractPage() {
         throw new Error(errorData.message || "Lỗi lưu chữ ký mới");
       }
       toast.success("Chữ ký mới đã được lưu!");
-
       await loadUserSignature();
-
       const defaultX = 80;
       const defaultY = 90;
       const signRes = await signContract(contractData.contractId, {
@@ -315,7 +329,6 @@ export default function SignContractPage() {
     useExisting = false
   ): Promise<void> => {
     if (!contractData?.contractId) return;
-
     setLoadingAction(true);
     try {
       const defaultX = 80;
@@ -346,6 +359,14 @@ export default function SignContractPage() {
     }
   };
 
+  // Helper to check if signature belongs to current user
+  const isMySignature = useCallback(
+    (sig: SignatureInfo): boolean => {
+      return sig.signatureId?.signerUserId === currentUserId;
+    },
+    [currentUserId]
+  );
+
   const handleMouseDown = useCallback(
     (
       e: React.MouseEvent<HTMLImageElement>,
@@ -353,6 +374,12 @@ export default function SignContractPage() {
       originalX: number,
       originalY: number
     ) => {
+      // Safety check: Ensure it's the user's own signature
+      const sig = contractData?.signatures.find((s) => s._id === sigId);
+      if (!sig || !isMySignature(sig)) {
+        toast.warning("Bạn chỉ có thể di chuyển chữ ký của chính mình!");
+        return;
+      }
       e.preventDefault();
       e.stopPropagation();
       let hasMoved = false;
@@ -366,18 +393,15 @@ export default function SignContractPage() {
       if (!container) {
         return;
       }
-
       if (proseRef.current) {
         proseRef.current.style.overflow = "hidden";
       }
-
       const containerRect = container.getBoundingClientRect();
       const startRect = target.getBoundingClientRect();
       const startX = e.clientX;
       const startY = e.clientY;
       const initialLeft = startRect.left - containerRect.left;
       const initialTop = startRect.top - containerRect.top;
-
       const onMouseMove = (moveE: MouseEvent) => {
         if (!draggingRef.current) return;
         const deltaX = moveE.clientX - startX;
@@ -397,7 +421,6 @@ export default function SignContractPage() {
           y: finalY,
         });
       };
-
       const onMouseUp = (moveE: MouseEvent) => {
         document.removeEventListener("mousemove", onMouseMove);
         document.removeEventListener("mouseup", onMouseUp);
@@ -406,7 +429,6 @@ export default function SignContractPage() {
         }
         draggingRef.current = null;
         setDraggingSigId(null);
-
         const deltaX = moveE.clientX - startX;
         const deltaY = moveE.clientY - startY;
         const newLeft = initialLeft + deltaX;
@@ -419,11 +441,9 @@ export default function SignContractPage() {
           0,
           Math.min(100, (newTop / containerRect.height) * 100)
         );
-
         if (hasMoved) {
           const xDiff = Math.abs(finalNewX - originalX);
           const yDiff = Math.abs(finalNewY - originalY);
-
           if (xDiff > 0.1 || yDiff > 0.1 || hasMoved) {
             setPendingSigId(sigId);
             setPendingPosition({ x: finalNewX, y: finalNewY });
@@ -438,7 +458,7 @@ export default function SignContractPage() {
       document.addEventListener("mousemove", onMouseMove);
       document.addEventListener("mouseup", onMouseUp);
     },
-    []
+    [contractData, isMySignature]
   );
 
   const handleSavePosition = async (): Promise<void> => {
@@ -475,13 +495,11 @@ export default function SignContractPage() {
     setOriginalPosition(null);
   };
 
-  // Hàm exportToPDF mới sử dụng API backend
   const exportToPDF = async (): Promise<void> => {
     if (!contractData?.contractId) {
       toast.error("Không tìm thấy hợp đồng để xuất PDF");
       return;
     }
-
     setLoadingAction(true);
     try {
       const res = await exportContractPDF(contractData.contractId);
@@ -502,7 +520,6 @@ export default function SignContractPage() {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-
       toast.success("PDF đã được xuất và tải về thành công!");
     } catch (error: unknown) {
       toast.error((error as Error)?.message || "Lỗi xuất PDF từ server");
@@ -543,7 +560,6 @@ export default function SignContractPage() {
   }
 
   const hasContract = pageData?.hasContract && !!contractData;
-
   const getCurrentPosition = (sig: SignatureInfo): { x: number; y: number } => {
     if (tempPosition && tempPosition.sigId === sig._id) {
       return { x: tempPosition.x, y: tempPosition.y };
@@ -684,6 +700,10 @@ export default function SignContractPage() {
                 <span>
                   Click và giữ chuột vào hình chữ ký bên dưới, sau đó di chuyển
                   chuột để kéo đến vị trí mong muốn. Thả chuột để xác nhận lưu.
+                  <strong>
+                    {" "}
+                    Lưu ý: Bạn chỉ có thể di chuyển chữ ký của chính mình.
+                  </strong>
                 </span>
               </div>
             </div>
@@ -714,11 +734,13 @@ export default function SignContractPage() {
                       alt="Signature"
                       width={128}
                       height={64}
-                      className={`absolute object-contain cursor-grab opacity-80 border-2 border-blue-300 rounded shadow-lg pointer-events-auto z-20 select-none user-select-none transition-transform duration-100
+                      className={`absolute object-contain border-2 rounded shadow-lg pointer-events-auto z-20 select-none user-select-none transition-transform duration-100
                         ${
                           draggingSigId === sig._id
                             ? "cursor-grabbing scale-110 shadow-xl"
-                            : ""
+                            : isMySignature(sig)
+                            ? "cursor-grab opacity-80 border-blue-300"
+                            : "cursor-not-allowed opacity-60 border-gray-300"
                         }
                       `}
                       style={{
@@ -727,13 +749,19 @@ export default function SignContractPage() {
                         transform: "translate(-50%, -50%)",
                       }}
                       unoptimized
-                      onMouseDown={(e) =>
-                        handleMouseDown(
-                          e,
-                          sig._id,
-                          sig.positionX,
-                          sig.positionY
-                        )
+                      {...(isMySignature(sig) && {
+                        onMouseDown: (e) =>
+                          handleMouseDown(
+                            e,
+                            sig._id,
+                            sig.positionX,
+                            sig.positionY
+                          ),
+                      })}
+                      title={
+                        isMySignature(sig)
+                          ? "Kéo để di chuyển chữ ký của bạn"
+                          : "Chữ ký của người khác - Không thể di chuyển"
                       }
                     />
                   )
@@ -805,7 +833,7 @@ export default function SignContractPage() {
                   {contractData.signatures.map((sig, index) => (
                     <div
                       key={index}
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 ${
                         sig.signatureId?.signatureImagePath
                           ? "bg-green-100 text-green-700"
                           : "bg-gray-100 text-gray-500"
@@ -901,6 +929,68 @@ export default function SignContractPage() {
                 onClear={() => toast.info("Đã xóa chữ ký!")}
                 disabled={savingNewSignature}
               />
+            </div>
+          </div>
+        )}
+
+        {showConfirmSignModal && (
+          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-bold flex items-center gap-2 text-gray-800">
+                  <PenTool className="w-5 h-5 text-blue-500" />
+                  Xác nhận ký hợp đồng
+                </h3>
+                <button
+                  onClick={() => setShowConfirmSignModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+              <p className="text-sm text-gray-600 mb-6">
+                Trước khi ký, vui lòng xác nhận bạn đã đọc và đồng ý với nội
+                dung hợp đồng.
+              </p>
+              <label className="flex items-center gap-3 mb-6 p-3 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={termsChecked}
+                  onChange={(e) => setTermsChecked(e.target.checked)}
+                  className="rounded text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-700">
+                  Tôi đã đọc và đồng ý với{" "}
+                  <a
+                    href="#"
+                    target="_blank"
+                    className="text-blue-600 hover:underline font-medium"
+                  >
+                    điều khoản của hệ thống
+                  </a>
+                  .
+                </span>
+              </label>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setShowConfirmSignModal(false)}
+                  className="px-6 py-3 bg-gray-500 text-white rounded-xl hover:bg-gray-600"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handleConfirmAndSign}
+                  disabled={!termsChecked || loadingAction}
+                  className="px-6 py-3 bg-green-500 text-white rounded-xl hover:bg-green-600 disabled:opacity-50 flex items-center gap-2 disabled:cursor-not-allowed"
+                >
+                  {loadingAction ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4" />
+                  )}
+                  Xác nhận ký
+                </button>
+              </div>
             </div>
           </div>
         )}

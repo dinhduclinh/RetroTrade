@@ -335,20 +335,51 @@ exports.confirmCreateContract = async (req, res) => {
         populate: {
           path: "signatureId",
           model: "UserSignature",
-          select: "signatureImagePath validFrom validTo isActive iv",
+          select: "signatureImagePath validFrom validTo isActive iv userId",
+          populate: {
+            path: "userId",
+            select: "_id fullName roleId",
+          },
         },
       })
       .populate("templateId", "templateName");
+
+    const signatures = (contract.signatures || []).map((s) => {
+      const sig =
+        s.signatureId && typeof s.signatureId === "object"
+          ? {
+              _id: s.signatureId._id,
+              signatureImagePath: s.signatureId.signatureImagePath,
+              validFrom: s.signatureId.validFrom,
+              validTo: s.signatureId.validTo,
+              isActive: s.signatureId.isActive,
+              signerName: s.signatureId.userId?.fullName || "Unknown",
+              signerRole: s.signatureId.userId?.roleId || null,
+              signerUserId: s.signatureId.userId?._id?.toString() || null,
+            }
+          : null;
+
+      return {
+        _id: s._id?.toString(),
+        contractId: s.contractId?.toString() || s.contractId,
+        signatureId: sig,
+        signedAt: s.signedAt,
+        isValid: s.isValid,
+        verificationInfo: s.verificationInfo,
+        positionX: s.positionX || 0,
+        positionY: s.positionY || 0,
+      };
+    });
 
     const responseData = {
       contractId: contract._id.toString(),
       status: contract.status,
       content: contract.contractContent || "",
-      signatures: [],
+      signatures,
       templateName: contract.templateId?.templateName || null,
-      signaturesCount: 0,
-      isFullySigned: false,
-      canSign: true,
+      signaturesCount: signatures.length,
+      isFullySigned: contract.status === "Signed",
+      canSign: contract.status === "PendingSignature",
     };
 
     return res
@@ -375,8 +406,8 @@ exports.getOrCreateContractForOrder = async (req, res) => {
     }
 
     const order = await OrderModel.findById(orderId)
-      .populate("renterId", "fullName email phone")
-      .populate("ownerId", "fullName email phone")
+      .populate("renterId", "fullName email phone _id")
+      .populate("ownerId", "fullName email phone _id")
       .populate("itemId", "Title Description BasePrice DepositAmount");
 
     if (!order) {
@@ -403,7 +434,7 @@ exports.getOrCreateContractForOrder = async (req, res) => {
           select: "signatureImagePath validFrom validTo isActive iv userId",
           populate: {
             path: "userId",
-            select: "fullName roleId",
+            select: "_id fullName roleId",
           },
         },
       })
@@ -421,6 +452,7 @@ exports.getOrCreateContractForOrder = async (req, res) => {
                 isActive: s.signatureId.isActive,
                 signerName: s.signatureId.userId?.fullName || "Unknown",
                 signerRole: s.signatureId.userId?.roleId || null,
+                signerUserId: s.signatureId.userId?._id?.toString() || null,
               }
             : null;
 
@@ -485,15 +517,15 @@ exports.getContractById = async (req, res) => {
 
     const contract = await Contracts.findById(id)
       .populate("rentalOrderId", "orderGuid totalAmount startAt endAt")
-      .populate("ownerId", "fullName email")
-      .populate("renterId", "fullName email")
+      .populate("ownerId", "fullName email _id")
+      .populate("renterId", "fullName email _id")
       .populate({
         path: "signatures",
         populate: {
           path: "signatureId",
           model: "UserSignature",
           select: "signatureImagePath validFrom validTo isActive iv userId",
-          populate: { path: "userId", select: "fullName" },
+          populate: { path: "userId", select: "_id fullName" },
         },
       })
       .populate("templateId", "templateName");
@@ -520,6 +552,7 @@ exports.getContractById = async (req, res) => {
         _id: s.signatureId._id,
         signatureImagePath: s.signatureId.signatureImagePath,
         signerName: s.signatureId.userId?.fullName || "Unknown",
+        signerUserId: s.signatureId.userId?._id?.toString() || null,
       },
       signedAt: s.signedAt,
       isValid: s.isValid,
@@ -822,7 +855,7 @@ exports.getContractSignatures = async (req, res) => {
         "signatureId",
         "signatureImagePath validFrom validTo isActive userId"
       )
-      .populate("signatureId.userId", "fullName")
+      .populate("signatureId.userId", "_id fullName")
       .lean();
 
     const formattedSignatures = signatures.map((s) => ({
@@ -830,6 +863,7 @@ exports.getContractSignatures = async (req, res) => {
       signatureId: {
         ...s.signatureId,
         signerName: s.signatureId?.userId?.fullName || "Unknown",
+        signerUserId: s.signatureId?.userId?._id?.toString() || null,
       },
       positionX: s.positionX || 0,
       positionY: s.positionY || 0,
