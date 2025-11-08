@@ -84,16 +84,22 @@ class NotificationSSEClient {
 
       this.eventSource.onmessage = (event: MessageEvent) => {
         try {
+          console.log('[SSE] Received message:', event.data);
           const message: SSEMessage = JSON.parse(event.data);
+          console.log('[SSE] Parsed message:', message);
           
           if (message.type === 'notification') {
+            console.log('[SSE] Processing notification:', message.data);
             this.callbacks.onNotification?.(message.data as Notification);
           } else if (message.type === 'unread_count') {
             const { unreadCount } = message.data as { unreadCount: number };
+            console.log('[SSE] Processing unread count:', unreadCount);
             this.callbacks.onUnreadCount?.(unreadCount);
+          } else {
+            console.warn('[SSE] Unknown message type:', message.type);
           }
         } catch (error) {
-          console.error('[SSE] Error parsing message:', error);
+          console.error('[SSE] Error parsing message:', error, 'Raw data:', event.data);
         }
       };
 

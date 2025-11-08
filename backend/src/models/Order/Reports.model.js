@@ -1,20 +1,73 @@
-import { Schema, model, Types } from "mongoose";
+const mongoose = require("mongoose");
+const { Schema, Types } = mongoose;
+
 
 const reportSchema = new Schema({
-  orderId: { type: Types.ObjectId, ref: "Order" },
-  reporterId: { type: Types.ObjectId, ref: "User", required: true },
-  reportedUserId: { type: Types.ObjectId, ref: "User" },
-  reportedItemId: { type: Types.ObjectId, ref: "Item" },
-  reason: { type: String, required: true },
-  description: { type: String },
+  orderId: {
+    type: Types.ObjectId,
+    ref: "Order",
+    required: true,
+  },
+  reporterId: {
+    type: Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
+  reportedUserId: {
+    type: Types.ObjectId,
+    ref: "User",
+  },
+  reportedItemId: {
+    type: Types.ObjectId,
+    ref: "Item",
+  },
+  reason: {
+    type: String,
+    required: true,
+  },
+  description: {
+    type: String,
+  },
+  evidence: {
+    type: [String],
+    default: [],
+  },
+  type: {
+    type: String,
+    enum: ["general", "dispute"],
+    default: "dispute",
+  },
   status: {
     type: String,
-    enum: ["Pending", "Reviewed", "Resolved", "Rejected"],
+    enum: ["Pending", "In Progress", "Reviewed", "Resolved", "Rejected"],
     default: "Pending",
   },
-  handledBy: { type: Types.ObjectId, ref: "User" },
-  handledAt: { type: Date },
-  createdAt: { type: Date, default: Date.now },
+  resolution: {
+    decision: { type: String },
+    notes: { type: String },
+    refundAmount: { type: Number, default: 0 },
+  },
+  assignedBy: {
+    type: Types.ObjectId,
+    ref: "User",
+  },
+  assignedAt: {
+    type: Date,
+  },
+  handledBy: {
+    type: Types.ObjectId,
+    ref: "User",
+  },
+  handledAt: {
+    type: Date,
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
 });
 
-export default model("Report", reportSchema);
+
+const Report = mongoose.model("Report", reportSchema);
+
+module.exports = Report;

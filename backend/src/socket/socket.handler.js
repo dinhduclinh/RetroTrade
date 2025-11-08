@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
-const Message = require('../models/Messages.model');
-const Conversation = require('../models/Conversation.model');
+const Message = require('../models/Chat/Messages.model');
+const Conversation = require('../models/Chat/Conversation.model');
 
 const socketHandler = (io) => {
   // Track presence: userId -> connection count

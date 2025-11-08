@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { useSelector } from 'react-redux';
@@ -44,9 +42,8 @@ export default function NotificationDetailPage() {
     setError(null);
 
     try {
-      // Fetch all notifications and find the one with matching ID
-      const data = await notificationApi.getNotifications({ limit: 1000, skip: 0 });
-      const found = data.items?.find((n: Notification) => n._id === id);
+      // Fetch notification by ID
+      const found = await notificationApi.getNotificationById(id);
       
       if (found) {
         setNotification(found);
@@ -64,10 +61,11 @@ export default function NotificationDetailPage() {
         setError('Không tìm thấy thông báo');
         toast.error('Không tìm thấy thông báo');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching notification:', error);
-      setError('Không thể tải thông báo');
-      toast.error('Không thể tải thông báo');
+      const errorMessage = error?.message || 'Không thể tải thông báo';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -114,6 +112,8 @@ export default function NotificationDetailPage() {
         return <CheckCircle className={`${iconClass} text-emerald-500`} />;
       case 'Product Rejected':
         return <AlertCircle className={`${iconClass} text-red-500`} />;
+      case 'Loyalty':
+        return <CheckCircle className={`${iconClass} text-purple-500`} />;
       default:
         return <Info className={`${iconClass} text-blue-500`} />;
     }
@@ -158,6 +158,8 @@ export default function NotificationDetailPage() {
         return 'from-orange-500 to-amber-600';
       case 'Product Rejected':
         return 'from-red-500 to-rose-600';
+      case 'Loyalty':
+        return 'from-purple-500 to-pink-600';
       default:
         return 'from-gray-500 to-gray-600';
     }
@@ -309,12 +311,14 @@ export default function NotificationDetailPage() {
                 itemId: 'ID Sản phẩm',
                 productId: 'ID Sản phẩm',
                 orderId: 'ID Đơn hàng',
+                orderGuid: 'Mã đơn hàng',
                 reason: 'Lý do',
                 message: 'Thông điệp',
                 amount: 'Số tiền',
                 status: 'Trạng thái',
                 date: 'Ngày',
                 userId: 'ID Người dùng',
+                points: 'RT Points',
               };
 
               const formatFieldLabel = (key: string): string => {
@@ -396,4 +400,3 @@ export default function NotificationDetailPage() {
     </div>
   );
 }
-

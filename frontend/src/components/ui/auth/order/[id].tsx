@@ -31,11 +31,11 @@ import {
   User,
   Mail,
   Store,
+  ArrowLeft,
 } from "lucide-react";
 import type { Order } from "@/services/auth/order.api";
 import Image from "next/image";
 import Link from "next/link";
-import { getCurrentTax } from "@/services/tax/tax.api";
 interface TimelineStep {
   status: string;
   label: string;
@@ -89,18 +89,17 @@ const getPaymentStatusLabel = (status: string): string => {
   return statusMap[status.toLowerCase()] || status;
 };
 
-export default function OrderDetail() {
+export default function OrderDetail({ id: propId }: { id?: string }) {
   const router = useRouter();
-  const { id } = router.query;
+  const { id: routeId, orderId: queryOrderId } = router.query as { id?: string; orderId?: string };
+  const id = propId || queryOrderId || routeId;
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingAction, setPendingAction] = useState<() => Promise<void>>(
-    () => async () => {}
+    () => async () => { }
   );
-  const [taxRate, setTaxRate] = useState<number | null>(null);
-
   useEffect(() => {
     if (id) {
       loadOrder();
@@ -113,26 +112,6 @@ export default function OrderDetail() {
       const res = await getOrderDetails(id as string);
       if (res.data) {
         setOrder(res.data);
-        // Calculate tax rate from order data if available
-        const rentalAmount = calculateRentalAmount(res.data);
-        const serviceFee = res.data.serviceFee || 0;
-        if (rentalAmount > 0 && serviceFee > 0) {
-          // Calculate tax rate from serviceFee
-          const calculatedTaxRate = Math.round((serviceFee / rentalAmount) * 100);
-          setTaxRate(calculatedTaxRate);
-        } else {
-          // Fetch current tax rate as fallback
-          try {
-            const taxResponse = await getCurrentTax();
-            if (taxResponse.success && taxResponse.data) {
-              setTaxRate(taxResponse.data.taxRate);
-            } else {
-              setTaxRate(3); // Default fallback
-            }
-          } catch {
-            setTaxRate(3); // Default fallback
-          }
-        }
       }
     } catch (error) {
       console.error("Lỗi tải đơn hàng:", error);
@@ -180,7 +159,9 @@ export default function OrderDetail() {
     {
       status: "confirmed",
       label: "Đã xác nhận",
-      active: ["confirmed", "progress", "completed"].includes(order.orderStatus),
+      active: ["confirmed", "progress", "completed"].includes(
+        order.orderStatus
+      ),
       current: order.orderStatus === "confirmed",
     },
     {
@@ -194,6 +175,13 @@ export default function OrderDetail() {
       label: "Đã trả",
       active: ["returned", "completed"].includes(order.orderStatus),
       current: order.orderStatus === "returned",
+    },
+    {
+      status: "disputed",
+      label: "Tranh chấp",
+      active: order.orderStatus === "disputed",
+      current: order.orderStatus === "disputed",
+      cancelled: false,
     },
     {
       status: "completed",
@@ -215,51 +203,32 @@ export default function OrderDetail() {
   const canComplete = order.orderStatus === "returned";
   const canCancel = ["pending", "confirmed"].includes(order.orderStatus);
 
-  // Breadcrumb data
-  const breadcrumbs = [
-    { label: "Trang chủ", href: "/home", icon: Home },
-    { label: "Đơn hàng", href: "/order", icon: ShoppingBag },
-    { label: "Chi tiết đơn hàng", href: `/order/${id}`, icon: Eye },
-  ];
+  // Breadcrumb removed in inline render
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50 py-8 px-4">
       <div className="max-w-5xl mx-auto">
-        {/* Breadcrumb Navigation */}
-        <nav className="mb-6">
-          <div className="flex items-center space-x-2 text-sm">
-            {breadcrumbs.map((breadcrumb, index) => {
-              const IconComponent = breadcrumb.icon;
-              const isLast = index === breadcrumbs.length - 1;
-
-              return (
-                <div
-                  key={breadcrumb.href}
-                  className="flex items-center space-x-2"
-                >
-                  {index > 0 && (
-                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                  )}
-
-                  {isLast ? (
-                    <span className="flex items-center space-x-1 text-gray-900 font-medium">
-                      {IconComponent && <IconComponent className="w-4 h-4" />}
-                      <span>{breadcrumb.label}</span>
-                    </span>
-                  ) : (
-                    <Link
-                      href={breadcrumb.href}
-                      className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 transition-colors"
-                    >
-                      {IconComponent && <IconComponent className="w-4 h-4" />}
-                      <span>{breadcrumb.label}</span>
-                    </Link>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </nav>
+        <div className="mb-4">
+          <button
+            onClick={() => {
+              const { pathname, query } = router;
+              const q = query as Record<string, string | string[]>;
+              if (Object.prototype.hasOwnProperty.call(q, "orderId")) {
+                const newQuery: Record<string, string | string[]> = { ...q };
+                delete (newQuery as Record<string, unknown>).orderId;
+                router.replace({ pathname, query: newQuery }, undefined, {
+                  shallow: true,
+                });
+              } else {
+                router.back();
+              }
+            }}
+            className="inline-flex items-center gap-2 text-sm text-gray-700 hover:text-emerald-700 hover:underline"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Quay lại
+          </button>
+        </div>
 
         {/* Header */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
@@ -376,7 +345,9 @@ export default function OrderDetail() {
                       )}
                     </div>
                     <div>
-                      <h3 className="font-bold text-lg text-gray-800 mb-1">Người thuê</h3>
+                      <h3 className="font-bold text-lg text-gray-800 mb-1">
+                        Người thuê
+                      </h3>
                       <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-100 px-3 py-1 rounded-full w-fit">
                         <User className="w-3 h-3" />
                         <span>Người mua</span>
@@ -390,7 +361,9 @@ export default function OrderDetail() {
                       </div>
                       <div className="flex-1">
                         <p className="text-xs text-gray-500 mb-1">Họ và tên</p>
-                        <p className="text-base font-semibold text-gray-800">{order.renterId.fullName}</p>
+                        <p className="text-base font-semibold text-gray-800">
+                          {order.renterId.fullName}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -399,7 +372,9 @@ export default function OrderDetail() {
                       </div>
                       <div className="flex-1">
                         <p className="text-xs text-gray-500 mb-1">Email</p>
-                        <p className="text-sm text-gray-700 break-all">{order.renterId.email}</p>
+                        <p className="text-sm text-gray-700 break-all">
+                          {order.renterId.email}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -424,7 +399,9 @@ export default function OrderDetail() {
                       )}
                     </div>
                     <div>
-                      <h3 className="font-bold text-lg text-gray-800 mb-1">Người cho thuê</h3>
+                      <h3 className="font-bold text-lg text-gray-800 mb-1">
+                        Người cho thuê
+                      </h3>
                       <div className="flex items-center gap-2 text-sm text-emerald-600 bg-emerald-100 px-3 py-1 rounded-full w-fit">
                         <Store className="w-3 h-3" />
                         <span>Chủ cửa hàng</span>
@@ -438,7 +415,9 @@ export default function OrderDetail() {
                       </div>
                       <div className="flex-1">
                         <p className="text-xs text-gray-500 mb-1">Họ và tên</p>
-                        <p className="text-base font-semibold text-gray-800">{order.ownerId.fullName || "Chủ sở hữu"}</p>
+                        <p className="text-base font-semibold text-gray-800">
+                          {order.ownerId.fullName || "Chủ sở hữu"}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -447,12 +426,18 @@ export default function OrderDetail() {
                       </div>
                       <div className="flex-1">
                         <p className="text-xs text-gray-500 mb-1">Email</p>
-                        <p className="text-sm text-gray-700 break-all">{order.ownerId.email || "Không có email"}</p>
+                        <p className="text-sm text-gray-700 break-all">
+                          {order.ownerId.email || "Không có email"}
+                        </p>
                       </div>
                     </div>
                   </div>
                   <div className="pt-4 mt-4 border-t border-emerald-200">
-                    <Link href={`/store/${order.ownerId.userGuid || order.ownerId._id}`}>
+                    <Link
+                      href={`/store/${
+                        order.ownerId.userGuid || order.ownerId._id
+                      }`}
+                    >
                       <button className="w-full px-4 py-2 text-sm font-medium text-emerald-600 bg-white border border-emerald-300 rounded-lg hover:bg-emerald-50 transition-colors flex items-center justify-center gap-2">
                         <Store className="w-4 h-4" />
                         Xem cửa hàng
@@ -496,6 +481,27 @@ export default function OrderDetail() {
                           </p>
                         </div>
                       )}
+                    </div>
+                  </div>
+                ) : order.orderStatus === "disputed" ? (
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-red-100 text-red-700">
+                      <AlertCircle className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-red-700">
+                        Đang Tranh chấp
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {format(new Date(order.updatedAt), "dd/MM/yyyy HH:mm")}
+                      </p>
+                      <button
+                        onClick={() => router.push(`/dispute/${id}`)}
+                        className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-red-600 hover:text-red-700 underline underline-offset-2 transition-colors group"
+                      >
+                        <Eye className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                        Chi tiết tranh chấp
+                      </button>
                     </div>
                   </div>
                 ) : (
@@ -580,10 +586,7 @@ export default function OrderDetail() {
                 </div>
 
                 <div className="flex justify-between text-cyan-200">
-                  <span>
-                    Phí dịch vụ
-                    {taxRate !== null ? ` (${taxRate}%)` : ""}
-                  </span>
+                  <span>Phí dịch vụ</span>
                   <span>
                     {(order.serviceFee || 0).toLocaleString("vi-VN")}₫
                   </span>
@@ -596,13 +599,70 @@ export default function OrderDetail() {
                   </span>
                 </div>
 
+                {/* Discount Information */}
+                {order.discount &&
+                  (order.discount.amountApplied > 0 ||
+                    order.discount.secondaryAmountApplied > 0 ||
+                    order.discount.totalAmountApplied > 0) && (
+                    <div className="flex justify-between text-green-200 border-t border-emerald-400 pt-3">
+                      <span>Giảm giá</span>
+                      <span className="font-medium">
+                        -
+                        {(
+                          order.discount.totalAmountApplied ||
+                          order.discount.amountApplied ||
+                          0
+                        ).toLocaleString("vi-VN")}
+                        ₫
+                      </span>
+                    </div>
+                  )}
+
                 <div className="border-t border-emerald-400 pt-3">
                   <div className="flex justify-between text-lg font-bold">
                     <span>Tổng thanh toán</span>
                     <span className="text-2xl">
-                      {order.totalAmount.toLocaleString("vi-VN")}₫
+                      {(order.finalAmount || order.totalAmount).toLocaleString(
+                        "vi-VN"
+                      )}
+                      ₫
                     </span>
                   </div>
+                  {order.discount &&
+                    (order.discount.code || order.discount.secondaryCode) && (
+                      <div className="mt-2 text-xs text-emerald-200/80">
+                        {order.discount.code && (
+                          <div>
+                            Mã công khai: {order.discount.code}{" "}
+                            {order.discount.type === "percent"
+                              ? `(${order.discount.value}%)`
+                              : `(${order.discount.value.toLocaleString(
+                                  "vi-VN"
+                                )}₫)`}{" "}
+                            -{" "}
+                            {(order.discount.amountApplied || 0).toLocaleString(
+                              "vi-VN"
+                            )}
+                            ₫
+                          </div>
+                        )}
+                        {order.discount.secondaryCode && (
+                          <div>
+                            Mã riêng tư: {order.discount.secondaryCode}{" "}
+                            {order.discount.secondaryType === "percent"
+                              ? `(${order.discount.secondaryValue}%)`
+                              : `(${order.discount.secondaryValue?.toLocaleString(
+                                  "vi-VN"
+                                )}₫)`}{" "}
+                            -{" "}
+                            {(
+                              order.discount.secondaryAmountApplied || 0
+                            ).toLocaleString("vi-VN")}
+                            ₫
+                          </div>
+                        )}
+                      </div>
+                    )}
                 </div>
               </div>
             </div>
@@ -647,10 +707,9 @@ export default function OrderDetail() {
                 <span className="text-gray-700">Hợp đồng</span>
                 <span
                   className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium
-                    ${
-                      order.isContractSigned
-                        ? "bg-green-100 text-green-700"
-                        : "bg-red-100 text-red-700"
+                    ${order.isContractSigned
+                      ? "bg-green-100 text-green-700"
+                      : "bg-red-100 text-red-700"
                     }`}
                 >
                   {order.isContractSigned ? (
@@ -667,9 +726,11 @@ export default function OrderDetail() {
                 </span>
               </div>
               {!order.isContractSigned && (
-                <button className="mt-3 w-full bg-emerald-600 text-white py-2 rounded-xl font-medium hover:bg-emerald-700 transition">
-                  Ký hợp đồng ngay
-                </button>
+                <Link href={`/auth/contract/sign/${id}`}>
+                  <button className="mt-3 w-full bg-emerald-600 text-white py-2 rounded-xl font-medium hover:bg-emerald-700 transition">
+                    Ký hợp đồng ngay
+                  </button>
+                </Link>
               )}
             </div>
 

@@ -18,7 +18,16 @@ const ChatFloatingButton: React.FC<ChatButtonProps> = ({ badgeCount = 0 }) => {
   const [initialConversations, setInitialConversations] = useState<Conversation[]>([]);
 
   // Decode user from token with memoization
-  const decodedUser = useMemo(() => decodeToken(accessToken), [accessToken]);
+  const decodedUser = useMemo(() => {
+    const decoded = decodeToken(accessToken);
+    // Debug: Log to see what's happening
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[ChatButton] accessToken exists:', !!accessToken);
+      console.log('[ChatButton] decodedUser:', decoded);
+      console.log('[ChatButton] decodedUser role:', decoded?.role);
+    }
+    return decoded;
+  }, [accessToken]);
 
   // Calculate total unread messages count from all conversations
   const totalUnreadCount = useMemo(() => {
@@ -45,15 +54,21 @@ const ChatFloatingButton: React.FC<ChatButtonProps> = ({ badgeCount = 0 }) => {
 
     try {
       const res = await getConversations();
-      
-      if (res.ok) {
+
+      if (res && res.ok) {
         const data = await res.json();
         if (data?.data) {
           setInitialConversations(Array.isArray(data.data) ? data.data : []);
+        } else {
+          setInitialConversations([]);
         }
+      } else {
+        // If response is not ok, set empty array
+        setInitialConversations([]);
       }
     } catch (error) {
-      console.error("Failed to load conversations:", error);
+      // Silently handle errors - backend might not be running
+      console.warn("Failed to load conversations (backend may not be running):", error);
       setInitialConversations([]);
     }
   }, [decodedUser]);
@@ -68,13 +83,14 @@ const ChatFloatingButton: React.FC<ChatButtonProps> = ({ badgeCount = 0 }) => {
 
     const loadRecent = async () => {
       if (!decodedUser || isChatOpen) return; // Don't load if chat is already open
-      
+
       try {
         abortController = new AbortController();
         await loadConversations();
       } catch (error) {
         if (mounted) {
-          console.error("Failed to load conversations:", error);
+          // Silently handle errors - backend might not be running
+          console.warn("Failed to load conversations (backend may not be running):", error);
         }
       }
     };
@@ -82,7 +98,7 @@ const ChatFloatingButton: React.FC<ChatButtonProps> = ({ badgeCount = 0 }) => {
     // Load initially when chat is closed
     if (!isChatOpen) {
       loadRecent();
-      
+
       // Refresh conversations every 30 seconds to update unread count
       refreshInterval = setInterval(() => {
         if (mounted && !isChatOpen) {
@@ -107,34 +123,82 @@ const ChatFloatingButton: React.FC<ChatButtonProps> = ({ badgeCount = 0 }) => {
       const timeoutId = setTimeout(() => {
         loadConversations();
       }, 500);
-      
+
       return () => clearTimeout(timeoutId);
     }
   }, [isChatOpen, decodedUser, loadConversations]);
 
-  // Don't show button if user not logged in
+  const userRole = decodedUser?.role?.toLowerCase();
+  
+  // Debug: Log when component renders
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[ChatButton] Component rendered');
+      console.log('[ChatButton] User:', decodedUser?.email || 'none', 'role:', userRole || 'none');
+      console.log('[ChatButton] isChatOpen:', isChatOpen);
+      console.log('[ChatButton] Button will be visible:', decodedUser && !isChatOpen);
+      
+      // Check if button element exists in DOM
+      if (decodedUser && !isChatOpen) {
+        setTimeout(() => {
+          const buttonElement = document.querySelector('[aria-label="Mở trò chuyện"]');
+          console.log('[ChatButton] Button element in DOM:', !!buttonElement);
+          if (buttonElement) {
+            const styles = window.getComputedStyle(buttonElement);
+            console.log('[ChatButton] Button computed styles:', {
+              display: styles.display,
+              visibility: styles.visibility,
+              opacity: styles.opacity,
+              position: styles.position,
+              zIndex: styles.zIndex
+            });
+          }
+        }, 100);
+      }
+    }
+  }, [decodedUser, isChatOpen, userRole]);
+
+  // Only show button if user is logged in
   if (!decodedUser) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[ChatButton] Not showing button: user not logged in');
+    }
     return null;
   }
 
-  // Don't show button for moderator or admin (they have their own chat page)
-  if (decodedUser.role === "moderator" || decodedUser.role === "admin") {
-    return null;
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[ChatButton] Rendering button for user:', decodedUser.email, 'role:', userRole || 'none');
+    console.log('[ChatButton] isChatOpen:', isChatOpen);
+    console.log('[ChatButton] Button should be visible:', !isChatOpen);
   }
 
   return (
     <>
       {/* Floating Messages Button - Hide when chat is open */}
       {!isChatOpen && (
-        <div className="fixed bottom-6 right-6 z-[9999]">
+        <div 
+          className="fixed bottom-6 right-6 z-[99999]"
+          style={{ 
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            zIndex: 99999,
+            pointerEvents: 'auto'
+          }}
+        >
           <button
             onClick={handleToggleChat}
             className="relative flex items-center gap-3 px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 group"
+            style={{
+              display: 'flex',
+              visibility: 'visible',
+              opacity: 1
+            }}
             aria-label="Mở trò chuyện"
           >
             {/* Chat Icon */}
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
 
             {/* Text */}
@@ -172,10 +236,10 @@ const ChatFloatingButton: React.FC<ChatButtonProps> = ({ badgeCount = 0 }) => {
       )}
 
       {/* Chat Popup */}
-      <ChatBox 
-        isOpen={isChatOpen} 
-        onClose={handleCloseChat} 
-        initialConversations={initialConversations} 
+      <ChatBox
+        isOpen={isChatOpen}
+        onClose={handleCloseChat}
+        initialConversations={initialConversations}
       />
     </>
   );

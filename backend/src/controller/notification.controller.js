@@ -42,6 +42,41 @@ module.exports.getNotifications = async (req, res) => {
 };
 
 /**
+ * Get a single notification by ID
+ */
+module.exports.getNotificationById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id;
+
+    const notification = await Notification.findOne({
+      _id: id,
+      user: userId,
+    });
+
+    if (!notification) {
+      return res.json({
+        code: 404,
+        message: "Không tìm thấy thông báo",
+      });
+    }
+
+    return res.json({
+      code: 200,
+      message: "Lấy thông báo thành công",
+      data: notification,
+    });
+  } catch (error) {
+    console.error("Error in getNotificationById:", error);
+    return res.json({
+      code: 500,
+      message: "Lấy thông báo thất bại",
+      error: error.message,
+    });
+  }
+};
+
+/**
  * Mark a notification as read
  */
 module.exports.markAsRead = async (req, res) => {
