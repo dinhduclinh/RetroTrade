@@ -5,6 +5,25 @@ const path = require('path');
 const { uploadToCloudinary } = require('../../middleware/upload.middleware');
 const { createNotification } = require("../../middleware/createNotification");
 
+// Lazy load Tesseract for OCR
+let Tesseract;
+let tesseractLoaded = false;
+const loadTesseract = async () => {
+    if (!tesseractLoaded) {
+        try {
+            Tesseract = require('tesseract.js');
+            tesseractLoaded = true;
+            console.log('Tesseract.js loaded successfully');
+        } catch (error) {
+            console.error('Error loading Tesseract.js:', error);
+            console.log('OCR will be disabled. Users can manually enter ID card information.');
+            Tesseract = null;
+            tesseractLoaded = true; // Mark as loaded to avoid retrying
+        }
+    }
+    return Tesseract;
+};
+
 // Lazy load sharp to avoid module not found errors
 let sharp;
 const loadSharp = async () => {
@@ -324,6 +343,102 @@ const formatPhoneNumber = (phoneNumber) => {
     
     // Default: assume it's already in correct format
     return digits;
+};
+
+// Extract ID card information from image using OCR
+const extractIdCardInfo = async (idCardImageBuffer) => {
+    try {
+        const TesseractLib = await loadTesseract();
+        if (!TesseractLib) {
+            console.log('Tesseract not available, skipping OCR extraction');
+            return null;
+        }
+
+        // Use Vietnamese language for better OCR accuracy
+        const { data: { text } } = await TesseractLib.recognize(idCardImageBuffer, 'vie', {
+            logger: m => {
+                if (m.status === 'recognizing text') {
+                    console.log(`OCR progress: ${Math.round(m.progress * 100)}%`);
+                }
+            }
+        });
+
+        console.log('OCR extracted text:', text);
+
+        // Parse extracted text to find ID card information
+        const idCardInfo = {
+            idNumber: null,
+            fullName: null,
+            dateOfBirth: null,
+            address: null
+        };
+
+        // Extract ID number (12 digits)
+        const idNumberMatch = text.match(/\b\d{12}\b/);
+        if (idNumberMatch) {
+            idCardInfo.idNumber = idNumberMatch[0];
+        }
+
+        // Extract full name (usually after "Họ và tên:" or similar)
+        const namePatterns = [
+            /Họ và tên[:\s]+([A-ZÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ][A-ZÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ\s]+)/i,
+            /Họ tên[:\s]+([A-ZÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ][A-ZÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ\s]+)/i,
+        ];
+        for (const pattern of namePatterns) {
+            const match = text.match(pattern);
+            if (match && match[1]) {
+                idCardInfo.fullName = match[1].trim().replace(/\s+/g, ' ');
+                break;
+            }
+        }
+
+        // Extract date of birth (format: DD/MM/YYYY or DD-MM-YYYY)
+        const datePatterns = [
+            /\b(\d{2}[\/\-]\d{2}[\/\-]\d{4})\b/,
+            /Ngày sinh[:\s]+(\d{2}[\/\-]\d{2}[\/\-]\d{4})/i,
+        ];
+        for (const pattern of datePatterns) {
+            const match = text.match(pattern);
+            if (match && match[1]) {
+                const dateStr = match[1].replace(/-/g, '/');
+                const [day, month, year] = dateStr.split('/');
+                if (day && month && year) {
+                    idCardInfo.dateOfBirth = new Date(`${year}-${month}-${day}`);
+                    if (isNaN(idCardInfo.dateOfBirth.getTime())) {
+                        idCardInfo.dateOfBirth = null;
+                    }
+                }
+                break;
+            }
+        }
+
+        // Extract address (usually after "Địa chỉ thường trú:" or similar)
+        const addressPatterns = [
+            /Địa chỉ thường trú[:\s]+([^\n]+(?:\n[^\n]+)*)/i,
+            /Địa chỉ[:\s]+([^\n]+(?:\n[^\n]+)*)/i,
+        ];
+        for (const pattern of addressPatterns) {
+            const match = text.match(pattern);
+            if (match && match[1]) {
+                idCardInfo.address = match[1].trim().replace(/\s+/g, ' ');
+                // Limit address length
+                if (idCardInfo.address.length > 200) {
+                    idCardInfo.address = idCardInfo.address.substring(0, 200);
+                }
+                break;
+            }
+        }
+
+        // Only return if at least one field was extracted
+        if (idCardInfo.idNumber || idCardInfo.fullName || idCardInfo.dateOfBirth || idCardInfo.address) {
+            return idCardInfo;
+        }
+
+        return null;
+    } catch (error) {
+        console.error('Error extracting ID card information:', error);
+        return null;
+    }
 };
 
 // Send OTP via Firebase Auth REST API
@@ -844,7 +959,7 @@ module.exports.verifyFaceImages = async (req, res) => {
                     .sharpen({ sigma: 5, m1: 1.2, m2: 8 }) // EXTREMELY aggressive sharpening
                     .normalize()
                     .modulate({ brightness: 1.3, saturation: 1.4, hue: 0 })
-                    .gamma(0.9) // Slightly darker for better contrast
+                    // Remove gamma() as it may cause issues - use modulate brightness instead
                     .jpeg({ quality: 100 })
                     .toBuffer();
                 
@@ -1018,17 +1133,62 @@ module.exports.verifyFaceImages = async (req, res) => {
 
         idCardFaces = bestIdCardResult || [];
 
+        // Extract ID card information from front image using OCR (before face verification)
+        // This allows user to review and edit the information even if face verification fails
+        let extractedIdCardInfo = null;
+        try {
+            extractedIdCardInfo = await extractIdCardInfo(idCardFrontFile.buffer);
+            if (extractedIdCardInfo) {
+                console.log('Extracted ID card information:', extractedIdCardInfo);
+            } else {
+                console.log('Could not extract ID card information from OCR.');
+            }
+        } catch (ocrError) {
+            console.error('Error extracting ID card info with OCR:', ocrError);
+            // Continue without OCR - user can enter manually
+        }
+
         if (userFaces.length === 0) {
-            return res.status(400).json({ 
-                code: 400, 
-                message: "Không tìm thấy khuôn mặt trong hình ảnh người dùng" 
+            // Return response with extracted ID card info even if face detection fails
+            return res.json({
+                code: 400,
+                message: "Không tìm thấy khuôn mặt trong hình ảnh người dùng",
+                data: {
+                    isMatch: false,
+                    similarityPercentage: 0,
+                    distance: Infinity,
+                    threshold: 0.6,
+                    userFacesDetected: 0,
+                    idCardFacesDetected: idCardFaces.length,
+                    extractedIdCardInfo: extractedIdCardInfo ? {
+                        idNumber: extractedIdCardInfo.idNumber,
+                        fullName: extractedIdCardInfo.fullName,
+                        dateOfBirth: extractedIdCardInfo.dateOfBirth ? extractedIdCardInfo.dateOfBirth.toISOString() : null,
+                        address: extractedIdCardInfo.address
+                    } : null
+                }
             });
         }
 
         if (idCardFaces.length === 0) {
-            return res.status(400).json({ 
-                code: 400, 
-                message: "Không tìm thấy khuôn mặt trong hình ảnh căn cước công dân" 
+            // Return response with extracted ID card info even if face detection fails
+            return res.json({
+                code: 400,
+                message: "Không tìm thấy khuôn mặt trong hình ảnh căn cước công dân",
+                data: {
+                    isMatch: false,
+                    similarityPercentage: 0,
+                    distance: Infinity,
+                    threshold: 0.6,
+                    userFacesDetected: userFaces.length,
+                    idCardFacesDetected: 0,
+                    extractedIdCardInfo: extractedIdCardInfo ? {
+                        idNumber: extractedIdCardInfo.idNumber,
+                        fullName: extractedIdCardInfo.fullName,
+                        dateOfBirth: extractedIdCardInfo.dateOfBirth ? extractedIdCardInfo.dateOfBirth.toISOString() : null,
+                        address: extractedIdCardInfo.address
+                    } : null
+                }
             });
         }
 
@@ -1105,6 +1265,9 @@ module.exports.verifyFaceImages = async (req, res) => {
         let updatedUser = null;
         if (isMatch) {
             try {
+                // Use extracted ID card information from OCR (already extracted above)
+                // If OCR didn't extract, user can enter manually later
+
                 // Upload files to Cloudinary in user-documents folder
                 let uploadedFiles = [];
                 try {
@@ -1138,13 +1301,29 @@ module.exports.verifyFaceImages = async (req, res) => {
                     };
                 });
 
+                // Prepare update object
+                const updateData = {
+                    isIdVerified: true,
+                    $push: { documents: { $each: documents } }
+                };
+
+                // Add ID card information if extracted (use from responseData.extractedIdCardInfo)
+                if (responseData.extractedIdCardInfo) {
+                    const ocrInfo = responseData.extractedIdCardInfo;
+                    updateData.idCardInfo = {
+                        idNumber: ocrInfo.idNumber || null,
+                        fullName: ocrInfo.fullName || null,
+                        dateOfBirth: ocrInfo.dateOfBirth ? new Date(ocrInfo.dateOfBirth) : null,
+                        address: ocrInfo.address || null,
+                        extractedAt: new Date(),
+                        extractionMethod: 'ocr'
+                    };
+                }
+
                 // Update user with ID verification and save documents
                 updatedUser = await User.findByIdAndUpdate(
                     userId,
-                    { 
-                        isIdVerified: true,
-                        $push: { documents: { $each: documents } }
-                    },
+                    updateData,
                     { new: true }
                 );
 
@@ -1196,7 +1375,14 @@ module.exports.verifyFaceImages = async (req, res) => {
                     width: bestMatch.idCardFace.detection.box.width,
                     height: bestMatch.idCardFace.detection.box.height
                 }
-            }
+            },
+            // Include extracted ID card information for user to review
+            extractedIdCardInfo: extractedIdCardInfo ? {
+                idNumber: extractedIdCardInfo.idNumber,
+                fullName: extractedIdCardInfo.fullName,
+                dateOfBirth: extractedIdCardInfo.dateOfBirth ? extractedIdCardInfo.dateOfBirth.toISOString() : null,
+                address: extractedIdCardInfo.address
+            } : null
         };
 
         // Optional verbose debug (do not expose in production unless explicitly enabled)
@@ -1220,6 +1406,16 @@ module.exports.verifyFaceImages = async (req, res) => {
             responseData.userId = updatedUser._id;
             responseData.isIdVerified = updatedUser.isIdVerified;
             responseData.documents = updatedUser.documents || [];
+            // Include extracted ID card information
+            if (updatedUser.idCardInfo) {
+                responseData.idCardInfo = {
+                    idNumber: updatedUser.idCardInfo.idNumber,
+                    fullName: updatedUser.idCardInfo.fullName,
+                    dateOfBirth: updatedUser.idCardInfo.dateOfBirth,
+                    address: updatedUser.idCardInfo.address,
+                    extractionMethod: updatedUser.idCardInfo.extractionMethod
+                };
+            }
         }
 
         return res.json({
