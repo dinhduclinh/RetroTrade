@@ -93,11 +93,8 @@ export default function ProductDetailPage() {
   const [dateError, setDateError] = useState<string>("");
   const [ownerTopItems, setOwnerTopItems] = useState<any[]>([]);
   const [similarItems, setSimilarItems] = useState<any[]>([]);
-<<<<<<< HEAD
   const [isFavorite, setIsFavorite] = useState(false);
-  const [favoriteLoading, setFavoriteLoading] = useState(false);
-=======
->>>>>>> linhddhe173104
+  const [favoriteLoading, setFavoriteLoading] = useState(false)
 
   const accessToken = useSelector((state: RootState) => state.auth.accessToken);
   const productId = product?._id;
