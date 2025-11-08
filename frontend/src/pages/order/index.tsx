@@ -63,12 +63,13 @@ export default function OrderListPage() {
   const [openConfirm, setOpenConfirm] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10; 
+  const itemsPerPage = 10;
 
   const [openDisputeModal, setOpenDisputeModal] = useState(false);
-  const [selectedDisputeOrder, setSelectedDisputeOrder] =useState<Order | null>(null);
+  const [selectedDisputeOrder, setSelectedDisputeOrder] =
+    useState<Order | null>(null);
   const accessToken = useSelector((state: RootState) => state.auth.accessToken);
- 
+
   // Decode token
   let userRole: string | undefined;
   let userId: string | undefined;
@@ -86,7 +87,7 @@ export default function OrderListPage() {
     const fetchOrders = async () => {
       try {
         setLoading(true);
-      const res = await listOrders();
+        const res = await listOrders();
         if (res.code === 200 && Array.isArray(res.data)) {
           setOrders(res.data);
         }
@@ -94,7 +95,7 @@ export default function OrderListPage() {
         console.error("Error fetching orders:", error);
         toast.error("Không thể tải danh sách đơn hàng");
       } finally {
-      setLoading(false);
+        setLoading(false);
       }
     };
     fetchOrders();
@@ -182,28 +183,26 @@ export default function OrderListPage() {
       partial: { label: "Thanh toán một phần", color: "text-amber-700" },
     };
 
-
   const filteredOrders = useMemo(() => {
     if (selectedStatus === "all") return orders;
     return orders.filter((order) => order.orderStatus === selectedStatus);
   }, [orders, selectedStatus]);
 
-  const paginationState: PaginationState = useMemo(() => 
-    createPaginationState({
-      page: currentPage,
-      limit: itemsPerPage,
-      totalItems: filteredOrders.length,
-      totalPages: Math.ceil(filteredOrders.length / itemsPerPage),
-    }),
+  const paginationState: PaginationState = useMemo(
+    () =>
+      createPaginationState({
+        page: currentPage,
+        limit: itemsPerPage,
+        totalItems: filteredOrders.length,
+        totalPages: Math.ceil(filteredOrders.length / itemsPerPage),
+      }),
     [currentPage, itemsPerPage, filteredOrders.length]
   );
-
 
   const currentOrders = filteredOrders.slice(
     paginationState.startIndex,
     paginationState.endIndex + 1
   );
-
 
   useEffect(() => {
     setCurrentPage(1);
@@ -212,7 +211,7 @@ export default function OrderListPage() {
   const handlePageChange = (page: number) => {
     if (page >= 1 && page <= paginationState.totalPages) {
       setCurrentPage(page);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
@@ -400,16 +399,16 @@ export default function OrderListPage() {
                 const isRenter =
                   userRole === "renter" ||
                   order.renterId?._id?.toString() === userId?.toString();
-               const canReturn =
-                 isRenter &&
-                 order.orderStatus === "progress" &&
-                 !["disputed", "returned", "completed"].includes(
-                   order.orderStatus
-                 ) &&
-                 order.renterId?._id?.toString() === userId?.toString();
+                const canReturn =
+                  isRenter &&
+                  order.orderStatus === "progress" &&
+                  !["disputed", "returned", "completed"].includes(
+                    order.orderStatus
+                  ) &&
+                  order.renterId?._id?.toString() === userId?.toString();
                 const canDispute =
                   isRenter &&
-                  ["progress", ].includes(order.orderStatus) &&
+                  ["progress"].includes(order.orderStatus) &&
                   order.orderStatus !== "disputed" &&
                   order.renterId?._id?.toString() === userId?.toString();
                 return (
@@ -732,7 +731,7 @@ export default function OrderListPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-        
+
         <DisputeModal
           open={openDisputeModal}
           onOpenChange={setOpenDisputeModal}

@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-ARG NODE_VERSION=22.13.1
+ARG NODE_VERSION=22.11.1
 FROM node:${NODE_VERSION}-slim AS base
 
 # Install build dependencies for TensorFlow.js and Canvas
@@ -30,9 +30,12 @@ COPY --link server.js ./server.js
 RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
 USER appuser
 
+RUN npm install
+
+
 ENV NODE_ENV=production
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 
-EXPOSE 3000
+EXPOSE 9999
 
 CMD ["node", "server.js"]

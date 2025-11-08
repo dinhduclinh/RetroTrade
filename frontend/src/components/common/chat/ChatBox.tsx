@@ -198,7 +198,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({ isOpen, onClose, initialConversations
 
     // Typing listener
     socketHandlers.onTyping((data) => {
-      const selfId = user?._id || (user as any)?.userGuid;
+      const selfId = user?._id || user?.userGuid || undefined;
       if (data.conversationId === selectedConversation?._id && data.userId !== selfId) {
         setTypingUser(data.isTyping ? data.userId : null);
         if (data.isTyping) {

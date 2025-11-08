@@ -56,7 +56,6 @@ const getUnitName = (priceUnit: string | undefined): string => {
   return map[priceUnit] || "đơn vị";
 };
 
-
 const calculateRentalAmount = (order: Order): number => {
   const basePrice = order.itemSnapshot.basePrice ?? 0;
   const duration = order.rentalDuration ?? 0;
@@ -116,7 +115,9 @@ export default function OrderDetail() {
         const rentalAmount = calculateRentalAmount(res.data);
         const serviceFee = res.data.serviceFee || 0;
         if (rentalAmount > 0 && serviceFee > 0) {
-          const calculatedTaxRate = Math.round((serviceFee / rentalAmount) * 100);
+          const calculatedTaxRate = Math.round(
+            (serviceFee / rentalAmount) * 100
+          );
           setTaxRate(calculatedTaxRate);
         } else {
           try {
@@ -127,7 +128,7 @@ export default function OrderDetail() {
               setTaxRate(3);
             }
           } catch {
-            setTaxRate(3); 
+            setTaxRate(3);
           }
         }
       }

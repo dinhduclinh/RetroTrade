@@ -52,11 +52,23 @@ export interface Order {
   startAt: string;
   endAt: string;
   totalAmount: number;
+  finalAmount?: number;
   depositAmount?: number;
   serviceFee?: number;
   currency: string;
   rentalDuration?: number;
   rentalUnit?: string;
+  discount?: {
+    code?: string;
+    type?: "percent" | "fixed";
+    value?: number;
+    amountApplied?: number;
+    secondaryCode?: string;
+    secondaryType?: "percent" | "fixed";
+    secondaryValue?: number;
+    secondaryAmountApplied?: number;
+    totalAmountApplied?: number;
+  };
   shippingAddress: {
     fullName: string;
     street: string;

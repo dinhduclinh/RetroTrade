@@ -1,7 +1,35 @@
 "use client";
-import { Search } from "lucide-react";
 import { Button } from "@/components/ui/common/button";
+import { motion, type Variants } from "framer-motion";
 import { useEffect, useRef } from "react";
+import Link from "next/link";
+import { MessageCircle, ShoppingBag } from "lucide-react";
+
+const buttonsContainerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.3,
+    },
+  },
+};
+
+const buttonVariants: Variants = {
+  hidden: { opacity: 0, y: 20, scale: 0.95 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.5, ease: "easeOut" },
+  },
+  hover: {
+    scale: 1.05,
+    y: -2,
+    transition: { type: "spring", stiffness: 400, damping: 17 },
+  },
+};
 
 export function HeroSection() {
   const sectionRef = useRef(null);
@@ -26,7 +54,7 @@ export function HeroSection() {
     <section ref={sectionRef} className="relative z-10 py-20 px-4">
       <div className="container mx-auto grid md:grid-cols-2 gap-12 items-center">
         {/* Cột bên trái */}
-        <div className="space-y-6">
+        <motion.div className="space-y-6" initial="hidden" animate="visible">
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900 leading-tight">
             Cho thuê đồ cũ
             <br />
@@ -37,25 +65,47 @@ export function HeroSection() {
             Nền tảng chia sẻ và cho thuê đồ cũ hàng đầu Việt Nam
           </p>
 
-          {/* Thanh tìm kiếm + nút bắt đầu ngay */}
-          <div className="flex flex-col sm:flex-row items-center gap-3">
-            <div className="relative w-full sm:w-80">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                placeholder="Tìm đồ bạn muốn thuê..."
-                className="w-full pl-10 pr-4 py-3 rounded-full border border-gray-300 placeholder-gray-400 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-
-            <Button
-              size="lg"
-              className="rounded-full bg-indigo-600 hover:bg-indigo-700 text-white w-full sm:w-auto px-8 py-7 text-base font-medium whitespace-nowrap"
+          {/* Buttons Container */}
+          <motion.div 
+            variants={buttonsContainerVariants}
+            initial="hidden"
+            animate="visible"
+            className="flex flex-col sm:flex-row gap-4 w-full max-w-md mx-auto md:mx-0"
+          >
+            <motion.div 
+              className="flex-1"
+              variants={buttonVariants}
+              whileHover="hover"
             >
-              Bắt đầu ngay
-            </Button>
-          </div>
-        </div>
+              <Link href="/auth/messages" className="block w-full">
+                <Button
+                  size="lg"
+                  className="w-full rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white py-6 text-base font-medium whitespace-nowrap shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2"
+                >
+                  <MessageCircle className="w-5 h-5" />
+                  Tư vấn ngay
+                </Button>
+              </Link>
+            </motion.div>
+
+            <motion.div 
+              className="flex-1"
+              variants={buttonVariants}
+              whileHover="hover"
+            >
+              <Link href="/products" className="block w-full">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full rounded-full border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 py-6 text-base font-medium whitespace-nowrap transition-all duration-300 flex items-center justify-center gap-2"
+                >
+                  <ShoppingBag className="w-5 h-5" />
+                  Xem sản phẩm
+                </Button>
+              </Link>
+            </motion.div>
+          </motion.div>
+        </motion.div>
 
         {/* Cột bên phải: Hình minh họa */}
         <div className="relative">

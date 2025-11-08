@@ -27,6 +27,9 @@ module.exports = {
         paymentMethod = "Wallet",
         shippingAddress,
         note = "",
+        discountCode,
+        publicDiscountCode,
+        privateDiscountCode,
       } = req.body;
 
       const finalStartAt = startAt || rentalStartDate;
@@ -85,6 +88,118 @@ module.exports = {
       const { totalAmount, depositAmount, serviceFee, duration, unitName } =
         result;
 
+      // === DISCOUNT ===
+      // Tính baseAmount cho discount = totalAmount (tiền thuê) + depositAmount (tiền cọc)
+      const baseAmountForDiscount = totalAmount + depositAmount;
+      let discountInfo = null;
+      let finalAmount = baseAmountForDiscount;
+      let totalDiscountAmount = 0;
+      const discountCodes = [];
+      
+      // Legacy support: if discountCode is provided, use it
+      const publicCode = publicDiscountCode || (discountCode ? discountCode : null);
+      const privateCode = privateDiscountCode;
+      
+      // Apply public discount first (if exists)
+      if (publicCode) {
+        try {
+          const DiscountController = require("./discount.controller");
+          const Discount = require("../../models/Discount.model");
+          const DiscountAssignment = require("../../models/Discount/DiscountAssignment.model");
+          const DiscountRedemption = require("../../models/Discount/DiscountRedemption.model");
+          const validated = await DiscountController.validateAndCompute({
+            code: publicCode,
+            baseAmount: baseAmountForDiscount,
+            ownerId: item.OwnerId,
+            itemId: item._id,
+            userId: renterId,
+          });
+          if (validated.valid && validated.discount.isPublic) {
+            finalAmount = Math.max(0, baseAmountForDiscount - validated.amount);
+            totalDiscountAmount += validated.amount;
+            discountCodes.push(publicCode.toUpperCase());
+            discountInfo = {
+              code: publicCode.toUpperCase(),
+              type: validated.discount.type,
+              value: validated.discount.value,
+              amountApplied: validated.amount,
+            };
+            // Store discount info for later use (after order is created)
+            if (!discountInfo._publicDiscountData) {
+              discountInfo._publicDiscountData = {
+                discount: validated.discount,
+                amount: validated.amount,
+              };
+            }
+          }
+        } catch (e) {
+          // ignore discount errors to not block order creation
+        }
+      }
+      
+      // Apply private discount on remaining amount (if exists)
+      if (privateCode && finalAmount > 0) {
+        try {
+          const DiscountController = require("./discount.controller");
+          const Discount = require("../../models/Discount.model");
+          const DiscountAssignment = require("../../models/Discount/DiscountAssignment.model");
+          const DiscountRedemption = require("../../models/Discount/DiscountRedemption.model");
+          const validated = await DiscountController.validateAndCompute({
+            code: privateCode,
+            baseAmount: finalAmount, // Use remaining amount after public discount
+            ownerId: item.OwnerId,
+            itemId: item._id,
+            userId: renterId,
+          });
+          if (validated.valid && !validated.discount.isPublic) {
+            finalAmount = Math.max(0, finalAmount - validated.amount);
+            totalDiscountAmount += validated.amount;
+            // Update discountInfo to include both codes
+            if (discountInfo) {
+              discountInfo.secondaryCode = privateCode.toUpperCase();
+              discountInfo.secondaryType = validated.discount.type;
+              discountInfo.secondaryValue = validated.discount.value;
+              discountInfo.secondaryAmountApplied = validated.amount;
+              discountInfo.totalAmountApplied = totalDiscountAmount;
+            } else {
+              discountInfo = {
+                code: privateCode.toUpperCase(),
+                type: validated.discount.type,
+                value: validated.discount.value,
+                amountApplied: validated.amount,
+              };
+            }
+            // Store discount info for later use (after order is created)
+            if (!discountInfo._privateDiscountData) {
+              discountInfo._privateDiscountData = {
+                discount: validated.discount,
+                amount: validated.amount,
+              };
+            }
+          }
+        } catch (e) {
+          // ignore discount errors to not block order creation
+        }
+      }
+
+      // Tính lại finalAmount sau khi apply discount
+      // finalAmount = totalAmount + serviceFee + depositAmount - totalDiscountAmount
+      const finalOrderAmount = Math.max(0, totalAmount + serviceFee + depositAmount - totalDiscountAmount);
+
+      // Clean up internal data before saving
+      const cleanDiscountInfo = discountInfo ? {
+        code: discountInfo.code,
+        type: discountInfo.type,
+        value: discountInfo.value,
+        amountApplied: discountInfo.amountApplied || 0,
+        secondaryCode: discountInfo.secondaryCode,
+        secondaryType: discountInfo.secondaryType,
+        secondaryValue: discountInfo.secondaryValue,
+        secondaryAmountApplied: discountInfo.secondaryAmountApplied || 0,
+        totalAmountApplied: discountInfo.totalAmountApplied || totalDiscountAmount,
+      } : null;
+
+      // === TẠO ORDER ===
       const orderDoc = await Order.create(
         [
           {
@@ -101,6 +216,8 @@ module.exports = {
             startAt: new Date(finalStartAt),
             endAt: new Date(finalEndAt),
             totalAmount,
+            discount: cleanDiscountInfo || undefined,
+            finalAmount: finalOrderAmount,
             depositAmount,
             serviceFee,
             currency: "VND",
@@ -117,10 +234,88 @@ module.exports = {
         { session }
       );
 
+      const newOrder = orderDoc[0];
+
+      // Cập nhật DiscountRedemption với orderId và increment usedCount trong transaction
+      const publicDiscountData = discountInfo?._publicDiscountData;
+      const privateDiscountData = discountInfo?._privateDiscountData;
+
+      // Increment discount usedCount and create DiscountRedemption for public discount
+      if (publicDiscountData) {
+        try {
+          const Discount = require("../../models/Discount.model");
+          const DiscountAssignment = require("../../models/Discount/DiscountAssignment.model");
+          const DiscountRedemption = require("../../models/Discount/DiscountRedemption.model");
+          
+          await Discount.updateOne(
+            { _id: publicDiscountData.discount._id },
+            { $inc: { usedCount: 1 } },
+            { session }
+          );
+          
+          try {
+            await DiscountAssignment.updateOne(
+              { discountId: publicDiscountData.discount._id, userId: renterId },
+              { $inc: { usedCount: 1 } },
+              { session }
+            );
+          } catch (assignErr) {
+            // Ignore nếu không có assignment (đối với discount công khai không được claim)
+          }
+          
+          try {
+            await DiscountRedemption.create([{
+              discountId: publicDiscountData.discount._id,
+              userId: renterId,
+              orderId: newOrder._id,
+              amountApplied: publicDiscountData.amount,
+              status: "applied",
+            }], { session });
+          } catch (redemptionErr) {
+            console.error("Error creating public discount redemption:", redemptionErr);
+          }
+        } catch (incErr) {
+          console.error("Error incrementing public discount:", incErr);
+        }
+      }
+
+      // Increment discount usedCount and create DiscountRedemption for private discount
+      if (privateDiscountData) {
+        try {
+          const Discount = require("../../models/Discount.model");
+          const DiscountAssignment = require("../../models/Discount/DiscountAssignment.model");
+          const DiscountRedemption = require("../../models/Discount/DiscountRedemption.model");
+          
+          await Discount.updateOne(
+            { _id: privateDiscountData.discount._id },
+            { $inc: { usedCount: 1 } },
+            { session }
+          );
+          
+          await DiscountAssignment.updateOne(
+            { discountId: privateDiscountData.discount._id, userId: renterId },
+            { $inc: { usedCount: 1 } },
+            { session }
+          );
+          
+          try {
+            await DiscountRedemption.create([{
+              discountId: privateDiscountData.discount._id,
+              userId: renterId,
+              orderId: newOrder._id,
+              amountApplied: privateDiscountData.amount,
+              status: "applied",
+            }], { session });
+          } catch (redemptionErr) {
+            console.error("Error creating private discount redemption:", redemptionErr);
+          }
+        } catch (incErr) {
+          console.error("Error incrementing private discount:", incErr);
+        }
+      }
+
       await session.commitTransaction();
       session.endSession();
-
-      const newOrder = orderDoc[0];
 
       return res.status(201).json({
         message: "Tạo đơn hàng thành công",
@@ -128,6 +323,8 @@ module.exports = {
           orderId: newOrder._id,
           orderGuid: newOrder.orderGuid,
           totalAmount,
+          finalAmount: finalOrderAmount,
+          discount: cleanDiscountInfo,
           depositAmount,
           serviceFee,
           rentalDuration: duration,
@@ -192,6 +389,29 @@ module.exports = {
 
       await session.commitTransaction();
       session.endSession();
+
+      // Cộng RT Points cho renter khi order được xác nhận (không block nếu lỗi)
+      try {
+        const loyaltyController = require("../loyalty/loyalty.controller");
+        const { createNotification } = require("../../middleware/createNotification");
+        const result = await loyaltyController.addOrderPoints(
+          order.renterId,
+          order._id,
+          order.finalAmount || order.totalAmount
+        );
+        if (result && result.success && result.transaction) {
+          await createNotification(
+            order.renterId,
+            "Loyalty",
+            "Cộng RT Points từ đơn hàng",
+            `Bạn đã nhận ${result.transaction.points} RT Points từ đơn hàng ${order.orderGuid}.`,
+            { points: result.transaction.points, orderId: String(order._id), orderGuid: order.orderGuid, reason: "order_completed" }
+          );
+        }
+      } catch (loyaltyError) {
+        console.error("Error adding order points:", loyaltyError);
+        // Không block order confirmation nếu lỗi loyalty points
+      }
 
       return res.json({
         message: "Order confirmed and inventory reserved",

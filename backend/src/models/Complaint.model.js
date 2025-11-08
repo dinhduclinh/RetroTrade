@@ -10,7 +10,7 @@ const complaintSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: false // Có thể là null nếu user chưa đăng ký
+        required: false 
     },
     subject: {
         type: String,

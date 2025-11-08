@@ -1,4 +1,5 @@
 import api from '../customizeAPI';
+import type { ApiResponse } from '@iService';
 
 export interface Notification {
   _id: string;
@@ -16,6 +17,20 @@ export interface NotificationResponse {
   totalItems: number;
 }
 
+const parseResponse = async (response: Response): Promise<ApiResponse<any>> => {
+  const contentType = response.headers.get("content-type");
+  const data = contentType?.includes("application/json")
+    ? await response.json()
+    : await response.text();
+
+  return {
+    code: response.status,
+    message: data?.message || "Request completed",
+    data: data?.data || data,
+    pagination: data?.pagination,
+  };
+};
+
 export const notificationApi = {
   // Get all notifications with pagination
   getNotifications: async (params?: { limit?: number; skip?: number; isRead?: boolean }): Promise<NotificationResponse> => {
@@ -25,22 +40,45 @@ export const notificationApi = {
     if (params?.isRead !== undefined) queryParams.append('isRead', params.isRead.toString());
 
     const response = await api.get(`/notifications?${queryParams.toString()}`);
-    if (!response.ok) throw new Error('Failed to fetch notifications');
+    const parsed = await parseResponse(response);
     
-    const data = await response.json();
-    return data.data;
+    if (parsed.code !== 200) {
+      throw new Error(parsed.message || 'Failed to fetch notifications');
+    }
+    
+    return parsed.data || { items: [], totalItems: 0 };
+  },
+
+  // Get a single notification by ID
+  getNotificationById: async (id: string): Promise<Notification> => {
+    const response = await api.get(`/notifications/${id}`);
+    const parsed = await parseResponse(response);
+    
+    if (parsed.code !== 200) {
+      throw new Error(parsed.message || 'Failed to fetch notification');
+    }
+    
+    return parsed.data;
   },
 
   // Mark a notification as read
   markAsRead: async (id: string): Promise<void> => {
     const response = await api.put(`/notifications/${id}/read`, {});
-    if (!response.ok) throw new Error('Failed to mark notification as read');
+    const parsed = await parseResponse(response);
+    
+    if (parsed.code !== 200) {
+      throw new Error(parsed.message || 'Failed to mark notification as read');
+    }
   },
 
   // Mark all notifications as read
   markAllAsRead: async (): Promise<void> => {
     const response = await api.put('/notifications/read-all', {});
-    if (!response.ok) throw new Error('Failed to mark all notifications as read');
+    const parsed = await parseResponse(response);
+    
+    if (parsed.code !== 200) {
+      throw new Error(parsed.message || 'Failed to mark all notifications as read');
+    }
   },
 };
 

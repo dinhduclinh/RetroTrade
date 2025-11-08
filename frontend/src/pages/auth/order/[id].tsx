@@ -2,7 +2,6 @@
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { getOrderDetails, Order } from "@/services/auth/order.api";
-import { getCurrentTax } from "@/services/tax/tax.api";
 import { format } from "date-fns";
 import {
   Package,
@@ -156,7 +155,6 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [taxRate, setTaxRate] = useState<number>(3); // Default 3%
 
  useEffect(() => {
    if (!id) return;
@@ -184,21 +182,6 @@ export default function OrderDetailPage() {
 
    fetchOrder();
  }, [id]);
-
-  // Fetch tax rate
-  useEffect(() => {
-    const fetchTaxRate = async () => {
-      try {
-        const response = await getCurrentTax();
-        if (response.success && response.data) {
-          setTaxRate(response.data.taxRate);
-        }
-      } catch (error) {
-        console.error("Error fetching tax rate:", error);
-      }
-    };
-    fetchTaxRate();
-  }, []);
 
   if (loading) {
     return (
@@ -287,7 +270,7 @@ export default function OrderDetailPage() {
 
   // Calculate pricing breakdown
   const rentalTotal = order.itemSnapshot.basePrice * order.unitCount * rentalDuration;
-  const taxAmount = order.serviceFee || (rentalTotal * taxRate) / 100;
+  const taxAmount = order.serviceFee || 0;
   const depositAmount = order.depositAmount || 0;
   const grandTotal = order.totalAmount;
 
@@ -587,7 +570,7 @@ export default function OrderDetailPage() {
                   <span>{formatPrice(rentalTotal, order.currency)}</span>
                 </div>
                 <div className="flex justify-between text-yellow-200">
-                  <span>Phí dịch vụ ({taxRate}%)</span>
+                  <span>Phí dịch vụ</span>
                   <span>{formatPrice(taxAmount, order.currency)}</span>
                 </div>
                 <div className="flex justify-between text-amber-200">

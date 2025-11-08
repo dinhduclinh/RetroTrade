@@ -193,7 +193,9 @@ export function Header() {
               height={60}
               className="rounded-lg"
             />
-            <span className="text-xl font-bold text-gray-900 dark:text-white">Retro Trade</span>
+            <span className="text-xl font-bold text-gray-900 dark:text-white">
+              Retro Trade
+            </span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
@@ -224,7 +226,6 @@ export function Header() {
           </nav>
 
           <div className="flex items-center gap-4 z-[100]">
-           
             {isLoggedIn && (
               <>
                 <Button
@@ -258,23 +259,35 @@ export function Header() {
                     className="relative h-10 w-10 rounded-full"
                   >
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src={userInfo.avatarUrl ?? ""} alt={userInfo.email} />
+                      <AvatarImage
+                        src={userInfo.avatarUrl ?? ""}
+                        alt={userInfo.email}
+                      />
                       <AvatarFallback className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
                         {userInfo.email?.charAt(0).toUpperCase() ?? ""}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56 z-[200]" align="end" forceMount>
+                <DropdownMenuContent
+                  className="w-56 z-[200]"
+                  align="end"
+                  forceMount
+                >
                   <div className="flex flex-col space-y-1 p-2">
                     <p className="text-sm font-medium leading-none">
                       {userInfo.email ?? ""}
                     </p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      {userInfo.role === 'renter' ? 'Người thuê' :
-                        userInfo.role === 'owner' ? 'Chủ sở hữu' :
-                          userInfo.role === 'admin' ? 'Quản trị viên' :
-                            userInfo.role === 'moderator' ? 'Điều hành viên' : 'Người dùng'}
+                      {userInfo.role === "renter"
+                        ? "Người thuê"
+                        : userInfo.role === "owner"
+                        ? "Chủ sở hữu"
+                        : userInfo.role === "admin"
+                        ? "Quản trị viên"
+                        : userInfo.role === "moderator"
+                        ? "Điều hành viên"
+                        : "Người dùng"}
                     </p>
                   </div>
                   <DropdownMenuSeparator />
@@ -289,9 +302,8 @@ export function Header() {
                     ) : (
                       <Moon className="mr-2 h-4 w-4 text-gray-600" />
                     )}
-                    <span>{isDarkMode ? 'Chế độ sáng' : 'Chế độ tối'}</span>
+                    <span>{isDarkMode ? "Chế độ sáng" : "Chế độ tối"}</span>
                   </DropdownMenuItem>
-
 
                   <DropdownMenuItem
                     className="cursor-pointer"
@@ -307,7 +319,6 @@ export function Header() {
                     <Package className="mr-2 h-4 w-4" />
                     <span>Đơn hàng của tôi</span>
                   </DropdownMenuItem>
-
                   <DropdownMenuItem
                     className="cursor-pointer"
                     onClick={handleGoToMyfavirite}
@@ -316,14 +327,16 @@ export function Header() {
                     <span>Danh sách yêu thích</span>
                   </DropdownMenuItem>
 
-                  {(userInfo?.role === 'renter' || userInfo?.role === 'owner') && (
-                    <DropdownMenuItem className="cursor-pointer" onClick={() => router.push('/wallet')}>
+                  {(userInfo?.role === "renter" ||
+                    userInfo?.role === "owner") && (
+                    <DropdownMenuItem
+                      className="cursor-pointer"
+                      onClick={() => router.push("/wallet")}
+                    >
                       <Wallet className="mr-2 h-4 w-4" />
                       <span>Ví của tôi</span>
                     </DropdownMenuItem>
                   )}
-
-
 
                   {/* Render role-specific menu items */}
                   {renderRoleSpecificMenuItems()}
