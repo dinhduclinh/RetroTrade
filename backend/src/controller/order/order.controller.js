@@ -748,7 +748,10 @@ module.exports = {
       if (!order || order.isDeleted)
         return res.status(404).json({ message: "Order not found" });
 
+      // Allow moderator and admin to view any order
+      const isModeratorOrAdmin = req.user.role === "moderator" || req.user.role === "admin";
       if (
+        !isModeratorOrAdmin &&
         ![order.renterId._id.toString(), order.ownerId._id.toString()].includes(
           userId.toString()
         )

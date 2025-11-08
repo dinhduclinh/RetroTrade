@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
 const Report = require("../../models/Order/Reports.model.js");
 const Order = require("../../models/Order/Order.model.js");
+const User = require("../../models/User.model.js");
+const { createNotification } = require("../../middleware/createNotification");
 
 const createDispute = async (req, res) => {
   try {
@@ -41,7 +43,7 @@ const createDispute = async (req, res) => {
     const existing = await Report.findOne({
       orderId,
       type: "dispute",
-      status: { $in: ["Pending", "Reviewed"] },
+      status: { $in: ["Pending", "In Progress", "Reviewed"] },
     });
 
     if (existing) {
@@ -63,6 +65,42 @@ const createDispute = async (req, res) => {
 
     order.orderStatus = "disputed";
     await order.save();
+
+    // Lấy thông tin người tạo tranh chấp
+    const reporter = await User.findById(userId).select("fullName email");
+    const reporterName = reporter?.fullName || reporter?.email || "Người dùng";
+
+    // Thông báo cho người bị báo cáo
+    await createNotification(
+      reportedUserId,
+      "Dispute Created",
+      "Có tranh chấp mới về đơn hàng của bạn",
+      `${reporterName} đã tạo tranh chấp về đơn hàng #${order.orderGuid}. Lý do: ${reason}`,
+      {
+        disputeId: newReport._id,
+        orderId: orderId,
+        orderGuid: order.orderGuid,
+        reporterId: userId,
+      }
+    );
+
+    // Thông báo cho tất cả moderators
+    const moderators = await User.find({ role: "moderator" }).select("_id");
+    for (const moderator of moderators) {
+      await createNotification(
+        moderator._id,
+        "Dispute Created",
+        "Có tranh chấp mới cần xử lý",
+        `${reporterName} đã tạo tranh chấp về đơn hàng #${order.orderGuid}. Lý do: ${reason}`,
+        {
+          disputeId: newReport._id,
+          orderId: orderId,
+          orderGuid: order.orderGuid,
+          reporterId: userId,
+          reportedUserId: reportedUserId,
+        }
+      );
+    }
 
     return res.status(201).json({
       message: "Tạo tranh chấp thành công.",
@@ -99,6 +137,7 @@ const getAllDisputes = async (req, res) => {
       .populate("orderId", "orderGuid orderStatus totalAmount renterId ownerId")
       .populate("reporterId", "fullName email")
       .populate("reportedUserId", "fullName email")
+      .populate("assignedBy", "fullName email")
       .populate("handledBy", "fullName email")
       .sort({ createdAt: -1 });
 
@@ -115,6 +154,42 @@ const getAllDisputes = async (req, res) => {
   }
 };
 
+// User lấy danh sách tranh chấp của mình
+const getMyDisputes = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { status } = req.query;
+
+    const query = { 
+      type: "dispute",
+      $or: [
+        { reporterId: userId },
+        { reportedUserId: userId }
+      ]
+    };
+    if (status) query.status = status;
+
+    const disputes = await Report.find(query)
+      .populate("orderId", "orderGuid orderStatus totalAmount renterId ownerId")
+      .populate("reporterId", "fullName email")
+      .populate("reportedUserId", "fullName email")
+      .populate("assignedBy", "fullName email")
+      .populate("handledBy", "fullName email")
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      total: disputes.length,
+      data: disputes,
+    });
+  } catch (error) {
+    console.error("Error getting my disputes:", error);
+    res.status(500).json({
+      message: "Lỗi server khi lấy danh sách tranh chấp.",
+      error: error.message,
+    });
+  }
+};
+
 // Admin xem chi tiết tranh chấp
 const getDisputeById = async (req, res) => {
   try {
@@ -122,6 +197,7 @@ const getDisputeById = async (req, res) => {
       .populate("orderId", "orderGuid orderStatus totalAmount renterId ownerId")
       .populate("reporterId", "fullName email")
       .populate("reportedUserId", "fullName email")
+      .populate("assignedBy", "fullName email")
       .populate("handledBy", "fullName email");
 
     if (!dispute) {
@@ -149,35 +225,258 @@ const getDisputeById = async (req, res) => {
   }
 };
 
-const resolveDispute = async (req, res) => {
+// Moderator nhận tranh chấp (assign)
+const assignDispute = async (req, res) => {
   try {
-    const { decision, notes, refundAmount } = req.body;
-    const dispute = await Report.findById(req.params.id);
+    const dispute = await Report.findById(req.params.id)
+      .populate("orderId", "orderGuid")
+      .populate("assignedBy", "fullName email");
 
     if (!dispute) {
       return res.status(404).json({ message: "Không tìm thấy tranh chấp." });
     }
 
+    // Chỉ cho phép nhận tranh chấp khi status là "Pending"
     if (dispute.status !== "Pending") {
-      return res
-        .status(400)
-        .json({ message: "Tranh chấp đã được xử lý hoặc đóng." });
+      return res.status(400).json({
+        message: `Không thể nhận tranh chấp này. Trạng thái hiện tại: ${dispute.status}`,
+      });
+    }
+
+    // Kiểm tra xem tranh chấp đã được moderator khác nhận chưa
+    if (dispute.assignedBy) {
+      const assignedModerator = await User.findById(dispute.assignedBy).select("fullName email");
+      const assignedName = assignedModerator?.fullName || assignedModerator?.email || "Moderator";
+      return res.status(400).json({
+        message: `Tranh chấp này đã được ${assignedName} nhận xử lý.`,
+      });
+    }
+
+    // Gán tranh chấp cho moderator hiện tại
+    dispute.status = "In Progress";
+    dispute.assignedBy = req.user._id;
+    dispute.assignedAt = new Date();
+    await dispute.save();
+
+    // Lấy thông tin moderator
+    const moderator = await User.findById(req.user._id).select("fullName email");
+    const moderatorName = moderator?.fullName || moderator?.email || "Moderator";
+
+    const orderGuid = dispute.orderId?.orderGuid || "N/A";
+
+    // Thông báo cho tất cả moderators khác (trừ moderator đã nhận)
+    const moderators = await User.find({ 
+      role: "moderator",
+      _id: { $ne: req.user._id }
+    }).select("_id");
+    
+    for (const mod of moderators) {
+      await createNotification(
+        mod._id,
+        "Dispute Assigned",
+        "Tranh chấp đã được nhận xử lý",
+        `${moderatorName} đã nhận xử lý tranh chấp về đơn hàng #${orderGuid}.`,
+        {
+          disputeId: dispute._id,
+          orderId: dispute.orderId._id || dispute.orderId,
+          orderGuid: orderGuid,
+          assignedBy: req.user._id,
+        }
+      );
+    }
+
+    res.status(200).json({
+      message: "Đã nhận tranh chấp thành công.",
+      data: dispute,
+    });
+  } catch (error) {
+    console.error("Error assigning dispute:", error);
+    res.status(500).json({
+      message: "Lỗi server khi nhận tranh chấp.",
+      error: error.message,
+    });
+  }
+};
+
+// Moderator trả lại tranh chấp (unassign) để moderator khác xử lý
+const unassignDispute = async (req, res) => {
+  try {
+    const { reason } = req.body; // Lý do trả lại (optional)
+    const dispute = await Report.findById(req.params.id)
+      .populate("orderId", "orderGuid")
+      .populate("assignedBy", "fullName email");
+
+    if (!dispute) {
+      return res.status(404).json({ message: "Không tìm thấy tranh chấp." });
+    }
+
+    // Chỉ moderator đã nhận mới có thể trả lại
+    if (!dispute.assignedBy) {
+      return res.status(400).json({
+        message: "Tranh chấp này chưa được moderator nào nhận.",
+      });
+    }
+
+    if (dispute.assignedBy._id?.toString() !== req.user._id.toString() && 
+        dispute.assignedBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        message: "Bạn không có quyền trả lại tranh chấp này. Chỉ moderator đã nhận mới có thể trả lại.",
+      });
+    }
+
+    // Chỉ cho phép trả lại khi status là "In Progress"
+    if (dispute.status !== "In Progress") {
+      return res.status(400).json({
+        message: `Không thể trả lại tranh chấp này. Trạng thái hiện tại: ${dispute.status}`,
+      });
+    }
+
+    const previousModeratorId = dispute.assignedBy._id || dispute.assignedBy;
+    const previousModerator = await User.findById(previousModeratorId).select("fullName email");
+    const previousModeratorName = previousModerator?.fullName || previousModerator?.email || "Moderator";
+
+    // Trả lại tranh chấp về trạng thái "Pending"
+    dispute.status = "Pending";
+    dispute.assignedBy = null;
+    dispute.assignedAt = null;
+    await dispute.save();
+
+    const orderGuid = dispute.orderId?.orderGuid || "N/A";
+
+    // Thông báo cho tất cả moderators (bao gồm cả moderator vừa trả lại)
+    const moderators = await User.find({ role: "moderator" }).select("_id");
+    for (const mod of moderators) {
+      await createNotification(
+        mod._id,
+        "Dispute Unassigned",
+        "Tranh chấp đã được trả lại",
+        `${previousModeratorName} đã trả lại tranh chấp về đơn hàng #${orderGuid}${reason ? `. Lý do: ${reason}` : ""}. Tranh chấp hiện có thể được nhận xử lý.`,
+        {
+          disputeId: dispute._id,
+          orderId: dispute.orderId._id || dispute.orderId,
+          orderGuid: orderGuid,
+          previousAssignedBy: previousModeratorId,
+        }
+      );
+    }
+
+    res.status(200).json({
+      message: "Đã trả lại tranh chấp thành công. Tranh chấp hiện có thể được moderator khác nhận xử lý.",
+      data: dispute,
+    });
+  } catch (error) {
+    console.error("Error unassigning dispute:", error);
+    res.status(500).json({
+      message: "Lỗi server khi trả lại tranh chấp.",
+      error: error.message,
+    });
+  }
+};
+
+const resolveDispute = async (req, res) => {
+  try {
+    const { decision, notes, refundAmount } = req.body;
+    const dispute = await Report.findById(req.params.id)
+      .populate("orderId", "orderGuid")
+      .populate("reporterId", "fullName email")
+      .populate("reportedUserId", "fullName email");
+
+    if (!dispute) {
+      return res.status(404).json({ message: "Không tìm thấy tranh chấp." });
+    }
+
+    // Chỉ moderator đã nhận tranh chấp mới có thể resolve
+    if (!dispute.assignedBy) {
+      return res.status(400).json({
+        message: "Tranh chấp này chưa được moderator nào nhận. Vui lòng nhận tranh chấp trước khi xử lý.",
+      });
+    }
+
+    // Kiểm tra xem moderator hiện tại có phải là người đã nhận không
+    const assignedByValue = dispute.assignedBy._id || dispute.assignedBy;
+    if (assignedByValue.toString() !== req.user._id.toString()) {
+      const assignedModerator = await User.findById(assignedByValue).select("fullName email");
+      const assignedName = assignedModerator?.fullName || assignedModerator?.email || "Moderator";
+      return res.status(403).json({
+        message: `Bạn không có quyền xử lý tranh chấp này. Tranh chấp đã được ${assignedName} nhận xử lý.`,
+      });
+    }
+
+    // Chỉ cho phép resolve khi status là "In Progress"
+    if (dispute.status !== "In Progress") {
+      return res.status(400).json({
+        message: `Không thể xử lý tranh chấp này. Trạng thái hiện tại: ${dispute.status}`,
+      });
     }
 
     dispute.status = "Resolved";
     dispute.resolution = {
       decision,
       notes,
-      refundAmount,
+      refundAmount: refundAmount || 0,
     };
     dispute.handledBy = req.user._id;
     dispute.handledAt = new Date();
     await dispute.save();
 
-    await Order.findByIdAndUpdate(dispute.orderId, {
+    // Lấy orderId (có thể là ObjectId hoặc object đã populate)
+    const orderIdValue = dispute.orderId._id || dispute.orderId;
+    
+    await Order.findByIdAndUpdate(orderIdValue, {
       orderStatus: "completed",
       paymentStatus: refundAmount > 0 ? "refunded" : "paid",
     });
+
+    // Lấy thông tin moderator xử lý
+    const moderator = await User.findById(req.user._id).select("fullName email");
+    const moderatorName = moderator?.fullName || moderator?.email || "Moderator";
+
+    // Lấy orderGuid (có thể từ populated object hoặc cần query lại)
+    let orderGuid = "N/A";
+    if (dispute.orderId?.orderGuid) {
+      orderGuid = dispute.orderId.orderGuid;
+    } else {
+      const order = await Order.findById(orderIdValue).select("orderGuid");
+      if (order) orderGuid = order.orderGuid;
+    }
+
+    const refundText = refundAmount > 0 ? ` và được hoàn tiền ${refundAmount.toLocaleString('vi-VN')} VNĐ` : "";
+
+    // Lấy reporterId và reportedUserId (có thể là ObjectId hoặc object đã populate)
+    const reporterIdValue = dispute.reporterId._id || dispute.reporterId;
+    const reportedUserIdValue = dispute.reportedUserId._id || dispute.reportedUserId;
+
+    // Thông báo cho người tạo tranh chấp
+    await createNotification(
+      reporterIdValue,
+      "Dispute Resolved",
+      "Tranh chấp đã được xử lý",
+      `Tranh chấp về đơn hàng #${orderGuid} đã được ${moderatorName} xử lý. Quyết định: ${decision}${refundText}.`,
+      {
+        disputeId: dispute._id,
+        orderId: orderIdValue,
+        orderGuid: orderGuid,
+        decision: decision,
+        refundAmount: refundAmount || 0,
+        handledBy: req.user._id,
+      }
+    );
+
+    // Thông báo cho người bị báo cáo
+    await createNotification(
+      reportedUserIdValue,
+      "Dispute Resolved",
+      "Tranh chấp đã được xử lý",
+      `Tranh chấp về đơn hàng #${orderGuid} đã được ${moderatorName} xử lý. Quyết định: ${decision}${refundText}.`,
+      {
+        disputeId: dispute._id,
+        orderId: orderIdValue,
+        orderGuid: orderGuid,
+        decision: decision,
+        refundAmount: refundAmount || 0,
+        handledBy: req.user._id,
+      }
+    );
 
     res.status(200).json({
       message: "Đã xử lý tranh chấp thành công.",
@@ -195,6 +494,9 @@ const resolveDispute = async (req, res) => {
 module.exports = {
   createDispute,
   getAllDisputes,
+  getMyDisputes,
   getDisputeById,
+  assignDispute,
+  unassignDispute,
   resolveDispute,
 };

@@ -1,9 +1,9 @@
 import { Button } from "../../common/button";
 import { Input } from "../../common/input";
 import { useState } from "react";
-import { Upload, X, Camera, CreditCard, CheckCircle, AlertCircle, Image as ImageIcon, Shield, User } from "lucide-react";
+import { Upload, X, Camera, CreditCard, CheckCircle, AlertCircle, Image as ImageIcon, Shield, User, Edit2, Save } from "lucide-react";
 import Image from "next/image";
-import { faceVerificationAPI, FaceVerificationResponse } from "@/services/auth/faceVerification.api";
+import { faceVerificationAPI, FaceVerificationResponse, ExtractedIdCardInfo } from "@/services/auth/faceVerification.api";
 
 interface ImageUploadProps {
   images: File[];
@@ -26,6 +26,12 @@ export default function ImageUpload({ images, setImages, onNext, onBack, isLoadi
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
   const [verificationError, setVerificationError] = useState<string>("");
+  const [extractedIdCardInfo, setExtractedIdCardInfo] = useState<ExtractedIdCardInfo | null>(null);
+  const [editingIdCardInfo, setEditingIdCardInfo] = useState<ExtractedIdCardInfo | null>(null);
+  const [isEditingIdCard, setIsEditingIdCard] = useState<boolean>(false);
+  const [showIdCardReview, setShowIdCardReview] = useState<boolean>(false);
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState<boolean>(false);
+  const [requestReason, setRequestReason] = useState<string>("");
 
   const imageTypes = [
     { 
@@ -182,7 +188,26 @@ export default function ImageUpload({ images, setImages, onNext, onBack, isLoadi
         verificationFiles
       );
 
-      // Pass the result to parent component
+      // If OCR extracted info (regardless of face match), show review dialog
+      if (verificationResult.data?.extractedIdCardInfo) {
+        setExtractedIdCardInfo(verificationResult.data.extractedIdCardInfo);
+        setEditingIdCardInfo(verificationResult.data.extractedIdCardInfo);
+        setShowIdCardReview(true);
+        setIsVerifying(false);
+        setVerificationError(""); // Clear any previous errors
+        // Don't call onNext yet - wait for user to review and confirm
+        return;
+      }
+
+      // If face verification failed and no OCR info, show error but allow user to submit request
+      if (!verificationResult.data?.isMatch) {
+        setVerificationError(verificationResult.message || "Xác minh khuôn mặt thất bại. Bạn có thể gửi yêu cầu xác minh cho moderator.");
+        setIsVerifying(false);
+        // Don't return - allow user to see the error and option to submit request
+        return;
+      }
+
+      // Pass the result to parent component if face verification succeeded
       onNext(verificationResult);
     } catch (error) {
       console.error('Face verification error:', error);
@@ -212,8 +237,306 @@ export default function ImageUpload({ images, setImages, onNext, onBack, isLoadi
 
   const allImagesUploaded = images.length === 3 && images.every(img => img);
 
+  const handleConfirmIdCardInfo = async () => {
+    if (!editingIdCardInfo) return;
+    
+    // Validate required fields
+    if (!editingIdCardInfo.idNumber || !editingIdCardInfo.fullName || !editingIdCardInfo.dateOfBirth || !editingIdCardInfo.address) {
+      alert("Vui lòng điền đầy đủ thông tin căn cước công dân");
+      return;
+    }
+
+    // Validate ID number format (12 digits)
+    if (!/^\d{12}$/.test(editingIdCardInfo.idNumber)) {
+      alert("Số căn cước công dân phải có 12 chữ số");
+      return;
+    }
+
+    try {
+      setIsVerifying(true);
+      
+      // Save ID card info via API
+      const { updateIdCardInfo } = await import('@/services/auth/user.api');
+      const result = await updateIdCardInfo({
+        idNumber: editingIdCardInfo.idNumber!,
+        fullName: editingIdCardInfo.fullName!,
+        dateOfBirth: editingIdCardInfo.dateOfBirth!,
+        address: editingIdCardInfo.address!
+      });
+
+      if (result.code === 200) {
+        // Close review dialog
+        setShowIdCardReview(false);
+        
+        // Pass the result to parent component
+        onNext({
+          code: 200,
+          message: "Thông tin căn cước công dân đã được lưu thành công",
+          data: {
+            isMatch: false, // Face verification may have failed, but ID card info is saved
+            similarityPercentage: 0,
+            distance: Infinity,
+            threshold: 0.6,
+            userFacesDetected: 0,
+            idCardFacesDetected: 0,
+            extractedIdCardInfo: editingIdCardInfo
+          }
+        });
+      } else {
+        alert(result.message || "Có lỗi khi lưu thông tin căn cước công dân");
+      }
+    } catch (error) {
+      console.error('Error saving ID card info:', error);
+      alert("Có lỗi khi lưu thông tin căn cước công dân. Vui lòng thử lại.");
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleEditIdCardInfo = () => {
+    setIsEditingIdCard(true);
+  };
+
+  const handleSaveIdCardInfo = () => {
+    setIsEditingIdCard(false);
+  };
+
+  const handleSubmitVerificationRequest = async () => {
+    if (!allImagesUploaded) {
+      alert("Vui lòng tải lên đầy đủ 3 ảnh trước khi gửi yêu cầu");
+      return;
+    }
+
+    if (!isPrivacyAccepted) {
+      alert("Vui lòng chấp nhận chia sẻ thông tin cá nhân để tiếp tục");
+      return;
+    }
+
+    try {
+      setIsSubmittingRequest(true);
+      setVerificationError("");
+
+      // Import API
+      const { createVerificationRequest } = await import('@/services/auth/verificationRequest.api');
+
+      // Prepare data
+      const formData = new FormData();
+      images.forEach((image) => {
+        formData.append('images', image);
+      });
+
+      // Add ID card info if available
+      if (editingIdCardInfo || extractedIdCardInfo) {
+        const idCardInfo = editingIdCardInfo || extractedIdCardInfo;
+        if (idCardInfo && idCardInfo.idNumber && idCardInfo.fullName && idCardInfo.dateOfBirth && idCardInfo.address) {
+          formData.append('idCardInfo', JSON.stringify({
+            idNumber: idCardInfo.idNumber,
+            fullName: idCardInfo.fullName,
+            dateOfBirth: idCardInfo.dateOfBirth,
+            address: idCardInfo.address
+          }));
+        }
+      }
+
+      // Add reason if provided
+      if (requestReason.trim()) {
+        formData.append('reason', requestReason.trim());
+      }
+
+      // Submit request
+      const result = await createVerificationRequest(formData);
+
+      if (result.code === 200) {
+        alert("Yêu cầu xác minh đã được gửi thành công. Moderator sẽ xử lý trong thời gian sớm nhất.");
+        // Pass result to parent
+        onNext({
+          code: 200,
+          message: "Yêu cầu xác minh đã được gửi thành công",
+          data: {
+            isMatch: false,
+            similarityPercentage: 0,
+            distance: Infinity,
+            threshold: 0.6,
+            userFacesDetected: 0,
+            idCardFacesDetected: 0,
+            verificationRequestSubmitted: true
+          }
+        });
+      } else {
+        alert(result.message || "Có lỗi khi gửi yêu cầu xác minh. Vui lòng thử lại.");
+      }
+    } catch (error) {
+      console.error('Error submitting verification request:', error);
+      alert("Có lỗi khi gửi yêu cầu xác minh. Vui lòng thử lại.");
+    } finally {
+      setIsSubmittingRequest(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* ID Card Info Review Dialog */}
+      {showIdCardReview && editingIdCardInfo && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-indigo-600" />
+                  Xác nhận thông tin căn cước công dân
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowIdCardReview(false);
+                    setExtractedIdCardInfo(null);
+                    setEditingIdCardInfo(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-blue-800">
+                  <AlertCircle className="w-4 h-4 inline mr-2" />
+                  Vui lòng kiểm tra lại thông tin đã được đọc từ căn cước công dân. Bạn có thể chỉnh sửa nếu có sai sót.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Số căn cước công dân <span className="text-red-500">*</span>
+                  </label>
+                  {isEditingIdCard ? (
+                    <Input
+                      type="text"
+                      value={editingIdCardInfo.idNumber || ""}
+                      onChange={(e) => setEditingIdCardInfo({ ...editingIdCardInfo, idNumber: e.target.value })}
+                      placeholder="Nhập số căn cước công dân (12 chữ số)"
+                      maxLength={12}
+                      className="w-full"
+                    />
+                  ) : (
+                    <div className="p-2 bg-gray-50 rounded border border-gray-200">
+                      {editingIdCardInfo.idNumber || "Chưa có thông tin"}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Họ và tên <span className="text-red-500">*</span>
+                  </label>
+                  {isEditingIdCard ? (
+                    <Input
+                      type="text"
+                      value={editingIdCardInfo.fullName || ""}
+                      onChange={(e) => setEditingIdCardInfo({ ...editingIdCardInfo, fullName: e.target.value })}
+                      placeholder="Nhập họ và tên"
+                      className="w-full"
+                    />
+                  ) : (
+                    <div className="p-2 bg-gray-50 rounded border border-gray-200">
+                      {editingIdCardInfo.fullName || "Chưa có thông tin"}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Ngày tháng năm sinh <span className="text-red-500">*</span>
+                  </label>
+                  {isEditingIdCard ? (
+                    <Input
+                      type="date"
+                      value={editingIdCardInfo.dateOfBirth ? new Date(editingIdCardInfo.dateOfBirth).toISOString().split('T')[0] : ""}
+                      onChange={(e) => setEditingIdCardInfo({ ...editingIdCardInfo, dateOfBirth: e.target.value })}
+                      className="w-full"
+                    />
+                  ) : (
+                    <div className="p-2 bg-gray-50 rounded border border-gray-200">
+                      {editingIdCardInfo.dateOfBirth ? new Date(editingIdCardInfo.dateOfBirth).toLocaleDateString('vi-VN') : "Chưa có thông tin"}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Địa chỉ thường trú <span className="text-red-500">*</span>
+                  </label>
+                  {isEditingIdCard ? (
+                    <textarea
+                      value={editingIdCardInfo.address || ""}
+                      onChange={(e) => setEditingIdCardInfo({ ...editingIdCardInfo, address: e.target.value })}
+                      placeholder="Nhập địa chỉ thường trú"
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  ) : (
+                    <div className="p-2 bg-gray-50 rounded border border-gray-200">
+                      {editingIdCardInfo.address || "Chưa có thông tin"}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 mt-6">
+                {isEditingIdCard ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setEditingIdCardInfo(extractedIdCardInfo);
+                        setIsEditingIdCard(false);
+                      }}
+                    >
+                      Hủy
+                    </Button>
+                    <Button
+                      onClick={handleSaveIdCardInfo}
+                      className="flex items-center gap-2"
+                    >
+                      <Save className="w-4 h-4" />
+                      Lưu
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setShowIdCardReview(false);
+                        setExtractedIdCardInfo(null);
+                        setEditingIdCardInfo(null);
+                      }}
+                    >
+                      Bỏ qua
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleEditIdCardInfo}
+                      className="flex items-center gap-2"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                      Chỉnh sửa
+                    </Button>
+                    <Button
+                      onClick={handleConfirmIdCardInfo}
+                      className="flex items-center gap-2"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Xác nhận
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Guidelines Section */}
       <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
         <div className="flex items-start gap-3">
@@ -526,34 +849,72 @@ export default function ImageUpload({ images, setImages, onNext, onBack, isLoadi
 
       {/* Action Buttons */}
       <div className="space-y-3">
-        <div className="flex space-x-2">
-          <Button 
-            variant="outline" 
-            onClick={onBack} 
-            className="w-1/2"
-            disabled={isVerifying}
-          >
-            Quay lại
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={!allImagesUploaded || !isPrivacyAccepted || isLoading || isVerifying}
-            className="w-1/2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3"
-          >
-            {isVerifying ? (
-              <div className="flex items-center gap-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                <span>Đang xác minh khuôn mặt...</span>
-              </div>
-            ) : isLoading ? (
-              <div className="flex items-center gap-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                <span>Đang xử lý...</span>
-              </div>
-            ) : (
-              "Hoàn tất xác minh"
-            )}
-          </Button>
+        <div className="flex flex-col gap-3">
+          <div className="flex space-x-2">
+            <Button 
+              variant="outline" 
+              onClick={onBack} 
+              className="w-1/2"
+              disabled={isVerifying || isSubmittingRequest}
+            >
+              Quay lại
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={!allImagesUploaded || !isPrivacyAccepted || isLoading || isVerifying || isSubmittingRequest}
+              className="w-1/2 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3"
+            >
+              {isVerifying ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Đang xác minh khuôn mặt...</span>
+                </div>
+              ) : isLoading ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Đang xử lý...</span>
+                </div>
+              ) : (
+                "Hoàn tất xác minh"
+              )}
+            </Button>
+          </div>
+
+          {/* Nút gửi yêu cầu xác minh cho moderator */}
+          <div className="border-t pt-3 mt-3">
+            <p className="text-sm text-gray-600 mb-2">
+              {allImagesUploaded 
+                ? "Nếu xác minh tự động không thành công, bạn có thể gửi yêu cầu cho moderator xử lý thủ công."
+                : "Bạn cũng có thể gửi yêu cầu xác minh cho moderator xử lý thủ công (sau khi upload đủ 3 ảnh)."
+              }
+            </p>
+            <div className="space-y-2">
+              {allImagesUploaded && (
+                <textarea
+                  value={requestReason}
+                  onChange={(e) => setRequestReason(e.target.value)}
+                  placeholder="Lý do gửi yêu cầu (tùy chọn)"
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                />
+              )}
+              <Button
+                onClick={handleSubmitVerificationRequest}
+                disabled={!allImagesUploaded || !isPrivacyAccepted || isLoading || isVerifying || isSubmittingRequest}
+                variant="outline"
+                className="w-full border-purple-300 text-purple-700 hover:bg-purple-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmittingRequest ? (
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                    <span>Đang gửi yêu cầu...</span>
+                  </div>
+                ) : (
+                  "Gửi yêu cầu xác minh cho moderator"
+                )}
+              </Button>
+            </div>
+          </div>
         </div>
         
         {!allImagesUploaded && (

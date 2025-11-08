@@ -10,6 +10,7 @@ import { ModeratorSidebar } from "@/components/ui/moderator/moderator-sidebar";
 import { ModeratorHeader } from "@/components/ui/moderator/moderator-header";
 import { ModeratorStats } from "@/components/ui/moderator/moderator-stats";
 import { VerificationQueue } from "@/components/ui/moderator/verify/verification-queue";
+import { VerificationRequestManagement } from "@/components/ui/moderator/verification/verification-request-management";
 import { OwnerRequestManagement } from "@/components/ui/moderator/ownerRequest/owner-request-management";
 import { BlogManagementTable } from "@/components/ui/moderator/blog/blog-management-table";
 import { CommentManagementTable } from "@/components/ui/moderator/blog/comment-management-table";
@@ -32,6 +33,7 @@ import {
 import ProductCategoryManager from "@/components/ui/moderator/categories/category-management";
 import ProductManagement from "@/components/ui/moderator/product/product-management";
 import TopHighlightTable from "@/components/ui/moderator/product/top-highlight-table";
+import { DisputeManagement } from "@/components/ui/moderator/dispute/dispute-management";
 
 // JWT token payload interface
 interface JwtPayload {
@@ -55,7 +57,7 @@ export default function ModeratorDashboard() {
   const searchParams = useSearchParams();
   const { accessToken } = useSelector((state: RootState) => state.auth);
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "requests" | "verification" | "blog" | "productManagement" | "messages"
+    "dashboard" | "requests" | "verification" | "blog" | "productManagement" | "messages" | "disputes"
   >("dashboard");
   const [activeBlogTab, setActiveBlogTab] = useState<
     "posts" | "categories" | "comments" | "tags"
@@ -74,6 +76,7 @@ export default function ModeratorDashboard() {
       | "blog"
       | "productManagement"
       | "messages"
+      | "disputes"
   ) => {
     console.log("Moderator handleTabChange called with:", tab);
     
@@ -139,6 +142,7 @@ export default function ModeratorDashboard() {
         "blog",
         "productManagement",
         "messages",
+        "disputes",
       ].includes(tab)
     ) {
       console.log("Setting activeTab from URL query parameter:", tab);
@@ -153,7 +157,8 @@ export default function ModeratorDashboard() {
         | "requests"
         | "verification"
         | "blog"
-        | "productManagement";
+        | "productManagement"
+        | "disputes";
       setActiveTab(validTab);
     }
   }, [searchParams, router]);
@@ -249,7 +254,9 @@ export default function ModeratorDashboard() {
       case "requests":
         return <OwnerRequestManagement />;
       case "verification":
-        return <VerificationQueue />;
+        return <VerificationRequestManagement />;
+      case "disputes":
+        return <DisputeManagement />;
       default:
         return <DashboardOverview />;
     }
@@ -289,6 +296,8 @@ export default function ModeratorDashboard() {
         return "Yêu cầu kiểm duyệt";
       case "verification":
         return "Xác thực tài khoản";
+      case "disputes":
+        return "Xử lý khiếu nại";
       default:
         return "Dashboard Tổng quan";
     }
@@ -328,6 +337,8 @@ export default function ModeratorDashboard() {
         return "Duyệt và phê duyệt các yêu cầu từ người dùng";
       case "verification":
         return "Xác thực danh tính và thông tin người dùng";
+      case "disputes":
+        return "Quản lý và xử lý các tranh chấp từ người dùng";
       default:
         return "Tổng quan về hoạt động và thống kê hệ thống";
     }

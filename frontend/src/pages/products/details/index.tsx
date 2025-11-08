@@ -79,10 +79,6 @@ const formatPrice = (price: number, currency: string) => {
 export default function ProductDetailPage() {
   const router = useRouter();
   const { id } = router.query as { id?: string };
-<<<<<<< HEAD
-
-=======
->>>>>>> linhddhe173104
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -338,14 +334,7 @@ export default function ProductDetailPage() {
       const start = new Date(dateFrom);
       const end = new Date(dateTo);
       const msPerDay = 24 * 60 * 60 * 1000;
-<<<<<<< HEAD
       const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / msPerDay) + 1);
-=======
-      const days = Math.max(
-        1,
-        Math.ceil((end.getTime() - start.getTime()) / msPerDay) + 1
-      );
->>>>>>> linhddhe173104
 
       let calculatedUnits = 0;
       if (selectedPlan === "hour") calculatedUnits = days * 24;

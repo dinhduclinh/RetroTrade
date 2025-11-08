@@ -47,7 +47,16 @@ const userSchema = new mongoose.Schema({
         submittedAt: { type: Date, default: Date.now },
         reviewedAt: Date,
         rejectionReason: String
-    }]
+    }],
+    // Thông tin căn cước công dân
+    idCardInfo: {
+        idNumber: String, // Số căn cước công dân
+        fullName: String, // Họ và tên
+        dateOfBirth: Date, // Ngày tháng năm sinh
+        address: String, // Địa chỉ thường trú
+        extractedAt: Date, // Thời gian extract thông tin
+        extractionMethod: { type: String, enum: ['ocr', 'manual'], default: 'ocr' } // Phương thức extract
+    }
 }, {
     timestamps: true
 });
