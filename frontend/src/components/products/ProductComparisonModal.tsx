@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, XCircle, Clock, DollarSign, Heart, Eye, Calendar, CheckCircle } from 'lucide-react';
+import { X, Plus, XCircle, Clock, DollarSign, Heart, Eye, Calendar, CheckCircle, Users } from 'lucide-react';
 import Image from 'next/image';
 import { getComparableProducts } from '@/services/products/product.api';
 
@@ -422,57 +422,7 @@ export default function ProductComparisonModal({ isOpen, onClose, currentProduct
                       {product2.Condition?.ConditionName || 'Không xác định'}
                     </td>
                   </tr>
-                  
-                  {/* Category */}
-                  <tr>
-                    <th className="px-6 py-4 text-left whitespace-nowrap text-sm font-semibold text-gray-700">
-                      <div className="flex items-center">
-                        <svg className="h-4 w-4 mr-2 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                        </svg>
-                        Danh mục
-                      </div>
-                    </th>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {(() => {
-                        const category = product1.Category;
-                        if (!category) return 'Không xác định';
-                        
-                        // Handle case where category might be a string or an object
-                        if (typeof category === 'string') return category;
-                        
-                        // Handle case where category is an object with name property
-                        if (category.name) return category.name;
-                        
-                        // Handle case where category is an array (shouldn't happen with current backend)
-                        if (Array.isArray(category) && category.length > 0) {
-                          return category[0].name || 'Không xác định';
-                        }
-                        
-                        return 'Không xác định';
-                      })()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {(() => {
-                        const category = product2.Category;
-                        if (!category) return 'Không xác định';
-                        
-                        // Handle case where category might be a string or an object
-                        if (typeof category === 'string') return category;
-                        
-                        // Handle case where category is an object with name property
-                        if (category.name) return category.name;
-                        
-                        // Handle case where category is an array (shouldn't happen with current backend)
-                        if (Array.isArray(category) && category.length > 0) {
-                          return category[0].name || 'Không xác định';
-                        }
-                        
-                        return 'Không xác định';
-                      })()}
-                    </td>
-                  </tr>
-                  
+
                   {/* Location */}
                   <tr className="bg-gray-50">
                     <th className="px-6 py-4 text-left whitespace-nowrap text-sm font-semibold text-gray-700">
@@ -510,7 +460,7 @@ export default function ProductComparisonModal({ isOpen, onClose, currentProduct
                     </td>
                   </tr>
                   
-                  {/* Stats */}
+                  {/* Stats - Views and Favorites */}
                   <tr className="bg-gray-50">
                     <th className="px-6 py-4 text-left whitespace-nowrap text-sm font-semibold text-gray-700">
                       <div className="flex items-center">
@@ -528,12 +478,6 @@ export default function ProductComparisonModal({ isOpen, onClose, currentProduct
                         <span className="flex items-center text-red-500" title="Yêu thích">
                           <Heart className="h-4 w-4 mr-1" /> {product1.FavoriteCount || 0}
                         </span>
-                        <span className="flex items-center text-green-500" title="Đã thuê">
-                          <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                          </svg>
-                          {product1.RentCount || 0}
-                        </span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
@@ -544,18 +488,34 @@ export default function ProductComparisonModal({ isOpen, onClose, currentProduct
                         <span className="flex items-center text-red-500" title="Yêu thích">
                           <Heart className="h-4 w-4 mr-1" /> {product2.FavoriteCount || 0}
                         </span>
-                        <span className="flex items-center text-green-500" title="Đã thuê">
-                          <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                          </svg>
-                          {product2.RentCount || 0}
-                        </span>
                       </div>
+                    </td>
+                  </tr>
+
+                  {/* Rent Count Row */}
+                  <tr>
+                    <th className="px-6 py-4 text-left whitespace-nowrap text-sm font-semibold text-gray-700">
+                      <div className="flex items-center">
+                        <Users className="h-4 w-4 mr-2 text-green-500" />
+                        Lượt thuê
+                      </div>
+                    </th>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      <span className="flex items-center text-green-500" title="Lượt thuê">
+                        <Users className="h-4 w-4 mr-1" />
+                        {product1.RentCount || 0}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      <span className="flex items-center text-green-500" title="Lượt thuê">
+                        <Users className="h-4 w-4 mr-1" />
+                        {product2.RentCount || 0}
+                      </span>
                     </td>
                   </tr>
                   
                   {/* Listing Date */}
-                  <tr>
+                  <tr className="bg-gray-50">
                     <th className="px-6 py-4 text-left whitespace-nowrap text-sm font-semibold text-gray-700">
                       <div className="flex items-center">
                         <Calendar className="h-4 w-4 mr-2 text-blue-500" />
@@ -571,7 +531,7 @@ export default function ProductComparisonModal({ isOpen, onClose, currentProduct
                   </tr>
                   
                   {/* Highlights */}
-                  <tr className="bg-gray-50">
+                  <tr>
                     <th className="px-6 py-4 text-left whitespace-nowrap text-sm font-semibold text-gray-700">
                       <div className="flex items-center">
                         <svg className="h-4 w-4 mr-2 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -601,48 +561,6 @@ export default function ProductComparisonModal({ isOpen, onClose, currentProduct
                           Thông thường
                         </span>
                       )}
-                    </td>
-                  </tr>
-                  <tr>
-                    <th className="px-6 py-4 text-left whitespace-nowrap text-sm font-semibold text-gray-700">
-                      <div className="flex items-center">
-                        <Eye className="h-4 w-4 mr-2 text-blue-500" />
-                        Lượt xem
-                      </div>
-                    </th>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {product1.ViewCount || 0}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {product2.ViewCount || 0}
-                    </td>
-                  </tr>
-                  <tr className="bg-gray-50">
-                    <th className="px-6 py-4 text-left whitespace-nowrap text-sm font-semibold text-gray-700">
-                      <div className="flex items-center">
-                        <Heart className="h-4 w-4 mr-2 text-red-500" />
-                        Yêu thích
-                      </div>
-                    </th>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {product1.FavoriteCount || 0}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {product2.FavoriteCount || 0}
-                    </td>
-                  </tr>
-                  <tr>
-                    <th className="px-6 py-4 text-left whitespace-nowrap text-sm font-semibold text-gray-700">
-                      <div className="flex items-center">
-                        <Calendar className="h-4 w-4 mr-2 text-gray-500" />
-                        Ngày đăng
-                      </div>
-                    </th>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {new Date(product1.CreatedAt).toLocaleDateString('vi-VN')}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {new Date(product2.CreatedAt).toLocaleDateString('vi-VN')}
                     </td>
                   </tr>
                 </tbody>
