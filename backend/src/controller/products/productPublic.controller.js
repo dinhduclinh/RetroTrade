@@ -838,9 +838,9 @@ const getHighlightedProducts = async (req, res) => {
           CreatedAt: -1 
         } 
       },
-      { 
-        $limit: 10 // Limit to 10 products
-      },
+      // { 
+      //   $limit: 10 // Limit to 10 products
+      // },
       {
         $lookup: {
           from: "itemimages",
@@ -945,6 +945,169 @@ const getHighlightedProducts = async (req, res) => {
   }
 };
 
+// Add this function to your productPublic.controller.js
+const getComparableProducts = async (req, res) => {
+  let success = false;
+  try {
+    const { productId, categoryId } = req.params;
+    const { limit = 5 } = req.query;
+
+    // Validate input
+    if (!productId || !mongoose.Types.ObjectId.isValid(productId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "ID sản phẩm không hợp lệ" 
+      });
+    }
+
+    if (!categoryId || !mongoose.Types.ObjectId.isValid(categoryId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "ID danh mục không hợp lệ" 
+      });
+    }
+
+    // Get current product to exclude from results
+    const currentProduct = await Item.findOne({
+      _id: productId,
+      IsDeleted: false,
+      StatusId: 2 // Only active products
+    });
+
+    if (!currentProduct) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Không tìm thấy sản phẩm" 
+      });
+    }
+
+    // Find other products in the same category (level 2)
+    const comparableProducts = await Item.aggregate([
+      {
+        $match: {
+          _id: { $ne: new mongoose.Types.ObjectId(productId) },
+          CategoryId: new mongoose.Types.ObjectId(categoryId),
+          StatusId: 2, // Only active products
+          IsDeleted: false
+        }
+      },
+      { $sample: { size: parseInt(limit) } }, // Get random products
+      {
+        $lookup: {
+          from: "itemimages",
+          localField: "_id",
+          foreignField: "ItemId",
+          as: "Images",
+          pipeline: [
+            { $match: { IsDeleted: false } },
+            { $sort: { Ordinal: 1 } },
+            { $limit: 5 } // Get up to 5 images for more complete info
+          ]
+        }
+      },
+      {
+        $lookup: {
+          from: "itemconditions",
+          localField: "ConditionId",
+          foreignField: "ConditionId",
+          as: "Condition",
+          pipeline: [{ $match: { IsDeleted: false } }]
+        }
+      },
+      {
+        $lookup: {
+          from: "priceunits",
+          localField: "PriceUnitId",
+          foreignField: "UnitId",
+          as: "PriceUnit",
+          pipeline: [{ $match: { IsDeleted: false } }]
+        }
+      },
+      {
+        $lookup: {
+          from: "categories",
+          localField: "CategoryId",
+          foreignField: "_id",
+          as: "Category",
+          pipeline: [{ $match: { IsDeleted: false } }]
+        }
+      },
+      {
+        $addFields: {
+          Location: {
+            $concat: [
+              { $ifNull: ["$Address", ""] },
+              { $cond: [
+                { $and: [
+                  { $gt: [{ $strLenCP: { $ifNull: ["$Address", ""] } }, 0] },
+                  { $gt: [{ $strLenCP: { $ifNull: ["$City", ""] } }, 0] }
+                ] },
+                ", ",
+                ""
+              ] },
+              { $ifNull: ["$City", ""] },
+              { $cond: [
+                { $and: [
+                  { $gt: [{ $strLenCP: { $ifNull: ["$City", ""] } }, 0] },
+                  { $gt: [{ $strLenCP: { $ifNull: ["$District", ""] } }, 0] }
+                ] },
+                ", ",
+                ""
+              ] },
+              { $ifNull: ["$District", ""] }
+            ]
+          }
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          Title: 1,
+          ShortDescription: 1,
+          Description: 1,
+          BasePrice: 1,
+          DepositAmount: 1,
+          MinRentalDuration: 1,
+          MaxRentalDuration: 1,
+          Currency: 1,
+          Quantity: 1,
+          AvailableQuantity: 1,
+          Address: 1,
+          City: 1,
+          District: 1,
+          Location: 1,
+          IsHighlighted: 1,
+          IsTrending: 1,
+          ViewCount: 1,
+          FavoriteCount: 1,
+          RentCount: 1,
+          CreatedAt: 1,
+          UpdatedAt: 1,
+          Images: 1,
+          Condition: { $arrayElemAt: ["$Condition", 0] },
+          PriceUnit: { $arrayElemAt: ["$PriceUnit", 0] },
+          Category: { $arrayElemAt: ["$Category", 0] }
+        }
+      }
+    ]);
+
+    success = true;
+    return res.status(200).json({
+      success: true,
+      message: "Lấy danh sách sản phẩm so sánh thành công",
+      data: comparableProducts
+    });
+
+  } catch (error) {
+    console.error("Lỗi khi lấy sản phẩm so sánh:", error);
+    return res.status(500).json({ 
+      success: false, 
+      message: error.message || "Lỗi server khi lấy sản phẩm so sánh" 
+    });
+  }
+};
+
+
 module.exports = { 
   listAllItems, 
   getProductByProductId, 
@@ -954,5 +1117,6 @@ module.exports = {
   getProductsByOwnerIdWithHighViewCount, 
   getPublicStoreByUserGuid, 
   getProductsByCategoryId,
-  getHighlightedProducts 
+  getHighlightedProducts,
+  getComparableProducts
 };

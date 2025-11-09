@@ -10,7 +10,9 @@ const pagination = require("../../middleware/pagination")
 // Specific routes must come before parameterized routes
 router.get('/profile/me', authenticateToken, profileController.getProfile);
 router.put('/profile', authenticateToken, profileController.updateProfile);
+router.post('/profile/verify-password', authenticateToken, profileController.verifyPassword);
 router.put('/profile/change-password', authenticateToken, profileController.changePassword);
+router.put('/profile/id-card-info', authenticateToken, profileController.updateIdCardInfo);
 
 // User Addresses routes - must come before /:id route
 router.get('/addresses', authenticateToken, userAddressController.getUserAddresses);

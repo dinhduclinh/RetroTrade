@@ -26,6 +26,7 @@ const userSchema = new mongoose.Schema({
     isIdVerified: { type: Boolean, default: false },
     reputationScore: { type: Number, default: 0, min: 0, max: 5 },
     points: { type: Number, default: 0 },
+    background: { type: String, enum: ['village', 'zen', 'modern'], default: 'village' },
     isActive: { type: Boolean, default: true },
     isDeleted: { type: Boolean, default: false },
     lastLoginAt: Date,
@@ -46,7 +47,16 @@ const userSchema = new mongoose.Schema({
         submittedAt: { type: Date, default: Date.now },
         reviewedAt: Date,
         rejectionReason: String
-    }]
+    }],
+    // Thông tin căn cước công dân
+    idCardInfo: {
+        idNumber: String, // Số căn cước công dân
+        fullName: String, // Họ và tên
+        dateOfBirth: Date, // Ngày tháng năm sinh
+        address: String, // Địa chỉ thường trú
+        extractedAt: Date, // Thời gian extract thông tin
+        extractionMethod: { type: String, enum: ['ocr', 'manual'], default: 'ocr' } // Phương thức extract
+    }
 }, {
     timestamps: true
 });

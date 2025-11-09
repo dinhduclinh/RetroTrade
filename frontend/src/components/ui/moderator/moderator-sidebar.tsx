@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   Package,
   MessageCircle,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/common/button";
 import { useState, useEffect } from "react";
@@ -22,7 +23,8 @@ interface ModeratorSidebarProps {
     | "verification"
     | "productManagement"
     | "blog"
-    | "messages";
+    | "messages"
+    | "disputes";
   activeProductTab?: "products" | "categories" | "highlights";
   activeBlogTab?: "posts" | "categories" | "comments" | "tags";
   onTabChange?: (
@@ -33,6 +35,7 @@ interface ModeratorSidebarProps {
       | "productManagement"
       | "blog"
       | "messages"
+      | "disputes"
   ) => void;
   onProductTabChange?: (tab: "products" | "categories" | "highlights") => void;
   onBlogTabChange?: (tab: "posts" | "categories" | "comments" | "tags") => void;
@@ -135,6 +138,13 @@ export function ModeratorSidebar({
       description: "Xác thực danh tính người dùng",
     },
     {
+      id: "disputes" as const,
+      label: "Xử lý khiếu nại",
+      icon: AlertTriangle,
+      path: "/moderator/dispute-management",
+      description: "Xử lý tranh chấp và khiếu nại",
+    },
+    {
       id: "productManagement" as const,
       label: "Quản lý sản phẩm",
       icon: Package,
@@ -208,6 +218,7 @@ export function ModeratorSidebar({
       | "productManagement"
       | "blog"
       | "messages"
+      | "disputes"
   ) => {
     if (onTabChange) {
       onTabChange(tab);
