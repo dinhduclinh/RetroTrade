@@ -1,9 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useRouter } from "next/router";
+import dynamic from 'next/dynamic';
+
+// Dynamically import the comparison modal with no SSR to avoid hydration issues
+const ProductComparisonModal = dynamic(
+  () => import('@/components/products/ProductComparisonModal'),
+  { ssr: false }
+);
 import AddToCartButton from "@/components/ui/common/AddToCartButton";
 import {
   getPublicItemById,
@@ -11,7 +18,8 @@ import {
   getProductsByCategoryId,
   addToFavorites,
   removeFromFavorites,
-  getFavorites
+  getFavorites,
+  getComparableProducts
 } from "@/services/products/product.api";
 import { createConversation, getConversations, Conversation } from "@/services/messages/messages.api";
 import { useSelector } from "react-redux";
@@ -98,6 +106,12 @@ export default function ProductDetailPage() {
   const [dateError, setDateError] = useState<string>("");
   const [ownerTopItems, setOwnerTopItems] = useState<any[]>([]);
   const [similarItems, setSimilarItems] = useState<any[]>([]);
+  const [showComparisonModal, setShowComparisonModal] = useState(false);
+
+  // Handle compare button click
+  const handleCompare = useCallback(() => {
+    setShowComparisonModal(true);
+  }, []);
 
   // Favorite states
   const [isFavorite, setIsFavorite] = useState(false);
@@ -440,9 +454,6 @@ export default function ProductDetailPage() {
     setSelectedImageIndex((prev) => (prev + 1) % images.length);
   };
 
-  const handleCompare = () => {
-    toast.info("So sánh sản phẩm tương tự (đang phát triển)");
-  };
 
   const handleRentNow = () => {
     if (!product) return;
@@ -1308,6 +1319,15 @@ export default function ProductDetailPage() {
           </aside>
         </div>
       </div>
+
+      {/* Comparison Modal */}
+      {product && (
+        <ProductComparisonModal
+          isOpen={showComparisonModal}
+          onClose={() => setShowComparisonModal(false)}
+          currentProduct={product}
+        />
+      )}
     </div>
   );
 }
