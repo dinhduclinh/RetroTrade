@@ -1,0 +1,73 @@
+import api from "../customizeAPI";
+import type { ApiResponse } from "@iService";
+
+export interface LoyaltyPointTransaction {
+  _id: string;
+  userId: string;
+  points: number;
+  balance: number;
+  type:
+    | "daily_login"
+    | "order_completed"
+    | "order_cancelled"
+    | "referral"
+    | "game_reward"
+    | "admin_adjustment"
+    | "expired";
+  description: string;
+  orderId?: string;
+  expiresAt?: string;
+  metadata?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LoyaltyStats {
+  currentBalance: number;
+  totalEarned: number;
+  totalSpent: number;
+}
+
+const parseResponse = async (response: Response): Promise<ApiResponse<any>> => {
+  const contentType = response.headers.get("content-type");
+  const data = contentType?.includes("application/json")
+    ? await response.json()
+    : await response.text();
+
+  return {
+    code: response.status,
+    message: data?.message || "Request completed",
+    data: data?.data || data,
+    pagination: data?.pagination,
+  };
+};
+
+/**
+ * Lấy thống kê RT Points của user
+ */
+export const getLoyaltyStats = async (): Promise<ApiResponse<LoyaltyStats>> => {
+  const response = await api.get("/loyalty/stats");
+  return await parseResponse(response);
+};
+
+/**
+ * Lấy lịch sử RT Points của user
+ */
+export const getLoyaltyHistory = async (
+  page: number = 1,
+  limit: number = 20
+): Promise<ApiResponse<LoyaltyPointTransaction[]>> => {
+  const response = await api.get(`/loyalty/history?page=${page}&limit=${limit}`);
+  return await parseResponse(response);
+};
+
+/**
+ * Nhận điểm đăng nhập hàng ngày
+ */
+export const claimDailyLoginPoints = async (): Promise<
+  ApiResponse<{ points: number; balance: number; alreadyClaimed?: boolean }>
+> => {
+  const response = await api.post("/loyalty/claim-daily-login");
+  return await parseResponse(response);
+};
+

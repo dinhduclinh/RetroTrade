@@ -24,12 +24,14 @@ interface SignatureManagementProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (url: string | null) => void;
+  inline?: boolean; // render inline instead of popup
 }
 
 export function SignatureManagement({
   isOpen,
   onClose,
   onSuccess,
+  inline = false,
 }: SignatureManagementProps) {
   const [currentSignatureUrl, setCurrentSignatureUrl] = useState<string | null>(
     null
@@ -46,10 +48,10 @@ export function SignatureManagement({
 
   // Fetch chữ ký hiện tại khi mở modal
   useEffect(() => {
-    if (isOpen) {
+    if (inline || isOpen) {
       fetchCurrentSignature();
     }
-  }, [isOpen]);
+  }, [isOpen, inline]);
 
   const fetchCurrentSignature = async () => {
     try {
@@ -70,9 +72,15 @@ export function SignatureManagement({
     }
   };
 
-  const handleSaveSignature = (newUrl: string) => {
-    setPendingSignatureUrl(newUrl);
-    setShowConfirmSave(true);
+  const handleSaveSignature = async (newUrl: string) => {
+    if (inline) {
+      // Save immediately without confirm dialogs
+      setPendingSignatureUrl(newUrl);
+      await confirmSaveSignatureInline();
+    } else {
+      setPendingSignatureUrl(newUrl);
+      setShowConfirmSave(true);
+    }
   };
 
   // XÁC NHẬN LƯU
@@ -102,13 +110,41 @@ export function SignatureManagement({
     }
   };
 
+  // Inline-saving path (no popup)
+  const confirmSaveSignatureInline = async () => {
+    if (!pendingSignatureUrl) return;
+    try {
+      setIsSaving(true);
+      const response = await saveSignature(pendingSignatureUrl);
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentSignatureUrl(data.signatureUrl);
+        toast.success("Chữ ký số đã được cập nhật thành công!");
+        onSuccess(data.signatureUrl);
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.message || "Cập nhật thất bại");
+      }
+    } catch (error) {
+      console.error("[DEBUG] Save error:", error);
+      toast.error("Lỗi khi cập nhật chữ ký: " + (error as Error).message);
+    } finally {
+      setIsSaving(false);
+      setPendingSignatureUrl(null);
+    }
+  };
+
   const cancelSaveSignature = () => {
     setPendingSignatureUrl(null);
     setShowConfirmSave(false);
   };
 
-  const handleDeleteSignature = () => {
-    setShowConfirmDelete(true);
+  const handleDeleteSignature = async () => {
+    if (inline) {
+      await confirmDeleteSignature();
+    } else {
+      setShowConfirmDelete(true);
+    }
   };
 
   const confirmDeleteSignature = async () => {
@@ -134,7 +170,7 @@ export function SignatureManagement({
     setShowConfirmDelete(false);
   };
 
-  if (isLoading) {
+  if (isLoading && !inline) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent>
@@ -146,6 +182,43 @@ export function SignatureManagement({
           </div>
         </DialogContent>
       </Dialog>
+    );
+  }
+
+  if (inline) {
+    return (
+      <div className="space-y-4">
+        <div className="border rounded-xl p-4">
+          <h3 className="font-semibold text-gray-900 mb-1">{currentSignatureUrl ? "Cập nhật chữ ký số" : "Tạo chữ ký số"}</h3>
+          {currentSignatureUrl && (
+            <div className="mt-2">
+              <p className="text-sm text-gray-600 mb-1">Chữ ký hiện tại:</p>
+              <Image
+                src={currentSignatureUrl}
+                alt="Chữ ký hiện tại"
+                width={128}
+                height={64}
+                className="border border-gray-300 rounded mb-2"
+              />
+            </div>
+          )}
+          <div className="py-4">
+            <SignaturePad
+              onSave={handleSaveSignature}
+              onClear={() => {}}
+              className="mx-auto"
+              disabled={isSaving}
+            />
+          </div>
+          <div className="flex gap-2">
+            {currentSignatureUrl && (
+              <Button variant="destructive" onClick={confirmDeleteSignature} disabled={isSaving}>
+                Xóa chữ ký hiện tại
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
     );
   }
 

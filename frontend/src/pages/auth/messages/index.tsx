@@ -94,6 +94,19 @@ const MessagesPage = () => {
     };
   }, [user]);
 
+  // Auto-select conversation from query parameter
+  useEffect(() => {
+    const conversationId = router.query.conversationId as string;
+    if (conversationId && conversations.length > 0 && !selectedConversation) {
+      const targetConversation = conversations.find(conv => conv._id === conversationId);
+      if (targetConversation) {
+        setSelectedConversation(targetConversation);
+        // Remove query parameter from URL after selecting
+        router.replace('/auth/messages', undefined, { shallow: true });
+      }
+    }
+  }, [router.query.conversationId, conversations, selectedConversation, router]);
+
   const loadConversations = async () => {
     try {
       const response = await getConversations();

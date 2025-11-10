@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { MapPin, Star, ShieldCheck, Truck, BadgeCheck, Clock3, ChevronLeft, ChevronRight, Search, Filter, X, Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { MapPin, Star, ShieldCheck, Truck, BadgeCheck, Clock3, ChevronLeft, ChevronRight, Search, Filter, X, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { getPublicStoreByUserGuid } from "@/services/products/product.api";
 
 interface Product {
@@ -74,10 +75,13 @@ export default function OwnerStorePage() {
     searchQuery || filters.minPrice || filters.maxPrice || filters.category !== ""
   , [searchQuery, filters]);
 
+  const availableCategories = useMemo(() => {
+    return Array.from(new Set(items.map((it) => it.Category?.name).filter(Boolean)));
+  }, [items]);
+
   // Build query params
   const buildQueryParams = useCallback(() => {
     const params: any = {
-      page: currentPage,
       limit: LIMIT,
     };
     if (searchQuery) params.q = searchQuery;
@@ -86,7 +90,33 @@ export default function OwnerStorePage() {
     if (filters.category) params.category = filters.category;
     if (filters.sortBy) params.sortBy = filters.sortBy;
     return params;
-  }, [currentPage, searchQuery, filters]);
+  }, [searchQuery, filters]);
+
+  // Update URL with current query params
+  const updateUrl = useCallback((page: number) => {
+    const query: any = { ...router.query };
+    if (page > 1) {
+      query.page = page.toString();
+    } else {
+      delete query.page;
+    }
+    router.replace(
+      {
+        pathname: router.pathname,
+        query: { ...query, ...buildQueryParams() },
+      },
+      undefined,
+      { shallow: true }
+    );
+  }, [router, buildQueryParams]);
+
+  // Read page from URL on initial load
+  useEffect(() => {
+    if (router.isReady) {
+      const page = parseInt(router.query.page as string) || 1;
+      setCurrentPage(page);
+    }
+  }, [router.isReady, router.query.page]);
 
   // Fetch store data
   const fetchStoreData = useCallback(async () => {
@@ -95,10 +125,24 @@ export default function OwnerStorePage() {
       setLoading(false);
       return;
     }
+    
+    // Update URL with current page
+    if (currentPage > 1) {
+      updateUrl(currentPage);
+    } else {
+      const { page, ...query } = router.query;
+      if (page) {
+        router.replace(
+          { pathname: router.pathname, query },
+          undefined,
+          { shallow: true }
+        );
+      }
+    }
     try {
       setLoading(true);
       setError(null);
-      const queryParams = buildQueryParams();
+      const queryParams = { ...buildQueryParams(), page: currentPage };
       const res = await getPublicStoreByUserGuid(String(userGuid), queryParams);
       const { owner: fetchedOwner, items: fetchedItems, total: fetchedTotal } = res?.data || res || { owner: null, items: [], total: 0 };
       setOwner(fetchedOwner);
@@ -110,12 +154,13 @@ export default function OwnerStorePage() {
     } finally {
       setLoading(false);
     }
-  }, [userGuid, buildQueryParams]);
+  }, [userGuid, currentPage, buildQueryParams, updateUrl, router]);
 
-  // Handle page change with smooth scroll
+  // Handle page change with smooth scroll and URL update
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
       setCurrentPage(newPage);
+      updateUrl(newPage);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
@@ -126,7 +171,7 @@ export default function OwnerStorePage() {
       ...prev,
       [key]: value
     }));
-    setCurrentPage(1); // Reset to first page when filters change
+    setCurrentPage(1);
   };
 
   // Reset all filters
@@ -143,12 +188,14 @@ export default function OwnerStorePage() {
 
   // Initial load and when filters change
   useEffect(() => {
+    if (!router.isReady) return;
+    
     const timer = setTimeout(() => {
       fetchStoreData();
     }, 300); // Debounce search
 
     return () => clearTimeout(timer);
-  }, [fetchStoreData]);
+  }, [fetchStoreData, router.isReady]);
 
   const ownerInfo = useMemo(() => owner, [owner]);
 
@@ -215,8 +262,7 @@ export default function OwnerStorePage() {
               <div className="flex items-center gap-4 mb-4 text-sm text-gray-600 flex-wrap">
                 <div className="flex items-center gap-1">
                   <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                  <span className="font-semibold text-gray-900">5.0</span>
-                  <span className="text-gray-400">(giả lập)</span>
+                  <span className="font-semibold text-gray-900">{ownerInfo.reputationScore?.toFixed(1) ?? 5.0}</span>
                 </div>
                 <div className="hidden md:block w-px h-4 bg-gray-300" />
                 <div className="flex items-center gap-1">
@@ -240,7 +286,7 @@ export default function OwnerStorePage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center p-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100">
                   <div className="text-gray-600 text-sm">Sản phẩm</div>
-                  <div className="text-2xl font-bold text-gray-900">{items.length}</div>
+                  <div className="text-2xl font-bold text-gray-900">{total}</div>
                 </div>
                 <div className="text-center p-4 rounded-xl bg-gradient-to-r from-green-50 to-emerald-50 border border-green-100">
                   <div className="text-gray-600 text-sm">Còn hàng</div>
@@ -251,12 +297,12 @@ export default function OwnerStorePage() {
                 <div className="text-center p-4 rounded-xl bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-100">
                   <div className="text-gray-600 text-sm">Danh mục</div>
                   <div className="text-2xl font-bold text-gray-900">{
-                    new Set(items.map((it) => it.Category?.name).filter(Boolean)).size
+                    availableCategories.length
                   }</div>
                 </div>
                 <div className="text-center p-4 rounded-xl bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-100">
                   <div className="text-gray-600 text-sm">Đánh giá</div>
-                  <div className="text-2xl font-bold text-gray-900">5.0</div>
+                  <div className="text-2xl font-bold text-gray-900">{ownerInfo.reputationScore?.toFixed(1) ?? 5.0}</div>
                 </div>
               </div>
             </div>
@@ -264,51 +310,84 @@ export default function OwnerStorePage() {
         </div>
 
         {/* Search and Filter Bar */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg mb-6">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="bg-white/90 backdrop-blur-sm rounded-3xl p-6 shadow-lg mb-6 border border-white/20 hover:shadow-xl transition-all duration-300"
+        >
           <div className="flex flex-col md:flex-row gap-4 mb-6">
             {/* Search Input */}
-            <div className="relative flex-1">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-gray-400" />
+            <motion.div 
+              className="relative flex-1 group"
+              whileHover={{ scale: 1.01 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 10 }}
+            >
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <Search className="h-5 w-5 text-indigo-400 group-hover:text-indigo-500 transition-colors" />
               </div>
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Tìm kiếm sản phẩm..."
+                onKeyDown={(e) => e.key === 'Enter' && fetchStoreData()}
+                className="block w-full pl-12 pr-10 py-3 border-2 border-indigo-100 rounded-xl bg-white/50 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent text-gray-700 placeholder-gray-400 transition-all duration-200"
+                placeholder="Nhập tên sản phẩm..."
               />
-            </div>
+              {searchQuery && (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  onClick={() => setSearchQuery('')}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-indigo-600 transition-colors"
+                  aria-label="Xóa tìm kiếm"
+                >
+                  <X className="h-5 w-5" />
+                </motion.button>
+              )}
+            </motion.div>
             
             {/* Filter Button */}
-            <button
+            <motion.button
               onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center justify-center gap-2 px-4 py-2 border rounded-lg transition-colors ${
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
+              className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl transition-all duration-200 ${
                 hasActiveFilters 
-                  ? 'bg-blue-50 border-blue-200 text-blue-700' 
-                  : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                  ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-200' 
+                  : 'bg-white border-2 border-indigo-100 text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50'
               }`}
             >
               <Filter className="w-5 h-5" />
-              <span>Bộ lọc</span>
+              <span className="font-medium">Bộ lọc</span>
               {hasActiveFilters && (
-                <span className="ml-1 w-5 h-5 flex items-center justify-center bg-blue-600 text-white text-xs font-medium rounded-full">
+                <motion.span 
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="ml-1 w-6 h-6 flex items-center justify-center bg-white text-indigo-600 text-xs font-bold rounded-full"
+                >
                   {[searchQuery, filters.minPrice, filters.maxPrice, filters.category].filter(Boolean).length}
-                </span>
+                </motion.span>
               )}
-            </button>
+            </motion.button>
             
             {/* Sort Dropdown */}
-            <select
-              value={filters.sortBy}
-              onChange={(e) => handleFilterChange('sortBy', e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="newest">Mới nhất</option>
-              <option value="price_asc">Giá tăng dần</option>
-              <option value="price_desc">Giá giảm dần</option>
-              <option value="popular">Phổ biến</option>
-            </select>
+            <motion.div className="relative" whileHover={{ scale: 1.02 }}>
+              <select
+                value={filters.sortBy}
+                onChange={(e) => handleFilterChange('sortBy', e.target.value)}
+                className="w-full h-full pl-4 pr-10 py-3 border-2 border-indigo-100 rounded-xl bg-white/50 text-indigo-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent appearance-none cursor-pointer"
+              >
+                <option value="newest">Mới nhất</option>
+                <option value="price_asc">Giá tăng dần</option>
+                <option value="price_desc">Giá giảm dần</option>
+                <option value="popular">Phổ biến</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <ChevronDown className="h-5 w-5 text-indigo-400" />
+              </div>
+            </motion.div>
           </div>
 
           {/* Filter Panel */}
@@ -360,30 +439,30 @@ export default function OwnerStorePage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">Tất cả danh mục</option>
-                    {/* Add your categories here */}
+                    {availableCategories.map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                    {/* Fallback categories if no items */}
+                    {availableCategories.length === 0 && [
+                      "Điện tử",
+                      "Thời trang",
+                      "Nội thất",
+                      "Thể thao",
+                      "Sách"
+                    ].map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
                   </select>
                 </div>
               </div>
             </div>
           )}
-        </div>
+        </motion.div>
 
         {/* Product grid */}
         <div className="bg-white rounded-3xl p-6 shadow-lg mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2 sm:mb-0">Sản phẩm đang bán</h2>
-            <div className="text-sm text-gray-500">
-              {loading ? (
-                <div className="flex items-center">
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  <span>Đang tải...</span>
-                </div>
-              ) : total > 0 ? (
-                <span>Hiển thị {items.length} trên tổng số {total} sản phẩm</span>
-              ) : (
-                <span>Không có sản phẩm nào</span>
-              )}
-            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2 sm:mb-0">Sản phẩm đang cho thuê</h2>
           </div>
 
           {items.length === 0 ? (
@@ -524,7 +603,7 @@ export default function OwnerStorePage() {
           {/* Overall Rating */}
           <div className="flex items-center justify-between mb-8 p-6 bg-gray-50 rounded-xl">
             <div className="text-center">
-              <div className="text-5xl font-bold text-gray-900 mb-1">5.0</div>
+              <div className="text-5xl font-bold text-gray-900 mb-1">{ownerInfo.reputationScore?.toFixed(1) ?? 5.0}</div>
               <div className="flex justify-center mb-2">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <Star key={star} className="w-6 h-6 text-yellow-500 fill-yellow-500" />

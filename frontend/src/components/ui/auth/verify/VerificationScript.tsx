@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
-import { 
-  ChevronDown, 
-  ChevronUp, 
-  Phone, 
-  MessageSquare, 
-  Camera, 
+import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
+import {
+  ChevronDown,
+  Phone,
+  MessageSquare,
+  Camera,
   CheckCircle,
   Clock,
   Shield,
@@ -19,6 +19,8 @@ export default function VerificationScript() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
+  const prevOverflowRef = useRef<string>("");
+  // Inline quick guide removed per request
 
   const steps = [
     {
@@ -81,7 +83,7 @@ export default function VerificationScript() {
   const getColorClasses = (color: string) => {
     const colors = {
       blue: "bg-blue-50 border-blue-200 text-blue-800",
-      green: "bg-green-50 border-green-200 text-green-800", 
+      green: "bg-green-50 border-green-200 text-green-800",
       purple: "bg-purple-50 border-purple-200 text-purple-800",
       orange: "bg-orange-50 border-orange-200 text-orange-800"
     };
@@ -92,7 +94,7 @@ export default function VerificationScript() {
     const colors = {
       blue: "text-blue-600",
       green: "text-green-600",
-      purple: "text-purple-600", 
+      purple: "text-purple-600",
       orange: "text-orange-600"
     };
     return colors[color as keyof typeof colors] || colors.blue;
@@ -101,12 +103,12 @@ export default function VerificationScript() {
   // Auto-play functionality - Left to Right with Auto-scroll
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    
+
     if (isAutoPlaying && isPopupOpen) {
       interval = setInterval(() => {
         setCurrentStep((prev) => {
           const nextStep = prev + 1;
-          
+
           // Auto-scroll to current step
           setTimeout(() => {
             const stepElement = document.getElementById(`step-${nextStep}`);
@@ -118,7 +120,7 @@ export default function VerificationScript() {
               });
             }
           }, 100); // Small delay to ensure element is rendered
-          
+
           if (nextStep >= steps.length) {
             setIsAutoPlaying(false);
             setIsPlaying(false);
@@ -161,6 +163,19 @@ export default function VerificationScript() {
       setCurrentStep(0); // Bắt đầu từ bước đầu
     }
   };
+
+  // Prevent background scroll and ensure modal overlays header/footer correctly
+  useEffect(() => {
+    if (isPopupOpen) {
+      prevOverflowRef.current = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = prevOverflowRef.current || '';
+    }
+    return () => {
+      document.body.style.overflow = prevOverflowRef.current || '';
+    };
+  }, [isPopupOpen]);
 
   return (
     <>
@@ -206,11 +221,11 @@ export default function VerificationScript() {
       </div>
 
       {/* Popup Modal */}
-      {isPopupOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
+      {isPopupOpen && createPortal(
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[2147483647] p-4">
+          <div className="bg-white rounded-lg w-full max-w-[min(100vw-32px,64rem)] h-[90vh] flex flex-col overflow-hidden shadow-2xl relative">
             {/* Popup Header */}
-            <div className="bg-gradient-to-r from-indigo-50 via-blue-50 to-purple-50 border-b border-indigo-200 p-4">
+            <div className="bg-gradient-to-r from-indigo-50 via-blue-50 to-purple-50 border-b border-indigo-200 p-4 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-indigo-100 rounded-lg">
@@ -253,24 +268,21 @@ export default function VerificationScript() {
                   const IconComponent = step.icon;
                   const isCurrentStep = isAutoPlaying && currentStep === index;
                   const isCompleted = isAutoPlaying && currentStep > index;
-                  
+
                   return (
                     <div key={step.id} className="flex flex-col items-center flex-1 relative">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all duration-500 ${
-                        isCurrentStep ? 'ring-4 ring-indigo-300 shadow-lg scale-110' : 
-                        isCompleted ? 'bg-green-100' :
-                        step.color === 'blue' ? 'bg-blue-100' :
-                        step.color === 'green' ? 'bg-green-100' :
-                        step.color === 'purple' ? 'bg-purple-100' :
-                        'bg-orange-100'
-                      }`}>
-                        <IconComponent className={`w-6 h-6 ${
-                          isCompleted ? 'text-green-600' : getIconColorClasses(step.color)
-                        }`} />
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all duration-500 ${isCurrentStep ? 'ring-4 ring-indigo-300 shadow-lg scale-110' :
+                          isCompleted ? 'bg-green-100' :
+                            step.color === 'blue' ? 'bg-blue-100' :
+                              step.color === 'green' ? 'bg-green-100' :
+                                step.color === 'purple' ? 'bg-purple-100' :
+                                  'bg-orange-100'
+                        }`}>
+                        <IconComponent className={`w-6 h-6 ${isCompleted ? 'text-green-600' : getIconColorClasses(step.color)
+                          }`} />
                       </div>
-                      <p className={`text-xs font-medium text-center transition-colors ${
-                        isCurrentStep ? 'text-indigo-700 font-bold' : 'text-gray-700'
-                      }`}>{step.title}</p>
+                      <p className={`text-xs font-medium text-center transition-colors ${isCurrentStep ? 'text-indigo-700 font-bold' : 'text-gray-700'
+                        }`}>{step.title}</p>
                       <p className="text-xs text-gray-500">{step.estimatedTime}</p>
                       {isCurrentStep && (
                         <div className="mt-1">
@@ -280,9 +292,8 @@ export default function VerificationScript() {
                       {/* Progress line */}
                       {index < steps.length - 1 && (
                         <div className="absolute top-6 left-full w-full h-0.5 bg-gray-300">
-                          <div className={`h-full transition-all duration-500 ${
-                            isCompleted ? 'bg-green-400 w-full' : 'bg-gray-300 w-0'
-                          }`}></div>
+                          <div className={`h-full transition-all duration-500 ${isCompleted ? 'bg-green-400 w-full' : 'bg-gray-300 w-0'
+                            }`}></div>
                         </div>
                       )}
                     </div>
@@ -297,7 +308,7 @@ export default function VerificationScript() {
                   ⏱️ Tổng thời gian: 5-10 phút
                 </span>
               </div>
-              
+
               {/* Auto-play Status */}
               {isAutoPlaying && (
                 <div className="mt-3 flex items-center justify-center gap-2 p-2 bg-indigo-100 rounded-lg">
@@ -313,7 +324,7 @@ export default function VerificationScript() {
             </div>
 
             {/* Popup Content */}
-            <div className="p-6 overflow-y-auto max-h-[60vh]">
+            <div className="p-6 overflow-y-auto flex-1 min-h-0">
               <div className="space-y-4">
                 {/* Important Notes - Moved to top */}
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
@@ -339,20 +350,18 @@ export default function VerificationScript() {
                   const IconComponent = step.icon;
                   const isCurrentStep = isAutoPlaying && currentStep === step.id - 1;
                   return (
-                    <div 
+                    <div
                       key={step.id}
                       id={`step-${step.id}`}
-                      className={`border rounded-lg p-4 transition-all duration-500 ${
-                        isCurrentStep ? 'ring-2 ring-indigo-400 shadow-lg scale-[1.02]' : ''
-                      } ${getColorClasses(step.color)}`}
+                      className={`border rounded-lg p-4 transition-all duration-500 ${isCurrentStep ? 'ring-2 ring-indigo-400 shadow-lg scale-[1.02]' : ''
+                        } ${getColorClasses(step.color)}`}
                     >
                       <div className="flex items-start gap-3">
-                        <div className={`p-2 rounded-lg relative ${
-                          step.color === 'blue' ? 'bg-blue-100' :
-                          step.color === 'green' ? 'bg-green-100' :
-                          step.color === 'purple' ? 'bg-purple-100' :
-                          'bg-orange-100'
-                        }`}>
+                        <div className={`p-2 rounded-lg relative ${step.color === 'blue' ? 'bg-blue-100' :
+                            step.color === 'green' ? 'bg-green-100' :
+                              step.color === 'purple' ? 'bg-purple-100' :
+                                'bg-orange-100'
+                          }`}>
                           <IconComponent className={`w-5 h-5 ${getIconColorClasses(step.color)}`} />
                           {isCurrentStep && (
                             <div className="absolute -top-1 -right-1 w-3 h-3 bg-indigo-500 rounded-full animate-pulse"></div>
@@ -386,7 +395,8 @@ export default function VerificationScript() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        typeof window !== 'undefined' ? document.body : (undefined as unknown as Element)
       )}
     </>
   );

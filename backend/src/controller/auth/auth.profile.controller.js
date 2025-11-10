@@ -8,7 +8,7 @@ module.exports.getProfile = async (req, res) => {
 
         const user = await User.findOne({
             email: email
-        }).select("userGuid email fullName displayName avatarUrl bio phone isEmailConfirmed isPhoneConfirmed isIdVerified reputationScore points role wallet lastLoginAt createdAt updatedAt").lean();
+        }).select("userGuid email fullName displayName avatarUrl bio phone isEmailConfirmed isPhoneConfirmed isIdVerified reputationScore points role wallet lastLoginAt createdAt updatedAt idCardInfo").lean();
 
         if (!user) {
             return res.json({
@@ -148,6 +148,32 @@ module.exports.updateAvatar = async (req, res) => {
     }
 }
 
+// Verify password (for viewing sensitive information)
+module.exports.verifyPassword = async (req, res) => {
+    try {
+        const email = req.user.email;
+        const { password } = req.body;
+        
+        if (!password) {
+            return res.json({ code: 400, message: "Vui lòng nhập mật khẩu" });
+        }
+        
+        const user = await User.findOne({ email: email });
+        if (!user) {
+            return res.json({ code: 404, message: "Không tìm thấy người dùng" });
+        }
+        
+        const isPasswordValid = await comparePasswordWithSalt(password, user.passwordSalt, user.passwordHash);
+        if (!isPasswordValid) {
+            return res.json({ code: 400, message: "Mật khẩu không đúng" });
+        }
+        
+        return res.json({ code: 200, message: "Mật khẩu chính xác" });
+    } catch (error) {
+        return res.json({ code: 500, message: "Lỗi khi xác thực mật khẩu", error: error.message });
+    }
+};
+
 module.exports.changePassword = async (req, res) => {
     try {
         const email = req.user.email;
@@ -199,10 +225,94 @@ module.exports.uploadUserAvatar = async (req, res) => {
     }
 }
 
+// Update ID card information manually
+module.exports.updateIdCardInfo = async (req, res) => {
+    try {
+        const email = req.user.email;
+        const { idNumber, fullName, dateOfBirth, address } = req.body;
+        
+        // Get current user data first
+        const currentUser = await User.findOne({ email: email });
+        if (!currentUser) {
+            return res.json({
+                code: 404,
+                message: "Không tìm thấy người dùng"
+            });
+        }
+
+        // Validate required fields
+        if (!idNumber || !fullName || !dateOfBirth || !address) {
+            return res.json({
+                code: 400,
+                message: "Vui lòng điền đầy đủ thông tin căn cước công dân"
+            });
+        }
+
+        // Validate ID number format (12 digits)
+        if (!/^\d{12}$/.test(idNumber)) {
+            return res.json({
+                code: 400,
+                message: "Số căn cước công dân phải có 12 chữ số"
+            });
+        }
+
+        // Validate date of birth
+        const dob = new Date(dateOfBirth);
+        if (isNaN(dob.getTime())) {
+            return res.json({
+                code: 400,
+                message: "Ngày sinh không hợp lệ"
+            });
+        }
+
+        // Prepare ID card info update
+        const idCardInfo = {
+            idNumber: idNumber.trim(),
+            fullName: fullName.trim(),
+            dateOfBirth: dob,
+            address: address.trim(),
+            extractedAt: new Date(),
+            extractionMethod: 'manual'
+        };
+
+        // Update user with ID card information
+        const updatedUser = await User.findOneAndUpdate(
+            { email: email },
+            { idCardInfo: idCardInfo },
+            { new: true }
+        ).lean();
+
+        // Create notification for ID card info update
+        try {
+            await createNotification(
+                currentUser._id,
+                "ID Card Info Updated",
+                "Thông tin căn cước công dân đã được cập nhật",
+                `Xin chào ${updatedUser.fullName || currentUser.fullName}, thông tin căn cước công dân của bạn đã được cập nhật thành công vào lúc ${new Date().toLocaleString("vi-VN")}.`,
+                { 
+                    updateTime: new Date().toISOString(),
+                    idNumber: idCardInfo.idNumber
+                }
+            );
+        } catch (notificationError) {
+            console.error("Error creating ID card info update notification:", notificationError);
+        }
+
+        return res.json({
+            code: 200,
+            message: "Cập nhật thông tin căn cước công dân thành công",
+            data: updatedUser
+        });
+    } catch (error) {
+        return res.json({ code: 500, message: "Cập nhật thông tin căn cước công dân thất bại", error: error.message });
+    }
+};
+
 // COMPLETED FUNCTIONS:
 // 1. getProfile - Get user profile information
 // 2. updateProfile - Update user profile (fullName, displayName, bio)
 // 3. updateAvatar - Update user avatar URL
 // 4. changePassword - Change user password with current password validation
 // 5. uploadUserAvatar - Upload user avatar file
+// 6. updateIdCardInfo - Update ID card information manually
 

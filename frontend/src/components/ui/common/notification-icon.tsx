@@ -42,6 +42,14 @@ export function NotificationIcon({ className }: NotificationIconProps) {
       
       if (data?.items) {
         setNotifications(data.items);
+        // Tính unread count từ danh sách notifications ban đầu như fallback
+        // SSE sẽ override giá trị này sau khi kết nối và nhận được unread count chính xác từ database
+        const calculatedUnreadCount = data.items.filter((n: Notification) => !n.isRead).length;
+        console.log('[Notifications] Calculated unread count from notifications list:', calculatedUnreadCount);
+        // Luôn cập nhật unread count từ danh sách notifications ban đầu
+        // SSE sẽ override giá trị này sau khi kết nối và nhận được unread count chính xác từ database
+        setUnreadCount(calculatedUnreadCount);
+        console.log('[Notifications] Updated unread count from notifications list:', calculatedUnreadCount);
       }
     } catch (error) {
       console.error("Error fetching notifications:", error);
@@ -58,14 +66,16 @@ export function NotificationIcon({ className }: NotificationIconProps) {
       return;
     }
 
-    // Fetch initial notifications list
+    // Fetch initial notifications list ngay khi component mount
     fetchNotifications();
 
-    // Kết nối SSE
+    // Kết nối SSE để nhận notifications và unread count realtime
     notificationSSE.connect({
       onConnect: () => {
         console.log('[Notifications] SSE connected');
         setSseConnected(true);
+        // Backend sẽ tự động gửi unread count ban đầu khi SSE kết nối
+        // Unread count sẽ được cập nhật từ SSE callback (onUnreadCount)
       },
       onDisconnect: () => {
         console.log('[Notifications] SSE disconnected');
@@ -84,8 +94,9 @@ export function NotificationIcon({ className }: NotificationIconProps) {
           return [notification, ...prev].slice(0, NOTIFICATIONS_LIMIT);
         });
         
-        // Tăng unread count
-        setUnreadCount(prev => prev + 1);
+        // Không tăng unread count thủ công ở đây
+        // Backend sẽ gửi unread count update qua SSE callback (onUnreadCount)
+        // Nếu notification chưa đọc, backend sẽ tự động gửi unread count update
         
         // Hiển thị toast notification
         toast.info(notification.title, {
@@ -94,8 +105,11 @@ export function NotificationIcon({ className }: NotificationIconProps) {
         });
       },
       onUnreadCount: (count: number) => {
-        console.log('[Notifications] Unread count updated:', count);
+        console.log('[Notifications] Unread count updated from SSE:', count);
+        // Cập nhật unread count từ SSE - đây là nguồn chính xác nhất
+        // Backend gửi unread count ban đầu khi SSE kết nối và mỗi khi có thay đổi
         setUnreadCount(count);
+        console.log('[Notifications] Unread count state updated to:', count);
       },
       onError: (error) => {
         console.error('[Notifications] SSE error:', error);
@@ -127,7 +141,8 @@ export function NotificationIcon({ className }: NotificationIconProps) {
       setNotifications(prev => 
         prev.map(n => n._id === id ? { ...n, isRead: true } : n)
       );
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      // Không cập nhật unread count thủ công ở đây
+      // Backend sẽ gửi unread count update qua SSE callback (onUnreadCount)
       toast.success("Đã đánh dấu đã đọc");
     } catch (error) {
       console.error("Error marking as read:", error);
@@ -140,7 +155,8 @@ export function NotificationIcon({ className }: NotificationIconProps) {
     try {
       await notificationApi.markAllAsRead();
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-      setUnreadCount(0);
+      // Không cập nhật unread count thủ công ở đây
+      // Backend sẽ gửi unread count update qua SSE callback (onUnreadCount)
       toast.success("Đã đánh dấu tất cả đã đọc");
     } catch (error) {
       console.error("Error marking all as read:", error);
@@ -187,6 +203,11 @@ export function NotificationIcon({ className }: NotificationIconProps) {
 
   // Unread count được cập nhật realtime từ SSE
   const displayUnreadCount = unreadCount;
+  
+  // Debug: Log unread count changes
+  useEffect(() => {
+    console.log('[Notifications] Unread count changed to:', unreadCount, 'Display count:', displayUnreadCount);
+  }, [unreadCount, displayUnreadCount]);
 
   const handleNotificationClick = useCallback((notification: Notification, event?: React.MouseEvent) => {
     if (event) {

@@ -31,6 +31,11 @@ router.post('/phone/verify-otp-firebase', authenticateToken, verifyController.ve
 // Face verification using face-api.js with file upload (3 images: selfie, idCardFront, idCardBack)
 router.post('/verify-face', authenticateToken, upload.array('images', 3), verifyController.verifyFaceImages);
 
+// Verification request routes
+const verificationRequestController = require("../../controller/auth/verificationRequest.controller");
+router.post('/verification-request', authenticateToken, upload.array('images', 3), verificationRequestController.createVerificationRequest);
+router.get('/verification-request/my', authenticateToken, verificationRequestController.getMyVerificationRequests);
+
 // Profile routes (bao gồm avatar)
 router.use('/profile', profileRouter);
 

@@ -1,18 +1,27 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useRouter } from "next/router";
+import dynamic from 'next/dynamic';
+
+// Dynamically import the comparison modal with no SSR to avoid hydration issues
+const ProductComparisonModal = dynamic(
+  () => import('@/components/products/ProductComparisonModal'),
+  { ssr: false }
+);
 import AddToCartButton from "@/components/ui/common/AddToCartButton";
-import { 
-  getPublicItemById, 
-  getTopViewedItemsByOwner, 
+import {
+  getPublicItemById,
+  getTopViewedItemsByOwner,
   getProductsByCategoryId,
-  addToFavorites, 
-  removeFromFavorites, 
-  getFavorites 
+  addToFavorites,
+  removeFromFavorites,
+  getFavorites,
+  getComparableProducts
 } from "@/services/products/product.api";
+import { createConversation, getConversations, Conversation } from "@/services/messages/messages.api";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store/redux_store";
 import {
@@ -82,7 +91,7 @@ const formatPrice = (price: number, currency: string) => {
 export default function ProductDetailPage() {
   const router = useRouter();
   const { id } = router.query as { id?: string };
-  
+
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -97,12 +106,18 @@ export default function ProductDetailPage() {
   const [dateError, setDateError] = useState<string>("");
   const [ownerTopItems, setOwnerTopItems] = useState<any[]>([]);
   const [similarItems, setSimilarItems] = useState<any[]>([]);
-  
+  const [showComparisonModal, setShowComparisonModal] = useState(false);
+
+  // Handle compare button click
+  const handleCompare = useCallback(() => {
+    setShowComparisonModal(true);
+  }, []);
+
   // Favorite states
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const [favoriteCount, setFavoriteCount] = useState(0);
-  
+
   // Get authentication state
   const isAuthenticated = useSelector((state: RootState) => !!state.auth.accessToken);
   const accessToken = useSelector((state: RootState) => state.auth.accessToken);
@@ -111,7 +126,7 @@ export default function ProductDetailPage() {
   useEffect(() => {
     const fetchFavoriteStatus = async () => {
       if (!id || !isAuthenticated) return;
-      
+
       try {
         setFavoriteLoading(true);
         const res = await getFavorites();
@@ -129,7 +144,7 @@ export default function ProductDetailPage() {
         setFavoriteLoading(false);
       }
     };
-    
+
     fetchFavoriteStatus();
   }, [id, isAuthenticated]);
 
@@ -177,7 +192,7 @@ export default function ProductDetailPage() {
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         const errorMsg = errorData.message || `Lỗi! Mã trạng thái: ${res.status}`;
-        
+
         if (res.status === 400) {
           if (errorMsg.includes("đã được yêu thích") && !isFavorite) {
             setIsFavorite(true);
@@ -197,9 +212,9 @@ export default function ProductDetailPage() {
       const newFavoriteStatus = !isFavorite;
       setIsFavorite(newFavoriteStatus);
       setFavoriteCount(prev => newFavoriteStatus ? prev + 1 : Math.max(0, prev - 1));
-      
-      toast.success(newFavoriteStatus 
-        ? "Đã thêm vào yêu thích!" 
+
+      toast.success(newFavoriteStatus
+        ? "Đã thêm vào yêu thích!"
         : "Đã xóa khỏi yêu thích!"
       );
     } catch (err: any) {
@@ -385,10 +400,10 @@ export default function ProductDetailPage() {
     return baseUnit === "hour"
       ? "mỗi giờ"
       : baseUnit === "day"
-      ? "mỗi ngày"
-      : baseUnit === "week"
-      ? "mỗi tuần"
-      : "mỗi tháng";
+        ? "mỗi ngày"
+        : baseUnit === "week"
+          ? "mỗi tuần"
+          : "mỗi tháng";
   }, [baseUnit]);
 
   const totalUnits = useMemo(() => {
@@ -406,28 +421,28 @@ export default function ProductDetailPage() {
   // Update total price display when dates or plan changes
   const displayTotalPrice = useMemo(() => {
     if (!product) return 0;
-    
+
     // If dates are selected, calculate based on actual duration
     if (dateFrom && dateTo && !dateError) {
       const start = new Date(dateFrom);
       const end = new Date(dateTo);
       const msPerDay = 24 * 60 * 60 * 1000;
       const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / msPerDay) + 1);
-      
+
       let calculatedUnits = 0;
       if (selectedPlan === "hour") calculatedUnits = days * 24;
       else if (selectedPlan === "day") calculatedUnits = days;
       else if (selectedPlan === "week") calculatedUnits = Math.ceil(days / 7);
       else calculatedUnits = Math.ceil(days / 30);
-      
+
       return (pricePerUnit || 0) * calculatedUnits;
     }
-    
+
     // If manual units are entered, use those
     if (durationUnits && Number(durationUnits) > 0) {
       return (pricePerUnit || 0) * Number(durationUnits);
     }
-    
+
     return 0;
   }, [product, dateFrom, dateTo, dateError, selectedPlan, pricePerUnit, durationUnits]);
 
@@ -439,9 +454,6 @@ export default function ProductDetailPage() {
     setSelectedImageIndex((prev) => (prev + 1) % images.length);
   };
 
-  const handleCompare = () => {
-    toast.info("So sánh sản phẩm tương tự (đang phát triển)");
-  };
 
   const handleRentNow = () => {
     if (!product) return;
@@ -457,7 +469,7 @@ export default function ProductDetailPage() {
     }
 
     const checkoutItem = {
-      _id: "temp-" + product._id, 
+      _id: "temp-" + product._id,
       itemId: product._id,
       title: product.Title,
       basePrice: product.BasePrice,
@@ -473,7 +485,7 @@ export default function ProductDetailPage() {
     sessionStorage.setItem("checkoutItems", JSON.stringify([checkoutItem]));
 
     toast.success("Đang chuyển đến trang thanh toán...");
-    router.push("/auth/order"); 
+    router.push("/auth/order");
   };
 
   useEffect(() => {
@@ -584,11 +596,10 @@ export default function ProductDetailPage() {
                   <button
                     key={idx}
                     onClick={() => setSelectedImageIndex(idx)}
-                    className={`aspect-square rounded-lg overflow-hidden border ${
-                      idx === selectedImageIndex
+                    className={`aspect-square rounded-lg overflow-hidden border ${idx === selectedImageIndex
                         ? "border-blue-600"
                         : "border-gray-200"
-                    }`}
+                      }`}
                   >
                     <img
                       src={src}
@@ -608,24 +619,29 @@ export default function ProductDetailPage() {
                 <h1 className="text-2xl md:text-3xl font-semibold text-gray-900">
                   {product.Title}
                 </h1>
-                <button
-                  onClick={toggleFavorite}
-                  disabled={favoriteLoading}
-                  className={`p-2 rounded-full transition-colors ${
-                    isFavorite 
-                      ? "text-yellow-500 hover:text-yellow-600" 
-                      : "text-gray-400 hover:text-gray-500"
-                  }`}
-                  title={isFavorite ? "Xóa khỏi yêu thích" : "Thêm vào yêu thích"}
-                >
-                  {favoriteLoading ? (
-                    <div className="w-6 h-6 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <Bookmark 
-                      className={`w-6 h-6 ${isFavorite ? 'fill-current' : ''}`} 
-                    />
-                  )}
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={toggleFavorite}
+                    disabled={favoriteLoading}
+                    className={`p-2 rounded-full transition-colors flex items-center gap-1 ${
+                      isFavorite
+                        ? "text-yellow-500 hover:text-yellow-600"
+                        : "text-gray-400 hover:text-gray-500"
+                    }`}
+                    title={isFavorite ? "Xóa khỏi yêu thích" : "Thêm vào yêu thích"}
+                  >
+                    {favoriteLoading ? (
+                      <div className="w-6 h-6 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <Bookmark
+                        className={`w-6 h-6 ${isFavorite ? 'fill-current' : ''}`}
+                      />
+                    )}
+                  </button>
+                  <span className="text-sm text-gray-600">
+                    {favoriteCount > 0 ? favoriteCount : ''}
+                  </span>
+                </div>
               </div>
 
               {product.ShortDescription && (
@@ -645,7 +661,7 @@ export default function ProductDetailPage() {
                   </div>
                   <span className="text-sm text-gray-500">(12 đánh giá)</span>
                 </div>
-                
+
                 <div className="flex items-center gap-4 text-sm text-gray-500">
                   <div className="flex items-center gap-1">
                     <Eye className="w-4 h-4" />
@@ -699,11 +715,10 @@ export default function ProductDetailPage() {
                   <button
                     onClick={handleRentNow}
                     disabled={outOfStock}
-                    className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg h-full ${
-                      outOfStock
+                    className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg h-full ${outOfStock
                         ? "bg-gray-300 text-gray-600 cursor-not-allowed"
                         : "bg-blue-600 text-white hover:bg-blue-700"
-                    }`}
+                      }`}
                   >
                     <Zap className="w-5 h-5" /> Thuê ngay
                   </button>
@@ -763,11 +778,61 @@ export default function ProductDetailPage() {
                   </div>
                   <div className="mt-2 flex gap-2">
                     <button
-                      onClick={() => {
-                        const ownerId = (product as any)?.Owner?._id || (product as any)?.Owner?.userGuid || (product as any)?.Owner?.UserGuid;
-                        if (!ownerId) return;
-                        // TODO: update to actual chat route when available
-                        toast.info("Tính năng chat đang phát triển");
+                      onClick={async () => {
+                        const ownerId =
+                          (product as any)?.Owner?._id ||
+                          (product as any)?.Owner?.userGuid ||
+                          (product as any)?.Owner?.UserGuid;
+                        if (!ownerId) {
+                          toast.error("Không tìm thấy thông tin người bán");
+                          return;
+                        }
+
+                        if (!accessToken) {
+                          toast.error("Vui lòng đăng nhập để sử dụng tính năng chat");
+                          router.push("/auth/login");
+                          return;
+                        }
+
+                        try {
+                          // Load danh sách cuộc trò chuyện hiện có
+                          const conversationsRes = await getConversations();
+                          if (!conversationsRes.ok) {
+                            toast.error("Không thể tải danh sách cuộc trò chuyện");
+                            return;
+                          }
+
+                          const conversationsData = await conversationsRes.json();
+                          const conversations = conversationsData.data || [];
+
+                          // Tìm cuộc trò chuyện đã tồn tại với người bán này
+                          const existingConversation = conversations.find((conv: Conversation) => {
+                            const userId1 = String(conv.userId1._id || conv.userId1);
+                            const userId2 = String(conv.userId2._id || conv.userId2);
+                            const ownerIdStr = String(ownerId);
+                            return userId1 === ownerIdStr || userId2 === ownerIdStr;
+                          });
+
+                          if (existingConversation) {
+                            // Đi đến trang chat với conversation ID
+                            router.push(`/auth/messages?conversationId=${existingConversation._id}`);
+                          } else {
+                            // Tạo cuộc trò chuyện mới
+                            const createRes = await createConversation(ownerId);
+                            if (createRes.ok) {
+                              const createData = await createRes.json();
+                              const newConversation = createData.data || createData;
+                              router.push(`/auth/messages?conversationId=${newConversation._id}`);
+                              toast.success("Đã tạo cuộc trò chuyện mới");
+                            } else {
+                              const errorData = await createRes.json().catch(() => ({}));
+                              toast.error(errorData.message || "Không thể tạo cuộc trò chuyện");
+                            }
+                          }
+                        } catch (error) {
+                          console.error("Error opening chat:", error);
+                          toast.error("Có lỗi xảy ra khi mở chat");
+                        }
                       }}
                       className="px-3 py-1.5 text-sm rounded-md border text-red-600 border-red-200 bg-red-50 hover:bg-red-100"
                     >
@@ -845,11 +910,10 @@ export default function ProductDetailPage() {
                         Hết hàng
                       </span>
                     ) : null}
-                    <span className={`px-3 py-1 text-xs font-medium rounded-full flex items-center ${
-                      product.Condition?.ConditionName === 'Mới' 
-                        ? 'bg-green-100 text-green-800 border border-green-200' 
+                    <span className={`px-3 py-1 text-xs font-medium rounded-full flex items-center ${product.Condition?.ConditionName === 'Mới'
+                        ? 'bg-green-100 text-green-800 border border-green-200'
                         : 'bg-amber-100 text-amber-800 border border-amber-200'
-                    }`}>
+                      }`}>
                       <svg className={`w-3.5 h-3.5 mr-1.5 ${product.Condition?.ConditionName === 'Mới' ? 'text-green-500' : 'text-amber-500'}`} fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                         {product.Condition?.ConditionName === 'Mới' ? (
                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
@@ -861,7 +925,7 @@ export default function ProductDetailPage() {
                     </span>
                   </div>
                 </div>
-                
+
                 <div className="space-y-6">
                   {/* First Row - 2 columns */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -948,8 +1012,8 @@ export default function ProductDetailPage() {
                           <div className="bg-amber-50 p-3 rounded-lg border border-amber-100">
                             <p className="text-xs text-amber-700 font-medium mb-1">Tối đa</p>
                             <p className="text-base font-semibold text-amber-900">
-                              {product.MaxRentalDuration 
-                                ? `${product.MaxRentalDuration} ${product.PriceUnit?.UnitName?.toLowerCase() || 'ngày'}` 
+                              {product.MaxRentalDuration
+                                ? `${product.MaxRentalDuration} ${product.PriceUnit?.UnitName?.toLowerCase() || 'ngày'}`
                                 : 'Không giới hạn'}
                             </p>
                           </div>
@@ -1057,7 +1121,7 @@ export default function ProductDetailPage() {
                 <h3 className="font-semibold">Sản phẩm tương tự</h3>
                 {similarItems.length > 3 && (
                   <div className="flex gap-2">
-                    <button 
+                    <button
                       onClick={(e) => {
                         e.preventDefault();
                         const container = document.querySelector('.similar-products-slider');
@@ -1070,7 +1134,7 @@ export default function ProductDetailPage() {
                     >
                       <ChevronLeft className="w-5 h-5 text-gray-600" />
                     </button>
-                    <button 
+                    <button
                       onClick={(e) => {
                         e.preventDefault();
                         const container = document.querySelector('.similar-products-slider');
@@ -1086,7 +1150,7 @@ export default function ProductDetailPage() {
                   </div>
                 )}
               </div>
-              
+
               {similarItems.length > 0 ? (
                 <div className="relative">
                   <div className="similar-products-slider flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 snap-x snap-mandatory scrollbar-hide">
@@ -1099,9 +1163,9 @@ export default function ProductDetailPage() {
                             <div className="rounded-xl border bg-white overflow-hidden cursor-pointer transition-transform duration-300 ease-out hover:-translate-y-1 hover:shadow-lg h-full">
                               <div className="w-full aspect-video bg-gray-100 relative">
                                 {thumb ? (
-                                  <img 
-                                    src={thumb} 
-                                    alt={it.Title} 
+                                  <img
+                                    src={thumb}
+                                    alt={it.Title}
                                     className="w-full h-full object-cover"
                                     loading="lazy"
                                   />
@@ -1120,7 +1184,7 @@ export default function ProductDetailPage() {
                                 <h3 className="text-sm font-medium text-gray-900 line-clamp-2 h-10 mb-2">
                                   {it.Title}
                                 </h3>
-                                
+
                                 {/* Price Row */}
                                 <div className="flex items-center gap-2 mb-1">
                                   <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -1164,7 +1228,7 @@ export default function ProductDetailPage() {
               ) : (
                 <div className="text-sm text-gray-500 py-4">Chưa có sản phẩm tương tự</div>
               )}
-              
+
               <style jsx global>{`
                 .similar-products-slider::-webkit-scrollbar {
                   display: none;
@@ -1209,7 +1273,7 @@ export default function ProductDetailPage() {
                           <h3 className="text-sm font-medium text-gray-900 line-clamp-2 mb-2">
                             {it.Title}
                           </h3>
-                          
+
                           {/* Price Row */}
                           <div className="flex items-center gap-2 mb-1">
                             <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -1255,6 +1319,15 @@ export default function ProductDetailPage() {
           </aside>
         </div>
       </div>
+
+      {/* Comparison Modal */}
+      {product && (
+        <ProductComparisonModal
+          isOpen={showComparisonModal}
+          onClose={() => setShowComparisonModal(false)}
+          currentProduct={product}
+        />
+      )}
     </div>
   );
 }
