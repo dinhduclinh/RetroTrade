@@ -127,10 +127,15 @@ module.exports = {
 
       const newOrder = orderDoc[0];
 
+      // Đảm bảo orderId là string
+      const orderIdString = newOrder._id.toString();
+
+      console.log(" Order created successfully - ID:", orderIdString, "Guid:", newOrder.orderGuid);
+
       return res.status(201).json({
         message: "Order created successfully",
         data: {
-          orderId: newOrder._id,
+          orderId: orderIdString, // Trả về string thay vì ObjectId
           orderGuid: newOrder.orderGuid,
           totalAmount,
           depositAmount,
