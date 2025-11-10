@@ -41,6 +41,8 @@ import {
   Trash2,
   Check,
 } from "lucide-react";
+import { payOrderWithWallet } from "@/services/wallet/wallet.api";
+import PopupModal from "@/components/ui/common/PopupModal";
 
 const calculateRentalDays = (item: CartItem): number => {
   if (!item.rentalStartDate || !item.rentalEndDate) return 0;
@@ -116,6 +118,10 @@ export default function Checkout() {
   const [taxRate, setTaxRate] = useState<number>(3); // Default 3%
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 3; // Hiển thị 3 sản phẩm mỗi trang
+  // State cho modal thông báo lỗi
+  const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
+  const [errorModalTitle, setErrorModalTitle] = useState("");
+  const [errorModalMessage, setErrorModalMessage] = useState("");
   const [editingItems, setEditingItems] = useState<Record<string, {
     quantity: number;
     rentalStartDate: string;
@@ -146,9 +152,16 @@ export default function Checkout() {
   }>({
     isOpen: false,
     message: "",
-    onConfirm: () => {},
+    onConfirm: () => { },
     title: "Xác nhận",
   });
+  // thanh toan 
+  const [modal, setModal] = useState({ open: false, title: "", message: "" });
+
+
+
+
+
 
   // Lấy từ sessionStorage
   useEffect(() => {
@@ -160,7 +173,7 @@ export default function Checkout() {
     const items: CartItem[] = JSON.parse(itemsStr);
     const invalid = items.find((i) => !i.rentalStartDate || !i.rentalEndDate);
     if (invalid) {
-        toast.error(`Sản phẩm "${invalid.title}" chưa có ngày thuê hợp lệ.`);
+      toast.error(`Sản phẩm "${invalid.title}" chưa có ngày thuê hợp lệ.`);
       router.push("/auth/cartitem");
       return;
     }
@@ -177,7 +190,7 @@ export default function Checkout() {
         }
       } catch (error) {
         console.error("Error fetching tax rate:", error);
-        
+
       }
     };
     fetchTaxRate();
@@ -212,7 +225,7 @@ export default function Checkout() {
           console.log("Addresses response:", addressesResponse);
           console.log("Addresses response data:", addressesResponse?.data);
           console.log("Addresses response code:", addressesResponse?.code);
-          
+
           // Check if response is successful (code 200-299) and has data
           if (addressesResponse?.code && addressesResponse.code >= 200 && addressesResponse.code < 300 && addressesResponse?.data !== undefined) {
             // Handle array case
@@ -220,7 +233,7 @@ export default function Checkout() {
               const addresses = addressesResponse.data;
               console.log("Setting addresses:", addresses.length);
               setUserAddresses(addresses);
-              
+
               // Auto-select default address
               if (addresses.length > 0) {
                 const defaultAddress = addresses.find(addr => addr.IsDefault);
@@ -306,7 +319,7 @@ export default function Checkout() {
         const addressesResponse = await getUserAddresses();
         if (addressesResponse?.data && Array.isArray(addressesResponse.data)) {
           setUserAddresses(addressesResponse.data);
-          
+
           // Select the newly created address
           const newAddressData = addressesResponse.data.find(addr => addr._id === (response.data as UserAddress)._id);
           if (newAddressData) {
@@ -320,7 +333,7 @@ export default function Checkout() {
           setSelectedAddressId(response.data._id);
           applyAddressToShipping(response.data as UserAddress);
         }
-        
+
         setNewAddress({ Address: "", City: "", District: "", IsDefault: false });
         setIsEditingAddress(false);
         toast.success("Tạo địa chỉ thành công");
@@ -362,13 +375,13 @@ export default function Checkout() {
         const addressesResponse = await getUserAddresses();
         if (addressesResponse?.data && Array.isArray(addressesResponse.data)) {
           setUserAddresses(addressesResponse.data);
-          
+
           // Select the updated address if it was selected before
           const updatedAddress = addressesResponse.data.find(addr => addr._id === addressId);
           if (selectedAddressId === addressId && updatedAddress) {
             applyAddressToShipping(updatedAddress);
           }
-          
+
           // If we set a new default, select it
           if (updateData.IsDefault) {
             const newDefault = addressesResponse.data.find(addr => addr.IsDefault);
@@ -380,15 +393,15 @@ export default function Checkout() {
         } else {
           // Fallback: use the response data
           const updatedAddresses = userAddresses.map(addr =>
-            addr._id === addressId ? (response.data as UserAddress) : 
-            updateData.IsDefault ? { ...addr, IsDefault: false } : addr
+            addr._id === addressId ? (response.data as UserAddress) :
+              updateData.IsDefault ? { ...addr, IsDefault: false } : addr
           );
           setUserAddresses(updatedAddresses);
           if (selectedAddressId === addressId) {
             applyAddressToShipping(response.data as UserAddress);
           }
         }
-        
+
         setNewAddress({ Address: "", City: "", District: "", IsDefault: false });
         setIsEditingAddress(false);
         setEditingAddressId(null);
@@ -428,7 +441,7 @@ export default function Checkout() {
             toast.success("Xóa địa chỉ thành công");
             const updatedAddresses = userAddresses.filter(addr => addr._id !== addressId);
             setUserAddresses(updatedAddresses);
-            
+
             // If we deleted the default and there are other addresses, set the first one as default
             if (address.IsDefault && updatedAddresses.length > 0) {
               try {
@@ -449,7 +462,7 @@ export default function Checkout() {
                 console.error("Error setting new default:", error);
               }
             }
-            
+
             if (selectedAddressId === addressId) {
               // Select another address or clear
               if (updatedAddresses.length > 0) {
@@ -505,7 +518,7 @@ export default function Checkout() {
         try {
           const { latitude, longitude } = position.coords;
           console.log("Getting location for:", latitude, longitude);
-          
+
           // Use Nominatim (OpenStreetMap) for reverse geocoding (free, no API key needed)
           // Add language=vi for Vietnamese results
           const response = await fetch(
@@ -518,33 +531,33 @@ export default function Checkout() {
               }
             }
           );
-          
+
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
-          
+
           const data = await response.json();
           console.log("Reverse geocoding response:", data);
-          
+
           if (data && data.address) {
             const addr = data.address;
-            
+
             // Map OpenStreetMap address to our format (Vietnam-specific)
             // For Vietnam, we typically have: house_number, road, ward, district, city, state
             const street = addr.road || addr.street || addr.pedestrian || "";
             const houseNumber = addr.house_number || "";
             const fullStreet = houseNumber && street ? `${houseNumber} ${street}`.trim() : (street || houseNumber);
-            
+
             // Vietnam address structure: ward (phường/xã), district (quận/huyện), city (tỉnh/thành phố)
             const ward = addr.ward || addr.suburb || addr.neighbourhood || "";
             const district = addr.district || addr.county || addr.city_district || "";
             const city = addr.city || addr.town || addr.municipality || "";
             const province = addr.state || addr.province || "";
-            
+
             // Build full address
             const finalWard = ward || district || "";
             const finalCity = city || province || "";
-            
+
             // Update shipping address form
             setShipping(prev => ({
               ...prev,
@@ -616,7 +629,7 @@ export default function Checkout() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentItems = cartItems.slice(startIndex, endIndex);
- 
+
   const rentalTotal = cartItems.reduce((sum, item) => {
     const days = calculateRentalDays(item);
     return sum + item.basePrice * item.quantity * days;
@@ -749,7 +762,7 @@ export default function Checkout() {
     if (!editingData) return;
 
     const validation = validateItem(item._id, editingData, item);
-    
+
     if (!validation.isValid) {
       setItemErrors({
         ...itemErrors,
@@ -774,91 +787,275 @@ export default function Checkout() {
     // Update sessionStorage
     sessionStorage.setItem("checkoutItems", JSON.stringify(updatedItems));
     setCartItems(updatedItems);
-    
+
     // Clear editing state
     cancelEditing(item._id);
   };
 
-const handleSubmit = async () => {
-  if (
-    !shipping.fullName ||
-    !shipping.street ||
-    !shipping.province ||
-    !shipping.phone
-  ) {
+  // const handleSubmit = async () => {
+  //   if (
+  //     !shipping.fullName ||
+  //     !shipping.street ||
+  //     !shipping.province ||
+  //     !shipping.phone
+  //   ) {
+  //     toast.error("Vui lòng điền đầy đủ thông tin địa chỉ");
+  //     return;
+  //   }
+
+  //   setIsSubmitting(true);
+  //   try {
+  //     let successCount = 0;
+  //     const failedItems: string[] = [];
+
+  //     for (const item of cartItems) {
+  //       console.log("Tạo đơn hàng:", item.title);
+
+  //       const result = await dispatch(
+  //         createOrderAction({
+  //           itemId: item.itemId,
+  //           quantity: item.quantity,
+  //           startAt: item.rentalStartDate,
+  //           endAt: item.rentalEndDate,
+  //           shippingAddress: shipping,
+  //           paymentMethod: "Wallet",
+  //           note,
+  //         })
+  //       );
+
+  //       if (!result?.success) {
+  //         const errorMessage = result?.error || "Không thể tạo đơn hàng";
+  //         toast.error(`Không thể tạo đơn cho sản phẩm: ${item.title}. ${errorMessage}`);
+  //         failedItems.push(item.title);
+  //         console.error(`Order failed for ${item.title}:`, result?.error);
+  //         continue; // Continue processing other items instead of throwing
+  //       }
+  //       try {
+  //         if (!result?.data?._id || !result?.data?.userId) {
+  //           toast.error("Không tìm thấy orderId hoặc userId.");
+  //           continue;
+  //         }
+  //         console.log("Gọi thanh toán ví:", result.data._id, result.data.userId);
+  //         const paymentResult = await payOrderWithWallet(result.data._id, result.data.userId);
+
+  //         if (!paymentResult.success) {
+  //           toast.error(`Thanh toán thất bại cho sản phẩm: ${item.title}. Lý do: ${paymentResult.error}`);
+  //           failedItems.push(item.title + " (thanh toán không thành công)");
+  //           continue; // bỏ qua item này, tiếp tục các item còn lại
+  //         }
+  //       } catch (paymentError) {
+  //         toast.error(`Lỗi thanh toán đơn ${item.title}`);
+  //         failedItems.push(item.title + " (lỗi thanh toán)");
+  //         continue;
+  //       }
+  //       // Only remove from cart if order was successful
+  //       if (!item._id?.startsWith("temp-")) {
+  //         try {
+  //           await dispatch(removeItemFromCartAction(item._id));
+  //         } catch (cartError) {
+  //           console.error(`Error removing item from cart: ${item.title}`, cartError);
+  //           // Don't fail the entire process if cart removal fails
+  //         }
+  //       }
+
+  //       successCount++;
+  //     }
+
+  //     // Show appropriate message based on results
+  //     if (failedItems.length === 0) {
+  //       toast.success("Tạo tất cả đơn hàng thành công!");
+  //       sessionStorage.removeItem("checkoutItems");
+  //       router.push("/auth/order");
+  //     } else if (successCount > 0) {
+  //       toast.warning(
+  //         `Đã tạo thành công ${successCount} đơn hàng. ${failedItems.length} đơn hàng thất bại: ${failedItems.join(", ")}`
+  //       );
+  //       // Keep only failed items in sessionStorage for retry
+  //       const remainingItems = cartItems.filter(
+  //         (item) => failedItems.includes(item.title)
+  //       );
+  //       if (remainingItems.length > 0) {
+  //         sessionStorage.setItem("checkoutItems", JSON.stringify(remainingItems));
+  //       } else {
+  //         sessionStorage.removeItem("checkoutItems");
+  //       }
+  //     } else {
+  //       toast.error("Không thể tạo bất kỳ đơn hàng nào. Vui lòng thử lại.");
+  //     }
+  //   } catch (err) {
+  //     console.error("Checkout error:", err);
+  //     toast.error("Có lỗi xảy ra khi tạo đơn hàng, vui lòng thử lại.");
+  //   } finally {
+  //     setIsSubmitting(false);
+  //   }
+  // };
+
+  // ham submit mơi 
+
+  const handleSubmit = async () => {
+    if (
+      !shipping.fullName ||
+      !shipping.street ||
+      !shipping.province ||
+      !shipping.phone
+    ) {
       toast.error("Vui lòng điền đầy đủ thông tin địa chỉ");
-    return;
-  }
+      return;
+    }
 
-  setIsSubmitting(true);
-  try {
-    let successCount = 0;
-    const failedItems: string[] = [];
+    setIsSubmitting(true);
+    try {
+      let successCount = 0;
+      const failedItems: string[] = [];
 
-    for (const item of cartItems) {
-      console.log("Tạo đơn hàng:", item.title);
+      for (const item of cartItems) {
+        console.log("Bắt đầu xử lý cho:", item.title);
 
-      const result = await dispatch(
-        createOrderAction({
-          itemId: item.itemId,
-          quantity: item.quantity,
-          startAt: item.rentalStartDate,
-          endAt: item.rentalEndDate,
-          shippingAddress: shipping,
-          paymentMethod: "Wallet",
-          note,
-        })
-      );
-
-      if (!result?.success) {
-        const errorMessage = result?.error || "Không thể tạo đơn hàng";
-        toast.error(`Không thể tạo đơn cho sản phẩm: ${item.title}. ${errorMessage}`);
-        failedItems.push(item.title);
-        console.error(`Order failed for ${item.title}:`, result?.error);
-        continue; // Continue processing other items instead of throwing
-      }
-
-      // Only remove from cart if order was successful
-      if (!item._id?.startsWith("temp-")) {
         try {
-          await dispatch(removeItemFromCartAction(item._id));
-        } catch (cartError) {
-          console.error(`Error removing item from cart: ${item.title}`, cartError);
-          // Don't fail the entire process if cart removal fails
+          // TẠO ĐƠN TRƯỚC
+          const result = await dispatch(
+            createOrderAction({
+              itemId: item.itemId,
+              quantity: item.quantity,
+              startAt: item.rentalStartDate,
+              endAt: item.rentalEndDate,
+              shippingAddress: shipping,
+              paymentMethod: "Wallet",
+              note,
+            })
+          );
+
+          if (!result?.success) {
+            const errorMessage = result?.error || "Không thể tạo đơn hàng";
+            toast.error(`Không thể tạo đơn cho sản phẩm: ${item.title}. ${errorMessage}`);
+            failedItems.push(item.title + " (lỗi tạo đơn)");
+            continue;
+          }
+
+          // Lấy orderId từ response
+          const orderIdRaw = result?.data?.orderId || result?.data?._id;
+          if (!orderIdRaw) {
+            console.error(" Response từ createOrder:", result);
+            toast.error(`Không lấy được orderId cho sản phẩm: ${item.title}`);
+            failedItems.push(item.title + " (lỗi lấy orderId)");
+            continue;
+          }
+
+          // Đảm bảo orderId là string
+          const orderId = typeof orderIdRaw === 'string' ? orderIdRaw : String(orderIdRaw);
+          console.log(" Đã tạo order với ID:", orderId, "Bắt đầu thanh toán...");
+          console.log(" Order data:", result?.data);
+
+          // THANH TOÁN SAU KHI ĐÃ TẠO ĐƠN
+          try {
+            const paymentResult = await payOrderWithWallet(orderId);
+
+            // Kiểm tra nếu response có success field
+            if (paymentResult && paymentResult.success === false) {
+              const errorMsg = paymentResult.error || paymentResult.message || "Thanh toán thất bại";
+              toast.error(`Thanh toán thất bại cho sản phẩm: ${item.title}. ${errorMsg}`);
+              failedItems.push(item.title + " (thanh toán không thành công)");
+              continue;
+            }
+
+            // Nếu không có success field, coi như thành công
+            console.log(" Thanh toán thành công cho order:", orderId);
+          } catch (paymentError: any) {
+            // Xử lý lỗi từ API
+            let errorMessage = "Thanh toán thất bại";
+
+            if (paymentError?.response?.data) {
+              const errorData = paymentError.response.data;
+              console.log("🔍 Error data từ backend:", errorData);
+              
+              // Ưu tiên message chi tiết, sau đó mới đến error
+              errorMessage = errorData.message || errorData.error || "Thanh toán thất bại";
+
+              // Kiểm tra nếu là lỗi ví không đủ tiền
+              const isInsufficientBalance = errorData.error === 'Ví người dùng không đủ tiền' 
+                || errorMessage.includes('không đủ tiền') 
+                || errorData.error?.includes('không đủ tiền')
+                || errorData.error?.includes('Ví người dùng không đủ tiền');
+              
+              console.log("🔍 Is insufficient balance?", isInsufficientBalance, "error:", errorData.error);
+              
+              if (isInsufficientBalance) {
+                // Message đơn giản
+                errorMessage = "Số dư ví không đủ. Vui lòng nạp tiền vào ví.";
+
+                // Hiển thị modal thay vì toast
+                console.log("✅ Đang mở modal với message:", errorMessage);
+                setErrorModalTitle("Ví không đủ tiền");
+                setErrorModalMessage(errorMessage);
+                setIsErrorModalOpen(true);
+                console.log("✅ Modal state đã được set:", { title: "Ví không đủ tiền", message: errorMessage });
+              } else {
+                // Các lỗi khác vẫn dùng toast
+                toast.error(`${errorMessage} - Sản phẩm: ${item.title}`, {
+                  duration: 5000,
+                });
+              }
+            } else if (paymentError?.message) {
+              errorMessage = paymentError.message;
+              toast.error(`${errorMessage} - Sản phẩm: ${item.title}`, {
+                duration: 5000,
+              });
+            } else {
+              toast.error(`Thanh toán thất bại cho sản phẩm: ${item.title}`, {
+                duration: 5000,
+              });
+            }
+
+            console.error("❌ Lỗi thanh toán:", paymentError);
+            console.error("❌ Error data:", paymentError?.response?.data);
+            failedItems.push(item.title + " (thanh toán không thành công)");
+            continue;
+          }
+
+          // Xóa khỏi giỏ hàng nếu mọi thứ OK
+          if (!item._id?.startsWith("temp-")) {
+            try {
+              await dispatch(removeItemFromCartAction(item._id));
+            } catch (cartError) {
+              console.error(`Error removing item from cart: ${item.title}`, cartError);
+            }
+          }
+
+          successCount++;
+        } catch (err) {
+          console.error(`Lỗi xử lý cho sản phẩm: ${item.title}`, err);
+          failedItems.push(item.title + " (lỗi không xác định)");
+          continue;
         }
       }
 
-      successCount++;
-    }
-
-    // Show appropriate message based on results
-    if (failedItems.length === 0) {
-      toast.success("Tạo tất cả đơn hàng thành công!");
-      sessionStorage.removeItem("checkoutItems");
-      router.push("/auth/order");
-    } else if (successCount > 0) {
-      toast.warning(
-        `Đã tạo thành công ${successCount} đơn hàng. ${failedItems.length} đơn hàng thất bại: ${failedItems.join(", ")}`
-      );
-      // Keep only failed items in sessionStorage for retry
-      const remainingItems = cartItems.filter(
-        (item) => failedItems.includes(item.title)
-      );
-      if (remainingItems.length > 0) {
-        sessionStorage.setItem("checkoutItems", JSON.stringify(remainingItems));
-      } else {
+      //  Thông báo kết quả
+      if (failedItems.length === 0) {
+        toast.success("Thanh toán & tạo đơn tất cả sản phẩm thành công!");
         sessionStorage.removeItem("checkoutItems");
+        router.push("/auth/order");
+      } else if (successCount > 0) {
+        toast.warning(
+          `Đã xử lý thành công ${successCount} đơn hàng. ${failedItems.length} đơn thất bại: ${failedItems.join(", ")}`
+        );
+        const remainingItems = cartItems.filter(
+          (item) => failedItems.includes(item.title)
+        );
+        if (remainingItems.length > 0) {
+          sessionStorage.setItem("checkoutItems", JSON.stringify(remainingItems));
+        } else {
+          sessionStorage.removeItem("checkoutItems");
+        }
+      } else {
+        toast.error("Không thể xử lý đơn hàng nào. Vui lòng thử lại.");
       }
-    } else {
-      toast.error("Không thể tạo bất kỳ đơn hàng nào. Vui lòng thử lại.");
-    }
-  } catch (err) {
-    console.error("Checkout error:", err);
+    } catch (err) {
+      console.error("Checkout error:", err);
       toast.error("Có lỗi xảy ra khi tạo đơn hàng, vui lòng thử lại.");
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
 
   if (!cartItems.length) {
@@ -978,11 +1175,11 @@ const handleSubmit = async () => {
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <h3 className="text-xl font-bold text-gray-800 line-clamp-2 mb-2 group-hover:text-emerald-700 transition-colors">
-                          {item.title}
-                        </h3>
+                              {item.title}
+                            </h3>
                             <p className="text-sm text-gray-500 line-clamp-2">
-                          {item.shortDescription}
-                        </p>
+                              {item.shortDescription}
+                            </p>
                           </div>
                           {!editingItems[item._id] ? (
                             <button
@@ -1017,23 +1214,23 @@ const handleSubmit = async () => {
                             <div className="flex flex-wrap gap-2">
                               <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-sm font-semibold border border-blue-200">
                                 <Package className="w-3.5 h-3.5" />
-                            {item.quantity} cái
-                          </span>
+                                {item.quantity} cái
+                              </span>
                               <span className="inline-flex items-center gap-1.5 bg-purple-50 text-purple-700 px-3 py-1.5 rounded-lg text-sm font-semibold border border-purple-200">
                                 <Calendar className="w-3.5 h-3.5" />
-                            {durationText}
-                          </span>
-                        </div>
+                                {durationText}
+                              </span>
+                            </div>
                             <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
                               <Calendar className="w-4 h-4 text-emerald-600" />
                               <span className="font-medium">
-                          {format(
-                            new Date(item.rentalStartDate!),
+                                {format(
+                                  new Date(item.rentalStartDate!),
                                   "dd/MM/yyyy HH:mm"
-                          )} →{" "}
+                                )} →{" "}
                                 {format(new Date(item.rentalEndDate!), "dd/MM/yyyy HH:mm")}
                               </span>
-                        </div>
+                            </div>
                             {/* View Product Detail Button */}
                             {item.itemId && (
                               <div className="pt-2">
@@ -1053,7 +1250,7 @@ const handleSubmit = async () => {
                         ) : (
                           <div className="space-y-3 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
                             {/* Quantity Input */}
-                          <div>
+                            <div>
                               <label className="block text-sm font-semibold text-gray-700 mb-2">
                                 Số lượng <span className="text-red-500">*</span>
                               </label>
@@ -1063,11 +1260,10 @@ const handleSubmit = async () => {
                                 max={item.availableQuantity}
                                 value={editingItems[item._id].quantity}
                                 onChange={(e) => updateEditingField(item._id, "quantity", parseInt(e.target.value) || 1)}
-                                className={`w-full px-3 py-2 text-base border-2 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition ${
-                                  itemErrors[item._id]?.quantity
-                                    ? "border-red-300 bg-red-50"
-                                    : "border-gray-300 hover:border-gray-400"
-                                }`}
+                                className={`w-full px-3 py-2 text-base border-2 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition ${itemErrors[item._id]?.quantity
+                                  ? "border-red-300 bg-red-50"
+                                  : "border-gray-300 hover:border-gray-400"
+                                  }`}
                               />
                               <p className="mt-1 text-xs text-gray-500">
                                 Số lượng có sẵn: {item.availableQuantity} sản phẩm
@@ -1075,11 +1271,11 @@ const handleSubmit = async () => {
                               {itemErrors[item._id]?.quantity && (
                                 <p className="mt-1 text-xs text-red-600">{itemErrors[item._id].quantity}</p>
                               )}
-                          </div>
+                            </div>
 
                             {/* Date Inputs */}
                             <div className="grid grid-cols-2 gap-3">
-                            <div>
+                              <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                                   Ngày bắt đầu <span className="text-red-500">*</span>
                                 </label>
@@ -1088,17 +1284,16 @@ const handleSubmit = async () => {
                                   value={editingItems[item._id].rentalStartDate}
                                   onChange={(e) => updateEditingField(item._id, "rentalStartDate", e.target.value)}
                                   min={getMinDateTime()}
-                                  className={`w-full px-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition ${
-                                    itemErrors[item._id]?.rentalStartDate
-                                      ? "border-red-300 bg-red-50"
-                                      : "border-gray-300 hover:border-gray-400"
-                                  }`}
+                                  className={`w-full px-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition ${itemErrors[item._id]?.rentalStartDate
+                                    ? "border-red-300 bg-red-50"
+                                    : "border-gray-300 hover:border-gray-400"
+                                    }`}
                                 />
                                 {itemErrors[item._id]?.rentalStartDate && (
                                   <p className="mt-1 text-xs text-red-600">{itemErrors[item._id].rentalStartDate}</p>
                                 )}
-                            </div>
-                            <div>
+                              </div>
+                              <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                                   Ngày kết thúc <span className="text-red-500">*</span>
                                 </label>
@@ -1107,18 +1302,17 @@ const handleSubmit = async () => {
                                   value={editingItems[item._id].rentalEndDate}
                                   onChange={(e) => updateEditingField(item._id, "rentalEndDate", e.target.value)}
                                   min={editingItems[item._id].rentalStartDate || getMinDateTime()}
-                                  className={`w-full px-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition ${
-                                    itemErrors[item._id]?.rentalEndDate
-                                      ? "border-red-300 bg-red-50"
-                                      : "border-gray-300 hover:border-gray-400"
-                                  }`}
+                                  className={`w-full px-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition ${itemErrors[item._id]?.rentalEndDate
+                                    ? "border-red-300 bg-red-50"
+                                    : "border-gray-300 hover:border-gray-400"
+                                    }`}
                                 />
                                 {itemErrors[item._id]?.rentalEndDate && (
                                   <p className="mt-1 text-xs text-red-600">{itemErrors[item._id].rentalEndDate}</p>
                                 )}
+                              </div>
                             </div>
                           </div>
-                        </div>
                         )}
                         <div className="flex flex-col gap-3 pt-4 border-t border-gray-200 bg-gradient-to-r from-emerald-50/50 to-blue-50/50 -mx-6 px-6 pb-2 rounded-b-xl">
                           <div className="flex justify-between items-center">
@@ -1147,8 +1341,8 @@ const handleSubmit = async () => {
                     onClick={() => goToPage(currentPage - 1)}
                     disabled={currentPage === 1}
                     className={`flex items-center gap-1 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${currentPage === 1
-                        ? "text-gray-400 border-gray-200 cursor-not-allowed bg-gray-50"
-                        : "text-gray-700 border-gray-300 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
+                      ? "text-gray-400 border-gray-200 cursor-not-allowed bg-gray-50"
+                      : "text-gray-700 border-gray-300 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
                       }`}
                   >
                     <ChevronLeft className="w-4 h-4" />
@@ -1172,8 +1366,8 @@ const handleSubmit = async () => {
                         key={pageNum}
                         onClick={() => goToPage(pageNum)}
                         className={`w-10 h-10 flex items-center justify-center rounded-lg border text-sm font-medium transition-all ${currentPage === pageNum
-                            ? "bg-emerald-600 text-white border-emerald-600 shadow-md"
-                            : "border-gray-300 text-gray-700 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
+                          ? "bg-emerald-600 text-white border-emerald-600 shadow-md"
+                          : "border-gray-300 text-gray-700 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
                           }`}
                       >
                         {pageNum}
@@ -1185,8 +1379,8 @@ const handleSubmit = async () => {
                     onClick={() => goToPage(currentPage + 1)}
                     disabled={currentPage === totalPages}
                     className={`flex items-center gap-1 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${currentPage === totalPages
-                        ? "text-gray-400 border-gray-200 cursor-not-allowed bg-gray-50"
-                        : "text-gray-700 border-gray-300 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
+                      ? "text-gray-400 border-gray-200 cursor-not-allowed bg-gray-50"
+                      : "text-gray-700 border-gray-300 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
                       }`}
                   >
                     Sau
@@ -1217,27 +1411,27 @@ const handleSubmit = async () => {
                   <label className="text-sm font-semibold text-gray-700">
                     Họ và tên <span className="text-red-500">*</span>
                   </label>
-                <input
+                  <input
                     placeholder="Nhập họ và tên"
                     className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
-                  value={shipping.fullName}
-                  onChange={(e) =>
-                    setShipping({ ...shipping, fullName: e.target.value })
-                  }
-                />
+                    value={shipping.fullName}
+                    onChange={(e) =>
+                      setShipping({ ...shipping, fullName: e.target.value })
+                    }
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-gray-700">
                     Số điện thoại <span className="text-red-500">*</span>
                   </label>
-                <input
+                  <input
                     placeholder="Nhập số điện thoại"
                     className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
-                  value={shipping.phone}
-                  onChange={(e) =>
-                    setShipping({ ...shipping, phone: e.target.value })
-                  }
-                />
+                    value={shipping.phone}
+                    onChange={(e) =>
+                      setShipping({ ...shipping, phone: e.target.value })
+                    }
+                  />
                 </div>
               </div>
 
@@ -1264,11 +1458,10 @@ const handleSubmit = async () => {
                     {userAddresses.map((address) => (
                       <div
                         key={address._id}
-                        className={`relative p-4 border-2 rounded-xl transition-all cursor-pointer ${
-                          selectedAddressId === address._id
-                            ? "border-emerald-500 bg-emerald-50/30"
-                            : "border-gray-200 hover:border-gray-300 bg-white"
-                        }`}
+                        className={`relative p-4 border-2 rounded-xl transition-all cursor-pointer ${selectedAddressId === address._id
+                          ? "border-emerald-500 bg-emerald-50/30"
+                          : "border-gray-200 hover:border-gray-300 bg-white"
+                          }`}
                         onClick={() => handleAddressSelect(address._id)}
                       >
                         {/* Radio button and default badge */}
@@ -1315,21 +1508,21 @@ const handleSubmit = async () => {
                             </button>
                           </div>
                         </div>
-                        
+
                         {/* Address fields in form-like style */}
                         <div className="space-y-3">
                           <div className="space-y-1.5">
                             <label className="block text-sm font-semibold text-gray-700">
                               Địa chỉ (số nhà, đường...) <span className="text-red-500">*</span>
                             </label>
-                <input
+                            <input
                               type="text"
                               value={address.Address}
                               readOnly
                               className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-lg bg-gray-50 cursor-pointer"
                             />
                           </div>
-                          
+
                           <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1.5">
                               <label className="block text-sm font-semibold text-gray-700">
@@ -1433,7 +1626,7 @@ const handleSubmit = async () => {
                           )}
                         </button>
                       </div>
-                <input
+                      <input
                         type="text"
                         placeholder="Nhập địa chỉ chi tiết"
                         value={newAddress.Address}
@@ -1476,7 +1669,7 @@ const handleSubmit = async () => {
                           const isOnlyDefault = address?.IsDefault && defaultAddresses.length === 0;
                           const isDisabled = isOnlyDefault;
                           const isChecked = isOnlyDefault ? true : newAddress.IsDefault;
-                          
+
                           return (
                             <>
                               <input
@@ -1547,46 +1740,46 @@ const handleSubmit = async () => {
               {/* Manual Address Input - Hidden when adding/editing address or when an address is selected */}
               {!isEditingAddress && !editingAddressId && !selectedAddressId && (
                 <div className="mt-6 space-y-4">
-                <div className="space-y-2 sm:col-span-2">
-                  <label className="text-sm font-semibold text-gray-700">
-                    Địa chỉ (số nhà, đường...) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    placeholder="Nhập địa chỉ chi tiết"
-                    className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
-                  value={shipping.street}
-                  onChange={(e) =>
-                    setShipping({ ...shipping, street: e.target.value })
-                  }
-                />
+                  <div className="space-y-2 sm:col-span-2">
+                    <label className="text-sm font-semibold text-gray-700">
+                      Địa chỉ (số nhà, đường...) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      placeholder="Nhập địa chỉ chi tiết"
+                      className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
+                      value={shipping.street}
+                      onChange={(e) =>
+                        setShipping({ ...shipping, street: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-gray-700">
+                      Phường/Xã
+                    </label>
+                    <input
+                      placeholder="Nhập phường/xã"
+                      className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
+                      value={shipping.ward}
+                      onChange={(e) =>
+                        setShipping({ ...shipping, ward: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-gray-700">
+                      Tỉnh/Thành phố <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      placeholder="Nhập tỉnh/thành phố"
+                      className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
+                      value={shipping.province}
+                      onChange={(e) =>
+                        setShipping({ ...shipping, province: e.target.value })
+                      }
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-gray-700">
-                    Phường/Xã
-                  </label>
-                <input
-                    placeholder="Nhập phường/xã"
-                    className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
-                  value={shipping.ward}
-                  onChange={(e) =>
-                    setShipping({ ...shipping, ward: e.target.value })
-                  }
-                />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-gray-700">
-                    Tỉnh/Thành phố <span className="text-red-500">*</span>
-                  </label>
-                <input
-                    placeholder="Nhập tỉnh/thành phố"
-                    className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
-                  value={shipping.province}
-                  onChange={(e) =>
-                    setShipping({ ...shipping, province: e.target.value })
-                  }
-                />
-              </div>
-              </div>
               )}
               <div className="mt-6">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -1640,8 +1833,8 @@ const handleSubmit = async () => {
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-semibold text-white">Tổng cộng</span>
                   <span className="text-3xl font-bold text-yellow-200">
-                      {grandTotal.toLocaleString("vi-VN")}₫
-                    </span>
+                    {grandTotal.toLocaleString("vi-VN")}₫
+                  </span>
                 </div>
               </div>
               <button
@@ -1676,7 +1869,7 @@ const handleSubmit = async () => {
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => setConfirmPopup({ isOpen: false, message: "", onConfirm: () => {} })}
+            onClick={() => setConfirmPopup({ isOpen: false, message: "", onConfirm: () => { } })}
           />
 
           {/* Popup */}
@@ -1701,7 +1894,7 @@ const handleSubmit = async () => {
               {/* Buttons */}
               <div className="flex gap-3">
                 <button
-                  onClick={() => setConfirmPopup({ isOpen: false, message: "", onConfirm: () => {} })}
+                  onClick={() => setConfirmPopup({ isOpen: false, message: "", onConfirm: () => { } })}
                   className="flex-1 py-2.5 px-5 text-base font-semibold rounded-lg transition-all duration-200 hover:scale-105 border-2 border-gray-300 text-gray-700 hover:bg-gray-50 bg-white"
                 >
                   Hủy
@@ -1709,7 +1902,7 @@ const handleSubmit = async () => {
                 <button
                   onClick={() => {
                     confirmPopup.onConfirm();
-                    setConfirmPopup({ isOpen: false, message: "", onConfirm: () => {} });
+                    setConfirmPopup({ isOpen: false, message: "", onConfirm: () => { } });
                   }}
                   className="flex-1 py-2.5 px-5 text-base font-semibold rounded-lg transition-all duration-200 hover:scale-105 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md"
                 >
@@ -1720,6 +1913,33 @@ const handleSubmit = async () => {
           </div>
         </div>
       )}
+      {modal.open && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center">
+            <h3 className="font-bold text-lg mb-4 text-emerald-700">{modal.title}</h3>
+            <p className="text-gray-800 mb-6">{modal.message}</p>
+            <button className="px-4 py-2 bg-emerald-600 text-white rounded-xl" onClick={() => setModal({ ...modal, open: false })}>
+              Đóng
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal thông báo lỗi ví không đủ tiền */}
+      <PopupModal
+        isOpen={isErrorModalOpen}
+        onClose={() => setIsErrorModalOpen(false)}
+        type="error"
+        title={errorModalTitle}
+        message={errorModalMessage}
+        buttonText="Đã hiểu"
+        secondaryButtonText="Đến ví"
+        onSecondaryButtonClick={() => {
+          setIsErrorModalOpen(false);
+          router.push('/wallet');
+        }}
+      />
+
     </div>
   );
 }

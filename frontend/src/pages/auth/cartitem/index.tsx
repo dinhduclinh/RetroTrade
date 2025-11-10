@@ -1180,7 +1180,7 @@ const handleCheckout = () => {
                 onClick={handleCheckout}
               >
                 <CheckCircle2 className="w-6 h-6" />
-                Thanh toán
+                Thanh toán 
               </Button>
               <Link href="/products">
                 <Button
