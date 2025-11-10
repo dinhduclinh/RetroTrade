@@ -563,3 +563,6 @@ export default function MyDiscountsPage() {
     </div>
   );
 }
+
+export { DiscountSelector } from "./DiscountSelector";
+export type { AppliedDiscount } from "./DiscountSelector";

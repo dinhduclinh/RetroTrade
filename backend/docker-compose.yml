@@ -1,46 +1,38 @@
-version: '3.8'
-
 services:
-  # MongoDB Service
-  mongodb:
-    image: mongo:7.0
-    container_name: mongodb
-    restart: unless-stopped
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: password123
-      MONGO_INITDB_DATABASE: myapp
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
-    networks:
-      - app-network
-
-  # Node.js App Service
   app:
     build: .
     container_name: server-retrotrade
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
-      NODE_ENV: production
-      MONGODB_URI: mongodb://admin:password123@mongodb:27017/myapp?authSource=admin
-      PORT: 9999
+      NODE_ENV: ${NODE_ENV:-production}
+      MONGODB_URI: ${MONGODB_URI}
+      PORT: ${PORT:-9999}
     ports:
-      - "9999:9999"
-    depends_on:
-      - mongodb
-    volumes:
-      - ./:/app
-      - /app/node_modules
+      - "${PORT:-9999}:9999"
     networks:
       - app-network
 
-# Networks
+  # Nếu cần MongoDB local để phát triển offline, bỏ comment khối dưới đây.
+  # mongodb:
+  #   image: mongo:7.0
+  #   container_name: mongodb
+  #   restart: unless-stopped
+  #   environment:
+  #     MONGO_INITDB_ROOT_USERNAME: admin
+  #     MONGO_INITDB_ROOT_PASSWORD: password123
+  #     MONGO_INITDB_DATABASE: myapp
+  #   ports:
+  #     - "27017:27017"
+  #   volumes:
+  #     - mongodb_data:/data/db
+  #   networks:
+  #     - app-network
+
 networks:
   app-network:
     driver: bridge
 
-# Volumes
 volumes:
   mongodb_data:
