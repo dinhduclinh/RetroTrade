@@ -28,6 +28,7 @@ const {
   getPublicStoreByUserGuid,
   getProductsByCategoryId,
   getHighlightedProducts,
+  getComparableProducts
 } = require("../../controller/products/productPublic.controller");
 
 const {
@@ -59,7 +60,7 @@ router.get("/product/:id", getProductByProductId);
 router.get('/owner/:ownerId/top-viewed', getProductsByOwnerIdWithHighViewCount);
 router.get('/store/:userGuid', getPublicStoreByUserGuid);
 router.get('/product/category/:categoryId', getProductsByCategoryId);
-
+router.get('/compare/:productId/:categoryId', getComparableProducts);
 router.post('/:productId/favorite', authenticateToken, addToFavorites);
 router.delete('/:productId/favorite', authenticateToken, removeFromFavorites);
 router.get('/favorites', authenticateToken, getFavorites);

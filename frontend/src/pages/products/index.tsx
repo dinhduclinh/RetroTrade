@@ -501,20 +501,14 @@ export default function ProductPage() {
     if (selectedCategory) {
       const selected = categories.find((c) => c._id === selectedCategory);
       if (selected) {
-        const isRoot = (selected.level ?? 0) === 0;
-        if (isRoot) {
-          const allowed = new Set([
-            selectedCategory,
-            ...getDescendantIds(selectedCategory),
-          ]);
-          filtered = filtered.filter(
-            (item) => item.category && allowed.has(item.category._id)
-          );
-        } else {
-          filtered = filtered.filter(
-            (item) => item.category && item.category._id === selectedCategory
-          );
-        }
+        // For all category levels, get all descendant IDs
+        const allowed = new Set([
+          selectedCategory,
+          ...getDescendantIds(selectedCategory),
+        ]);
+        filtered = filtered.filter(
+          (item) => item.category && allowed.has(item.category._id)
+        );
       }
     }
     filtered = filtered.filter((item) => item.basePrice <= maxPrice);

@@ -309,7 +309,7 @@ export function Header() {
                     <span>Danh sách yêu thích</span>
                   </DropdownMenuItem>
 
-                  {(userInfo?.role === 'renter' || userInfo?.role === 'owner') && (
+                  {(userInfo?.role === 'renter' || userInfo?.role === 'owner'|| userInfo?.role === 'moderator') && (
                     <DropdownMenuItem className="cursor-pointer" onClick={() => router.push('/wallet')}>
                       <Wallet className="mr-2 h-4 w-4" />
                       <span>Ví của tôi</span>

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/common/input";
 import { Label } from "@/components/ui/common/label";
 import { Textarea } from "@/components/ui/common/textarea";
 // (not using Radix Select here; native select is sufficient)
-import { AlertCircle, Plus, XCircle, CheckCircle, X, Info } from "lucide-react";
+import { AlertCircle, Plus, CheckCircle, X, Info } from "lucide-react";
 import { createDiscount, deactivateDiscount, activateDiscount, listDiscounts, setDiscountPublic, updateDiscount, type CreateDiscountRequest, type UpdateDiscountRequest, type Discount } from "@/services/products/discount/discount.api";
 
 export default function DiscountManagementPage() {
@@ -42,6 +42,7 @@ export default function DiscountManagementPage() {
     notes: "",
     codeLength: 10,
     codePrefix: "",
+    isPublic: false,
   });
 
   // Helpers for VNĐ formatting
@@ -63,15 +64,7 @@ export default function DiscountManagementPage() {
     }, 3000);
   };
 
-  const showConfirmDialog = (title: string, message: string, onConfirm: () => void) => {
-    setConfirmDialog({
-      isOpen: true,
-      title,
-      message,
-      onConfirm,
-      onCancel: () => setConfirmDialog(null),
-    });
-  };
+  // legacy confirm helper (no longer used after inline toggles)
 
   const load = useCallback(async (): Promise<void> => {
     try {
@@ -117,6 +110,7 @@ export default function DiscountManagementPage() {
         minOrderAmount: Number(form.minOrderAmount) || 0,
         usageLimit: Number(form.usageLimit) || 0,
         codePrefix: (form.codePrefix || "").toUpperCase().replace(/[^A-Z0-9]/g, ""),
+        isPublic: form.isPublic,
       };
       const res = await createDiscount(payload);
       if (res.status === "success") {
@@ -142,72 +136,71 @@ export default function DiscountManagementPage() {
     }
   }
 
-  async function handleDeactivate(id: string) {
-    showConfirmDialog(
-      "Xác nhận vô hiệu hóa",
-      "Bạn có chắc chắn muốn vô hiệu hóa mã giảm giá này?",
-      async () => {
-        setConfirmDialog(null);
-        try {
-          setError(null);
-          const res = await deactivateDiscount(id);
-          if (res.status === "success") {
-            showNotification("success", "Vô hiệu hóa mã giảm giá thành công!");
-            await load();
-          } else {
-            const errorMsg = res.message || "Không thể vô hiệu hóa";
-            setError(errorMsg);
-            showNotification("error", errorMsg);
-          }
-        } catch (e) {
-          const err = e as Error;
-          const errorMsg = err.message || "Lỗi khi vô hiệu hóa";
-          setError(errorMsg);
-          showNotification("error", errorMsg);
+  const updateStatus = async (discount: Discount, nextActive: boolean) => {
+    if (discount.active === nextActive) return;
+    try {
+      setError(null);
+      if (!nextActive) {
+        const res = await deactivateDiscount(discount._id);
+        if (res.status === "success") {
+          showNotification("success", `Đã tắt trạng thái cho mã ${discount.code}`);
+          await load();
+        } else {
+          const msg = res.message || "Không thể tắt trạng thái";
+          setError(msg);
+          showNotification("error", msg);
+        }
+      } else {
+        const res = await activateDiscount(discount._id);
+        if (res.status === "success") {
+          showNotification("success", `Đã bật trạng thái cho mã ${discount.code}`);
+          await load();
+        } else {
+          const msg = res.message || "Không thể bật trạng thái";
+          setError(msg);
+          showNotification("error", msg);
         }
       }
-    );
-  }
+    } catch (e) {
+      const err = e as Error;
+      const msg = err.message || "Lỗi khi đổi trạng thái";
+      setError(msg);
+      showNotification("error", msg);
+    }
+  };
 
-  async function handleActivate(id: string) {
+  const updateScope = async (discount: Discount, nextPublic: boolean) => {
+    if ((discount.isPublic ?? false) === nextPublic) return;
     try {
       setError(null);
-      const res = await activateDiscount(id);
-      if (res.status === "success") {
-        showNotification("success", "Kích hoạt mã giảm giá thành công!");
-        await load();
+      if (!nextPublic) {
+        const res = await updateDiscount(discount._id, { isPublic: false });
+        if (res.status === "success") {
+          showNotification("success", `Đã chuyển phạm vi mã ${discount.code} sang riêng tư`);
+          await load();
+        } else {
+          const msg = res.message || "Không thể chuyển về riêng tư";
+          setError(msg);
+          showNotification("error", msg);
+        }
       } else {
-        const errorMsg = res.message || "Không thể kích hoạt lại";
-        setError(errorMsg);
-        showNotification("error", errorMsg);
+        const res = await setDiscountPublic(discount._id);
+        if (res.status === "success") {
+          showNotification("success", `Đã chuyển phạm vi mã ${discount.code} sang công khai`);
+          await load();
+        } else {
+          const msg = res.message || "Không thể đặt công khai";
+          setError(msg);
+          showNotification("error", msg);
+        }
       }
     } catch (e) {
       const err = e as Error;
-      const errorMsg = err.message || "Lỗi khi kích hoạt lại";
-      setError(errorMsg);
-      showNotification("error", errorMsg);
+      const msg = err.message || "Lỗi khi chuyển phạm vi";
+      setError(msg);
+      showNotification("error", msg);
     }
-  }
-
-  async function handleSetPublic(id: string) {
-    try {
-      setError(null);
-      const res = await setDiscountPublic(id);
-      if (res.status === "success") {
-        showNotification("success", "Đặt mã giảm giá công khai thành công!");
-        await load();
-      } else {
-        const errorMsg = res.message || "Không thể đặt công khai";
-        setError(errorMsg);
-        showNotification("error", errorMsg);
-      }
-    } catch (e) {
-      const err = e as Error;
-      const errorMsg = err.message || "Lỗi khi đặt công khai";
-      setError(errorMsg);
-      showNotification("error", errorMsg);
-    }
-  }
+  };
 
   function handleEdit(discount: Discount) {
     setEditingDiscount(discount);
@@ -222,6 +215,7 @@ export default function DiscountManagementPage() {
       notes: discount.notes || "",
       codeLength: discount.code?.length || 10,
       codePrefix: "",
+      isPublic: discount.isPublic ?? false,
     });
     setIsEditDialogOpen(true);
   }
@@ -239,7 +233,7 @@ export default function DiscountManagementPage() {
         endAt: form.endAt,
         usageLimit: Number(form.usageLimit) || 0,
         notes: form.notes,
-        isPublic: editingDiscount.isPublic,
+        isPublic: form.isPublic,
       };
       const res = await updateDiscount(editingDiscount._id, payload);
       if (res.status === "success") {
@@ -283,6 +277,13 @@ export default function DiscountManagementPage() {
         </Button>
       </div>
 
+      {error && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50/70 p-4 text-sm text-red-700 flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center justify-center p-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600"></div>
@@ -310,10 +311,8 @@ export default function DiscountManagementPage() {
                   </tr>
                 ) : (
                   items.map((d) => {
-                    const now = new Date();
                     const start = new Date(d.startAt);
                     const end = new Date(d.endAt);
-                    const isActiveWindow = start <= now && end >= now;
                     return (
                       <tr key={d._id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 font-mono text-sm">{d.code}</td>
@@ -321,66 +320,45 @@ export default function DiscountManagementPage() {
                         <td className="px-6 py-4 text-sm text-gray-700">{d.type === "percent" ? `${d.value}%` : d.value.toLocaleString("vi-VN")} {d.type === "fixed" ? "₫" : ""}</td>
                         <td className="px-6 py-4 text-sm text-gray-700">{(d.usedCount || 0)} / {(d.usageLimit || 0) === 0 ? "∞" : d.usageLimit}</td>
                         <td className="px-6 py-4 text-sm text-gray-700">{start.toLocaleString("vi-VN")} - {end.toLocaleString("vi-VN")}</td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {d.active && isActiveWindow ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
-                              <CheckCircle className="w-3 h-3 mr-1" /> Đang hoạt động
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
-                              <XCircle className="w-3 h-3 mr-1" /> Không hoạt động
-                            </span>
-                          )}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                          <select
+                            value={d.active ? "active" : "inactive"}
+                            onChange={(e) => updateStatus(d, e.target.value === "active")}
+                            className={`rounded-lg border px-2 py-1 text-xs font-medium ${
+                              d.active
+                                ? "bg-green-50 border-green-200 text-green-700"
+                                : "bg-gray-50 border-gray-200 text-gray-700"
+                            }`}
+                          >
+                            <option value="active">Đang hoạt động</option>
+                            <option value="inactive">Không hoạt động</option>
+                          </select>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                          {d.isPublic ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                              Công khai
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
-                              Riêng tư (gán người dùng)
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(d)}
-                            className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                          <select
+                            value={d.isPublic ? "public" : "private"}
+                            onChange={(e) => updateScope(d, e.target.value === "public")}
+                            className={`rounded-lg border px-2 py-1 text-xs font-medium ${
+                              d.isPublic
+                                ? "bg-blue-50 border-blue-200 text-blue-700"
+                                : "bg-purple-50 border-purple-200 text-purple-700"
+                            }`}
                           >
-                            Chỉnh sửa
-                          </Button>
-                          {d.active ? (
+                            <option value="public">Công khai</option>
+                            <option value="private">Riêng tư</option>
+                          </select>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex items-center gap-2">
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleDeactivate(d._id)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => handleEdit(d)}
+                              className="text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
                             >
-                              Vô hiệu hóa
+                              Chỉnh sửa
                             </Button>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleActivate(d._id)}
-                              className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                            >
-                              Kích hoạt lại
-                            </Button>
-                          )}
-                          {!d.isPublic && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleSetPublic(d._id)}
-                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                            >
-                              Đặt công khai
-                            </Button>
-                          )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -489,6 +467,25 @@ export default function DiscountManagementPage() {
                 />
               </div>
             </div>
+            <div>
+              <Label>Phạm vi áp dụng</Label>
+              <select
+                value={form.isPublic ? "public" : "private"}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    isPublic: e.target.value === "public",
+                  }))
+                }
+                className="bg-white border border-gray-300 text-gray-900 w-full rounded-md h-10 px-3"
+              >
+                <option value="private">Riêng tư (gán người dùng)</option>
+                <option value="public">Công khai (mọi khách hàng)</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Mã công khai sẽ hiển thị với tất cả khách hàng và không thể gán cho cá nhân cụ thể.
+              </p>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label>Bắt đầu</Label>
@@ -596,6 +593,25 @@ export default function DiscountManagementPage() {
               </select>
             </div>
             <div>
+              <Label>Phạm vi áp dụng</Label>
+              <select
+                value={form.isPublic ? "public" : "private"}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    isPublic: e.target.value === "public",
+                  }))
+                }
+                className="bg-white border border-gray-300 text-gray-900 w-full rounded-md h-10 px-3"
+              >
+                <option value="private">Riêng tư (gán người dùng)</option>
+                <option value="public">Công khai (mọi khách hàng)</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Thay đổi phạm vi sẽ áp dụng ngay cho mã giảm giá này.
+              </p>
+            </div>
+            <div>
               <Label>
                 Giá trị {form.type === "percent" ? "(%)" : "(₫)"}
               </Label>
@@ -624,7 +640,7 @@ export default function DiscountManagementPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label>Giảm tối đa (₫)</Label>
+                <Label>Giá trị giảm tối đa (₫)</Label>
                 <Input
                   type="text"
                   value={formatVND(form.maxDiscountAmount || 0)}
@@ -635,7 +651,7 @@ export default function DiscountManagementPage() {
                 />
               </div>
               <div>
-                <Label>Đơn tối thiểu (₫)</Label>
+                <Label>Giá trị đơn hàng tối thiểu (₫)</Label>
                 <Input
                   type="text"
                   value={formatVND(form.minOrderAmount || 0)}
@@ -657,7 +673,7 @@ export default function DiscountManagementPage() {
               </div>
             </div>
             <div>
-              <Label>Giới hạn sử dụng (0 = không giới hạn)</Label>
+              <Label>Giới hạn sử dụng ( Nếu 0 thì không giới hạn)</Label>
               <Input type="number" value={form.usageLimit || 0} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, usageLimit: Number(e.target.value) })} className="bg-white border-gray-300 text-gray-900" />
             </div>
             <div>

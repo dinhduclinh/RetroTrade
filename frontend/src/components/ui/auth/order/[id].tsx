@@ -36,6 +36,7 @@ import {
 import type { Order } from "@/services/auth/order.api";
 import Image from "next/image";
 import Link from "next/link";
+
 interface TimelineStep {
   status: string;
   label: string;
@@ -97,6 +98,7 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+
   const [pendingAction, setPendingAction] = useState<() => Promise<void>>(
     () => async () => { }
   );
@@ -203,6 +205,13 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
   const canComplete = order.orderStatus === "returned";
   const canCancel = ["pending", "confirmed"].includes(order.orderStatus);
 
+  // Breadcrumb data
+  const breadcrumbs = [
+    { label: "Trang chủ", href: "/home", icon: Home },
+    { label: "Đơn hàng", href: "/order", icon: ShoppingBag },
+    { label: "Chi tiết đơn hàng", href: `/order/${id}`, icon: Eye },
+  ];
+ 
   // Breadcrumb removed in inline render
 
   return (
@@ -246,15 +255,14 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
             <div className="text-right">
               <span
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium
-                ${
-                  order.orderStatus === "completed"
+                ${order.orderStatus === "completed"
                     ? "bg-green-100 text-green-700"
                     : order.orderStatus === "cancelled"
-                    ? "bg-red-100 text-red-700"
-                    : order.orderStatus === "progress"
-                    ? "bg-blue-100 text-blue-700"
-                    : "bg-yellow-100 text-yellow-700"
-                }`}
+                      ? "bg-red-100 text-red-700"
+                      : order.orderStatus === "progress"
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-yellow-100 text-yellow-700"
+                  }`}
               >
                 {getOrderStatusLabel(order.orderStatus)}
               </span>
@@ -510,13 +518,12 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
                     .map((step, idx) => (
                       <div key={idx} className="flex items-center gap-4">
                         <div
-                          className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                            step.current
+                          className={`w-10 h-10 rounded-full flex items-center justify-center ${step.current
                               ? "bg-emerald-600 text-white"
                               : step.active
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-gray-200 text-gray-400"
-                          }`}
+                                ? "bg-emerald-100 text-emerald-700"
+                                : "bg-gray-200 text-gray-400"
+                            }`}
                         >
                           {step.active || step.current ? (
                             <CheckCircle2 className="w-5 h-5" />
@@ -526,13 +533,12 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
                         </div>
                         <div className="flex-1">
                           <p
-                            className={`font-medium ${
-                              step.current
+                            className={`font-medium ${step.current
                                 ? "text-emerald-700"
                                 : step.active
-                                ? "text-gray-700"
-                                : "text-gray-400"
-                            }`}
+                                  ? "text-gray-700"
+                                  : "text-gray-400"
+                              }`}
                           >
                             {step.label}
                           </p>
@@ -676,14 +682,13 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
                 <span className="text-gray-700">Thanh toán</span>
                 <span
                   className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium
-                    ${
-                      order.paymentStatus === "paid"
-                        ? "bg-green-100 text-green-700"
-                        : order.paymentStatus === "not_paid"
+                    ${order.paymentStatus === "paid"
+                      ? "bg-green-100 text-green-700"
+                      : order.paymentStatus === "not_paid"
                         ? "bg-yellow-100 text-yellow-700"
                         : order.paymentStatus === "refunded"
-                        ? "bg-blue-100 text-blue-700"
-                        : "bg-gray-100 text-gray-700"
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-gray-100 text-gray-700"
                     }`}
                 >
                   {order.paymentStatus === "paid" && (

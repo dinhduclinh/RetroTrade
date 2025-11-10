@@ -133,12 +133,12 @@ export default function PopupModal({
           </h3>
 
           {/* Message */}
-          <p className={`text-lg mb-8 leading-relaxed ${getMessageColor()}`}>
+          <p className={`text-lg mb-8 leading-relaxed whitespace-pre-line ${getMessageColor()}`}>
             {message}
           </p>
 
-          {/* Button */}
-          <div className="flex flex-col gap-3">
+          {/* Buttons */}
+          <div className={`flex gap-3 ${secondaryButtonText ? '' : 'flex-col'}`}>
             {secondaryButtonText && onSecondaryButtonClick && (
               <Button
                 onClick={onSecondaryButtonClick}
@@ -159,6 +159,7 @@ export default function PopupModal({
               onClick={onClose}
               className={`
                 w-full py-3 px-6 text-lg font-semibold rounded-lg transition-all duration-200 hover:scale-105
+                ${secondaryButtonText ? 'flex-1' : 'w-full'} py-3 px-6 text-lg font-semibold rounded-lg transition-all duration-200 hover:scale-105
                 ${type === "error" 
                   ? "bg-red-600 hover:bg-red-700 text-white" 
                   : type === "success"

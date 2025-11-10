@@ -1,15 +1,18 @@
-import { useEffect, useState, useMemo } from "react";
+'use client';
+
+import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter } from "next/router";
 import { createOrderAction } from "@/store/order/orderActions";
 import { removeItemFromCartAction } from "@/store/cart/cartActions";
 import type { CartItem } from "@/services/auth/cartItem.api";
 import { format } from "date-fns";
-import { RootState } from "@/store/redux_store";
+import { RootState, AppDispatch } from "@/store/redux_store";
 import { decodeToken } from "@/utils/jwtHelper";
 import { getUserProfile } from "@/services/auth/user.api";
 import {
   Package,
+  MapPin,
   Truck,
   Calendar,
   CreditCard,
@@ -26,6 +29,7 @@ import {
   ExternalLink,
   MapPin,
 } from "lucide-react";
+import { getCurrentTax } from "@/services/tax/tax.api";
 import { getCurrentTax } from "@/services/tax/tax.api";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -47,7 +51,6 @@ import { payOrderWithWallet } from "@/services/wallet/wallet.api";
 import PopupModal from "@/components/ui/common/PopupModal";
 
 import { AddressSelector } from "@/components/ui/auth/address/address-selector";
-import { validateDiscount, listAvailableDiscounts, type Discount } from "@/services/products/discount/discount.api";
 
 const calculateRentalDays = (item: CartItem): number => {
   if (!item.rentalStartDate || !item.rentalEndDate) return 0;
@@ -106,8 +109,37 @@ const getRentalDurationText = (
   }
 };
 
+type CheckoutOrderPayload = {
+  itemId: string;
+  quantity: number;
+  startAt?: string;
+  endAt?: string;
+  shippingAddress: {
+    fullName: string;
+    street: string;
+    ward: string;
+    district: string;
+    province: string;
+    phone: string;
+  };
+  paymentMethod: string;
+  note: string;
+  discountCode?: string;
+  discountAmount?: number;
+  discountType?: "percent" | "fixed";
+};
+
+type ApiError = {
+  response?: {
+    data?: {
+      message?: string;
+      error?: string;
+    };
+  };
+};
+
 export default function Checkout() {
-  const dispatch = useDispatch<any>();
+  const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const accessToken = useSelector((state: RootState) => state.auth.accessToken);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
@@ -123,6 +155,10 @@ export default function Checkout() {
   const [taxRate, setTaxRate] = useState<number>(3); // Default 3%
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 3; // Hiển thị 3 sản phẩm mỗi trang
+  // State cho modal thông báo lỗi
+  const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
+  const [errorModalTitle, setErrorModalTitle] = useState("");
+  const [errorModalMessage, setErrorModalMessage] = useState("");
   // State cho modal thông báo lỗi
   const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
   const [errorModalTitle, setErrorModalTitle] = useState("");
@@ -188,6 +224,7 @@ export default function Checkout() {
     const items: CartItem[] = JSON.parse(itemsStr);
     const invalid = items.find((i) => !i.rentalStartDate || !i.rentalEndDate);
     if (invalid) {
+      toast.error(`Sản phẩm "${invalid.title}" chưa có ngày thuê hợp lệ.`);
       toast.error(`Sản phẩm "${invalid.title}" chưa có ngày thuê hợp lệ.`);
       router.push("/auth/cartitem");
       return;
@@ -707,55 +744,21 @@ export default function Checkout() {
     return rental + deposit;
   }, [cartItems]);
 
+  const discountAmount = appliedDiscount?.amount ?? 0;
+  const discountedRental = Math.max(0, rentalTotal - discountAmount);
+  const taxAmount = (discountedRental * taxRate) / 100;
+  const grandTotal = discountedRental + taxAmount + depositTotal;
+
   useEffect(() => {
-    const recalculateDiscounts = async () => {
-      if (!accessToken || cartItems.length === 0 || totalAmountForDiscountMemo <= 0) return;
-
-      console.log("Recalculating discounts - totalAmountForDiscountMemo:", totalAmountForDiscountMemo, "cartItems:", cartItems.length);
-
-      // Tính lại public discount amount (dựa trên tổng tiền thuê + tiền cọc)
-      if (publicDiscount) {
-        try {
-          const response = await validateDiscount({
-            code: publicDiscount.code.toUpperCase(),
-            baseAmount: totalAmountForDiscountMemo,
-          });
-          if (response.status === "success" && response.data) {
-            const newAmount = response.data.amount || 0;
-            setPublicDiscountAmount(newAmount);
-            console.log("Recalculated public discount amount:", newAmount, "for totalAmount:", totalAmountForDiscountMemo, "discount:", publicDiscount);
-          }
-        } catch (e) {
-          console.error("Error recalculating public discount:", e);
-        }
-      }
-
-      // Tính lại private discount amount (dựa trên baseAmount sau khi trừ public discount)
-      if (privateDiscount) {
-        try {
-          // Sử dụng publicDiscountAmount hiện tại từ state (sẽ được update nếu public discount được recalculate trước)
-          const currentPublicAmount = publicDiscountAmount;
-          const baseAmountAfterPublic = Math.max(0, totalAmountForDiscountMemo - currentPublicAmount);
-          const response = await validateDiscount({
-            code: privateDiscount.code.toUpperCase(),
-            baseAmount: baseAmountAfterPublic,
-          });
-          if (response.status === "success" && response.data) {
-            const newAmount = response.data.amount || 0;
-            setPrivateDiscountAmount(newAmount);
-            console.log("Recalculated private discount amount:", newAmount);
-          }
-        } catch (e) {
-          console.error("Error recalculating private discount:", e);
-        }
-      }
-    };
-
-    if (publicDiscount || privateDiscount) {
-      recalculateDiscounts();
+    if (
+      appliedDiscount &&
+      appliedDiscount.discount.minOrderAmount &&
+      rentalTotal < appliedDiscount.discount.minOrderAmount
+    ) {
+      setAppliedDiscount(null);
+      toast.info("Đơn hàng không còn đáp ứng điều kiện tối thiểu của mã giảm giá đã chọn.");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalAmountForDiscountMemo, publicDiscount, privateDiscount, accessToken]);
+  }, [appliedDiscount, rentalTotal]);
 
   const goToPage = (page: number) => {
     if (page >= 1 && page <= totalPages) {
@@ -1017,6 +1020,7 @@ export default function Checkout() {
 
     const validation = validateItem(item._id, editingData, item);
 
+
     if (!validation.isValid) {
       setItemErrors({
         ...itemErrors,
@@ -1041,6 +1045,7 @@ export default function Checkout() {
     // Update sessionStorage
     sessionStorage.setItem("checkoutItems", JSON.stringify(updatedItems));
     setCartItems(updatedItems);
+
 
     // Clear editing state
     cancelEditing(item._id);
@@ -1153,7 +1158,116 @@ export default function Checkout() {
       !shipping.province ||
       !shipping.phone
     ) {
+  // const handleSubmit = async () => {
+  //   if (
+  //     !shipping.fullName ||
+  //     !shipping.street ||
+  //     !shipping.province ||
+  //     !shipping.phone
+  //   ) {
+  //     toast.error("Vui lòng điền đầy đủ thông tin địa chỉ");
+  //     return;
+  //   }
+
+  //   setIsSubmitting(true);
+  //   try {
+  //     let successCount = 0;
+  //     const failedItems: string[] = [];
+
+  //     for (const item of cartItems) {
+  //       console.log("Tạo đơn hàng:", item.title);
+
+  //       const result = await dispatch(
+  //         createOrderAction({
+  //           itemId: item.itemId,
+  //           quantity: item.quantity,
+  //           startAt: item.rentalStartDate,
+  //           endAt: item.rentalEndDate,
+  //           shippingAddress: shipping,
+  //           paymentMethod: "Wallet",
+  //           note,
+  //         })
+  //       );
+
+  //       if (!result?.success) {
+  //         const errorMessage = result?.error || "Không thể tạo đơn hàng";
+  //         toast.error(`Không thể tạo đơn cho sản phẩm: ${item.title}. ${errorMessage}`);
+  //         failedItems.push(item.title);
+  //         console.error(`Order failed for ${item.title}:`, result?.error);
+  //         continue; // Continue processing other items instead of throwing
+  //       }
+  //       try {
+  //         if (!result?.data?._id || !result?.data?.userId) {
+  //           toast.error("Không tìm thấy orderId hoặc userId.");
+  //           continue;
+  //         }
+  //         console.log("Gọi thanh toán ví:", result.data._id, result.data.userId);
+  //         const paymentResult = await payOrderWithWallet(result.data._id, result.data.userId);
+
+  //         if (!paymentResult.success) {
+  //           toast.error(`Thanh toán thất bại cho sản phẩm: ${item.title}. Lý do: ${paymentResult.error}`);
+  //           failedItems.push(item.title + " (thanh toán không thành công)");
+  //           continue; // bỏ qua item này, tiếp tục các item còn lại
+  //         }
+  //       } catch (paymentError) {
+  //         toast.error(`Lỗi thanh toán đơn ${item.title}`);
+  //         failedItems.push(item.title + " (lỗi thanh toán)");
+  //         continue;
+  //       }
+  //       // Only remove from cart if order was successful
+  //       if (!item._id?.startsWith("temp-")) {
+  //         try {
+  //           await dispatch(removeItemFromCartAction(item._id));
+  //         } catch (cartError) {
+  //           console.error(`Error removing item from cart: ${item.title}`, cartError);
+  //           // Don't fail the entire process if cart removal fails
+  //         }
+  //       }
+
+  //       successCount++;
+  //     }
+
+  //     // Show appropriate message based on results
+  //     if (failedItems.length === 0) {
+  //       toast.success("Tạo tất cả đơn hàng thành công!");
+  //       sessionStorage.removeItem("checkoutItems");
+  //       router.push("/auth/order");
+  //     } else if (successCount > 0) {
+  //       toast.warning(
+  //         `Đã tạo thành công ${successCount} đơn hàng. ${failedItems.length} đơn hàng thất bại: ${failedItems.join(", ")}`
+  //       );
+  //       // Keep only failed items in sessionStorage for retry
+  //       const remainingItems = cartItems.filter(
+  //         (item) => failedItems.includes(item.title)
+  //       );
+  //       if (remainingItems.length > 0) {
+  //         sessionStorage.setItem("checkoutItems", JSON.stringify(remainingItems));
+  //       } else {
+  //         sessionStorage.removeItem("checkoutItems");
+  //       }
+  //     } else {
+  //       toast.error("Không thể tạo bất kỳ đơn hàng nào. Vui lòng thử lại.");
+  //     }
+  //   } catch (err) {
+  //     console.error("Checkout error:", err);
+  //     toast.error("Có lỗi xảy ra khi tạo đơn hàng, vui lòng thử lại.");
+  //   } finally {
+  //     setIsSubmitting(false);
+  //   }
+  // };
+
+  // ham submit mơi 
+
+  const handleSubmit = async () => {
+    if (
+      !shipping.fullName ||
+      !shipping.street ||
+      !shipping.province ||
+      !shipping.phone
+    ) {
       toast.error("Vui lòng điền đầy đủ thông tin địa chỉ");
+      return;
+    }
       return;
     }
 
@@ -1312,6 +1426,10 @@ export default function Checkout() {
     } catch (err) {
       console.error("Checkout error:", err);
       toast.error("Có lỗi xảy ra khi tạo đơn hàng, vui lòng thử lại.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
     } finally {
       setIsSubmitting(false);
     }
@@ -1812,9 +1930,9 @@ export default function Checkout() {
                 </div>
                 <AddressSelector
                   selectedAddressId={selectedAddressId}
-                  onSelect={(addr) => {
-                    setSelectedAddressId(addr._id);
-                    applyAddressToShipping(addr);
+                  onSelect={(address) => {
+                    setSelectedAddressId(address._id);
+                    applyAddressToShipping(address);
                   }}
                 />
               </div>
@@ -2062,7 +2180,24 @@ export default function Checkout() {
             </div>
           </div>
 
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 space-y-6">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <h2 className="font-bold text-xl mb-4 flex items-center gap-3 text-gray-800">
+                <div className="p-2 bg-emerald-100 rounded-lg">
+                  <Percent className="w-5 h-5 text-emerald-600" />
+                </div>
+                <span>Mã giảm giá</span>
+              </h2>
+              <p className="text-sm text-gray-600 mb-4">
+                Chọn một mã giảm giá phù hợp để tiết kiệm cho đơn hàng hiện tại của bạn.
+              </p>
+              <DiscountSelector
+                rentalTotal={rentalTotal}
+                selectedDiscount={appliedDiscount}
+                onSelect={setAppliedDiscount}
+              />
+            </div>
+
             <div className="bg-gradient-to-br from-emerald-600 via-emerald-600 to-teal-600 text-white rounded-2xl shadow-2xl p-8 sticky top-24 border-2 border-emerald-500/20">
               <h2 className="font-bold text-2xl mb-6 flex items-center gap-3">
                 <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
@@ -2337,6 +2472,16 @@ export default function Checkout() {
                     {rentalTotal.toLocaleString("vi-VN")}₫
                   </span>
                 </div>
+                {appliedDiscount && (
+                  <div className="flex justify-between items-center py-2 border-b border-white/20">
+                    <span className="text-emerald-50">
+                      Giảm giá ({appliedDiscount.discount.code})
+                    </span>
+                    <span className="font-semibold text-emerald-100">
+                      -{discountAmount.toLocaleString("vi-VN")}₫
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center py-2 border-b border-white/20">
                   <span className="text-yellow-200">Phí dịch vụ ({taxRate}%)</span>
                   <span className="font-semibold text-yellow-100">
@@ -2349,39 +2494,6 @@ export default function Checkout() {
                     {depositTotal.toLocaleString("vi-VN")}₫
                   </span>
                 </div>
-                {publicDiscount && publicDiscountAmount > 0 && (
-                  <div className="flex justify-between items-center py-2 border-b border-white/20">
-                    <span className="text-blue-200 flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4" />
-                      Giảm giá công khai ({publicDiscount.code})
-                    </span>
-                    <span className="font-semibold text-blue-100">
-                      -{publicDiscountAmount.toLocaleString("vi-VN")}₫
-                    </span>
-                  </div>
-                )}
-                {privateDiscount && privateDiscountAmount > 0 && (
-                  <div className="flex justify-between items-center py-2 border-b border-white/20">
-                    <span className="text-purple-200 flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4" />
-                      Giảm giá riêng tư ({privateDiscount.code})
-                    </span>
-                    <span className="font-semibold text-purple-100">
-                      -{privateDiscountAmount.toLocaleString("vi-VN")}₫
-                    </span>
-                  </div>
-                )}
-                {totalDiscountAmount > 0 && (
-                  <div className="flex justify-between items-center py-2 border-b border-white/20">
-                    <span className="text-green-200 flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4" />
-                      Tổng giảm giá
-                    </span>
-                    <span className="font-semibold text-green-100">
-                      -{totalDiscountAmount.toLocaleString("vi-VN")}₫
-                    </span>
-                  </div>
-                )}
                 <div className="pt-2">
                   <p className="text-xs text-emerald-100 text-center italic">
                     (Hoàn lại tiền cọc sau khi trả đồ)
@@ -2392,6 +2504,8 @@ export default function Checkout() {
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-semibold text-white">Tổng cộng</span>
                   <span className="text-3xl font-bold text-yellow-200">
+                    {grandTotal.toLocaleString("vi-VN")}₫
+                  </span>
                     {grandTotal.toLocaleString("vi-VN")}₫
                   </span>
                 </div>
