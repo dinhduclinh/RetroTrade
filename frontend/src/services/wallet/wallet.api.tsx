@@ -128,6 +128,20 @@ export const deleteBankAccount = async (id: string) => {
   }
 };
 
+export const payOrderWithWallet = async (orderId: string, userId?: string) => {
+  try {
+    const payload = {
+      orderId,
+      userId,
+    };
+    const res = await instance.post("/wallet/pay-order", payload);
+    return await parseFetchResponse(res);
+  } catch (error) {
+    console.error("[wallet.api] payOrderWithWallet error:", error);
+    throw error;
+  }
+};
+
 // Gọi API rút tiền từ ví
 export const withdrawFromWallet = async (amount: number, note: string, bankAccountId: string) => {
   try {

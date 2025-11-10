@@ -12,6 +12,8 @@ interface PopupModalProps {
   title: string
   message: string
   buttonText?: string
+  secondaryButtonText?: string
+  onSecondaryButtonClick?: () => void
 }
 
 export default function PopupModal({
@@ -20,7 +22,9 @@ export default function PopupModal({
   type,
   title,
   message,
-  buttonText = "Đóng"
+  buttonText = "Đóng",
+  secondaryButtonText,
+  onSecondaryButtonClick
 }: PopupModalProps) {
   const [isVisible, setIsVisible] = useState(false)
 
@@ -134,20 +138,38 @@ export default function PopupModal({
           </p>
 
           {/* Button */}
-          <Button
-            onClick={onClose}
-            className={`
-              w-full py-3 px-6 text-lg font-semibold rounded-lg transition-all duration-200 hover:scale-105
-              ${type === "error" 
-                ? "bg-red-600 hover:bg-red-700 text-white" 
-                : type === "success"
-                ? "bg-green-600 hover:bg-green-700 text-white"
-                : "bg-blue-600 hover:bg-blue-700 text-white"
-              }
-            `}
-          >
-            {buttonText}
-          </Button>
+          <div className="flex flex-col gap-3">
+            {secondaryButtonText && onSecondaryButtonClick && (
+              <Button
+                onClick={onSecondaryButtonClick}
+                className={`
+                  w-full py-3 px-6 text-lg font-semibold rounded-lg transition-all duration-200 hover:scale-105
+                  ${type === "error" 
+                    ? "bg-red-100 hover:bg-red-200 text-red-700" 
+                    : type === "success"
+                    ? "bg-green-100 hover:bg-green-200 text-green-700"
+                    : "bg-blue-100 hover:bg-blue-200 text-blue-700"
+                  }
+                `}
+              >
+                {secondaryButtonText}
+              </Button>
+            )}
+            <Button
+              onClick={onClose}
+              className={`
+                w-full py-3 px-6 text-lg font-semibold rounded-lg transition-all duration-200 hover:scale-105
+                ${type === "error" 
+                  ? "bg-red-600 hover:bg-red-700 text-white" 
+                  : type === "success"
+                  ? "bg-green-600 hover:bg-green-700 text-white"
+                  : "bg-blue-600 hover:bg-blue-700 text-white"
+                }
+              `}
+            >
+              {buttonText}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

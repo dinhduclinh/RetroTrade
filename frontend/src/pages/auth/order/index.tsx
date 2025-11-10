@@ -24,11 +24,9 @@ import {
   Save,
   Eye,
   ExternalLink,
-  Plus,
-  Check,
   MapPin,
 } from "lucide-react";
-// import { getCurrentTax } from "@/services/tax/tax.api";
+import { getCurrentTax } from "@/services/tax/tax.api";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -39,6 +37,15 @@ import {
   deleteUserAddress,
   type CreateAddressRequest,
 } from "@/services/auth/userAddress.api";
+
+import {
+  Plus,
+  Trash2,
+  Check,
+} from "lucide-react";
+import { payOrderWithWallet } from "@/services/wallet/wallet.api";
+import PopupModal from "@/components/ui/common/PopupModal";
+
 import { AddressSelector } from "@/components/ui/auth/address/address-selector";
 import { validateDiscount, listAvailableDiscounts, type Discount } from "@/services/products/discount/discount.api";
 
@@ -116,6 +123,10 @@ export default function Checkout() {
   const [taxRate, setTaxRate] = useState<number>(3); // Default 3%
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 3; // Hiển thị 3 sản phẩm mỗi trang
+  // State cho modal thông báo lỗi
+  const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
+  const [errorModalTitle, setErrorModalTitle] = useState("");
+  const [errorModalMessage, setErrorModalMessage] = useState("");
   const [editingItems, setEditingItems] = useState<Record<string, {
     quantity: number;
     rentalStartDate: string;
@@ -127,7 +138,7 @@ export default function Checkout() {
     rentalEndDate?: string;
   }>>({});
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
-  
+
   // Address management state
   const [userAddresses, setUserAddresses] = useState<UserAddress[]>([]);
   const [isEditingAddress, setIsEditingAddress] = useState(false);
@@ -147,11 +158,14 @@ export default function Checkout() {
     onConfirm: () => void;
   }>({
     isOpen: false,
-    title: "",
+    title: "Xác nhận",
     message: "",
-    onConfirm: () => {},
+    onConfirm: () => { },
   });
-  
+  // thanh toan 
+  const [modal, setModal] = useState({ open: false, title: "", message: "" });
+
+
   // Discount state
   const [discountCode, setDiscountCode] = useState("");
   const [publicDiscount, setPublicDiscount] = useState<Discount | null>(null);
@@ -174,7 +188,7 @@ export default function Checkout() {
     const items: CartItem[] = JSON.parse(itemsStr);
     const invalid = items.find((i) => !i.rentalStartDate || !i.rentalEndDate);
     if (invalid) {
-        toast.error(`Sản phẩm "${invalid.title}" chưa có ngày thuê hợp lệ.`);
+      toast.error(`Sản phẩm "${invalid.title}" chưa có ngày thuê hợp lệ.`);
       router.push("/auth/cartitem");
       return;
     }
@@ -182,6 +196,20 @@ export default function Checkout() {
   }, [router]);
 
 
+  useEffect(() => {
+    const fetchTaxRate = async () => {
+      try {
+        const response = await getCurrentTax();
+        if (response.success && response.data) {
+          setTaxRate(response.data.taxRate);
+        }
+      } catch (error) {
+        console.error("Error fetching tax rate:", error);
+
+      }
+    };
+    fetchTaxRate();
+  }, []);
   // Note: Using default taxRate; dynamic fetch can be re-enabled when needed
 
   // Apply address to shipping form
@@ -194,55 +222,87 @@ export default function Checkout() {
     }));
   };
 
-  useEffect(() => {
-    const loadUserInfo = async () => {
-      try {
-        // Get fullName from token
-        const decoded = decodeToken(accessToken);
-        if (decoded?.fullName) {
-          setShipping(prev => ({
-            ...prev,
-            fullName: decoded.fullName || "",
-          }));
-        }
-
-        // Get phone from user profile
-        const profileResponse = await getUserProfile();
-        if (profileResponse?.user?.phone || profileResponse?.data?.phone) {
-          const phone = profileResponse.user?.phone || profileResponse.data?.phone || "";
-          setShipping(prev => ({
-            ...prev,
-            phone: phone,
-          }));
-        }
-
-        // Load user addresses
-        const addressesResponse = await getUserAddresses();
-        if (addressesResponse?.data && Array.isArray(addressesResponse.data)) {
-          setUserAddresses(addressesResponse.data);
-          
-          // Auto-select default address if available
-          const defaultAddress = addressesResponse.data.find(addr => addr.IsDefault);
-          if (defaultAddress) {
-            setSelectedAddressId(defaultAddress._id);
-            applyAddressToShipping(defaultAddress);
-          }
-        }
-      } catch (error) {
-        console.error("Error loading user info:", error);
+ useEffect(() => {
+  const loadUserInfo = async () => {
+    try {
+      // Get fullName from token
+      const decoded = decodeToken(accessToken);
+      if (decoded?.fullName) {
+        setShipping(prev => ({
+          ...prev,
+          fullName: decoded.fullName || "",
+        }));
       }
-    };
 
-    if (accessToken) {
-      loadUserInfo();
+      // Get phone from user profile
+      const profileResponse = await getUserProfile();
+      if (profileResponse?.user?.phone || profileResponse?.data?.phone) {
+        const phone = profileResponse.user?.phone || profileResponse.data?.phone || "";
+        setShipping(prev => ({
+          ...prev,
+          phone: phone,
+        }));
+      }
+
+      // Load user addresses
+      const addressesResponse = await getUserAddresses(); // Khai báo ngoài else
+      console.log("Addresses response:", addressesResponse);
+
+      if (
+        addressesResponse?.code &&
+        addressesResponse.code >= 200 &&
+        addressesResponse.code < 300 &&
+        addressesResponse?.data !== undefined
+      ) {
+        if (Array.isArray(addressesResponse.data)) {
+          const addresses = addressesResponse.data;
+          setUserAddresses(addresses);
+          // Auto-select
+          if (addresses.length > 0) {
+            const defaultAddress = addresses.find(addr => addr.IsDefault);
+            if (defaultAddress) {
+              setSelectedAddressId(defaultAddress._id);
+              applyAddressToShipping(defaultAddress);
+            } else {
+              setSelectedAddressId(addresses[0]._id);
+              applyAddressToShipping(addresses[0]);
+            }
+          }
+        } else if (
+          addressesResponse.data !== null &&
+          typeof addressesResponse.data === "object" &&
+          "_id" in addressesResponse.data
+        ) {
+          // Single address
+          const singleAddress = addressesResponse.data;
+          setUserAddresses([singleAddress]);
+          setSelectedAddressId(singleAddress._id);
+          applyAddressToShipping(singleAddress);
+        }
+      } else {
+        console.log("No addresses found - response failed or no data:", {
+          code: addressesResponse?.code,
+          hasData: addressesResponse?.data !== undefined,
+        });
+        // Không gọi lại getUserAddresses(); vì đã gọi rồi
+      }
+    } catch (error) {
+      console.error("Error loading user info:", error);
     }
-  }, [accessToken]);
+  };
 
+  if (accessToken) {
+    loadUserInfo();
+  }
+}, [accessToken]);
+
+  
+  
   // Load available discounts for user
   useEffect(() => {
     const loadAvailableDiscounts = async () => {
       if (!accessToken) return;
-      
+
       setLoadingDiscounts(true);
       try {
         const response = await listAvailableDiscounts(1, 50);
@@ -310,7 +370,7 @@ export default function Checkout() {
         const addressesResponse = await getUserAddresses();
         if (addressesResponse?.data && Array.isArray(addressesResponse.data)) {
           setUserAddresses(addressesResponse.data);
-          
+
           // Select the newly created address
           const newAddressData = addressesResponse.data.find(addr => addr._id === (response.data as UserAddress)._id);
           if (newAddressData) {
@@ -324,7 +384,7 @@ export default function Checkout() {
           setSelectedAddressId(response.data._id);
           applyAddressToShipping(response.data as UserAddress);
         }
-        
+
         setNewAddress({ Address: "", City: "", District: "", IsDefault: false });
         setIsEditingAddress(false);
         toast.success("Tạo địa chỉ thành công");
@@ -366,13 +426,13 @@ export default function Checkout() {
         const addressesResponse = await getUserAddresses();
         if (addressesResponse?.data && Array.isArray(addressesResponse.data)) {
           setUserAddresses(addressesResponse.data);
-          
+
           // Select the updated address if it was selected before
           const updatedAddress = addressesResponse.data.find(addr => addr._id === addressId);
           if (selectedAddressId === addressId && updatedAddress) {
             applyAddressToShipping(updatedAddress);
           }
-          
+
           // If we set a new default, select it
           if (updateData.IsDefault) {
             const newDefault = addressesResponse.data.find(addr => addr.IsDefault);
@@ -384,15 +444,15 @@ export default function Checkout() {
         } else {
           // Fallback: use the response data
           const updatedAddresses = userAddresses.map(addr =>
-            addr._id === addressId ? (response.data as UserAddress) : 
-            updateData.IsDefault ? { ...addr, IsDefault: false } : addr
+            addr._id === addressId ? (response.data as UserAddress) :
+              updateData.IsDefault ? { ...addr, IsDefault: false } : addr
           );
           setUserAddresses(updatedAddresses);
           if (selectedAddressId === addressId) {
             applyAddressToShipping(response.data as UserAddress);
           }
         }
-        
+
         setNewAddress({ Address: "", City: "", District: "", IsDefault: false });
         setIsEditingAddress(false);
         setEditingAddressId(null);
@@ -413,7 +473,7 @@ export default function Checkout() {
     const address = userAddresses.find(addr => addr._id === addressId);
     if (!address) return;
 
-    
+
     const otherAddresses = userAddresses.filter(addr => addr._id !== addressId);
     if (address.IsDefault && otherAddresses.length > 0) {
       toast.error("Không thể xóa địa chỉ mặc định. Vui lòng chọn một địa chỉ khác làm mặc định trước khi xóa.");
@@ -432,7 +492,7 @@ export default function Checkout() {
             toast.success("Xóa địa chỉ thành công");
             const updatedAddresses = userAddresses.filter(addr => addr._id !== addressId);
             setUserAddresses(updatedAddresses);
-            
+
             // If we deleted the default and there are other addresses, set the first one as default
             if (address.IsDefault && updatedAddresses.length > 0) {
               try {
@@ -453,7 +513,7 @@ export default function Checkout() {
                 console.error("Error setting new default:", error);
               }
             }
-            
+
             if (selectedAddressId === addressId) {
               // Select another address or clear
               if (updatedAddresses.length > 0) {
@@ -509,7 +569,7 @@ export default function Checkout() {
         try {
           const { latitude, longitude } = position.coords;
           console.log("Getting location for:", latitude, longitude);
-          
+
           // Use Nominatim (OpenStreetMap) for reverse geocoding (free, no API key needed)
           // Add language=vi for Vietnamese results
           const response = await fetch(
@@ -522,32 +582,33 @@ export default function Checkout() {
               }
             }
           );
-          
+
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
-          
+
           const data = await response.json();
           console.log("Reverse geocoding response:", data);
-          
+
           if (data && data.address) {
             const addr = data.address;
-            
-           
+
+            // Map OpenStreetMap address to our format (Vietnam-specific)
+            // For Vietnam, we typically have: house_number, road, ward, district, city, state
             const street = addr.road || addr.street || addr.pedestrian || "";
             const houseNumber = addr.house_number || "";
             const fullStreet = houseNumber && street ? `${houseNumber} ${street}`.trim() : (street || houseNumber);
-            
-    
+
+            // Vietnam address structure: ward (phường/xã), district (quận/huyện), city (tỉnh/thành phố)
             const ward = addr.ward || addr.suburb || addr.neighbourhood || "";
             const district = addr.district || addr.county || addr.city_district || "";
             const city = addr.city || addr.town || addr.municipality || "";
             const province = addr.state || addr.province || "";
-            
+
             // Build full address
             const finalWard = ward || district || "";
             const finalCity = city || province || "";
-            
+
             // Update shipping address form
             setShipping(prev => ({
               ...prev,
@@ -619,12 +680,12 @@ export default function Checkout() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentItems = cartItems.slice(startIndex, endIndex);
- 
+
   const rentalTotal = cartItems.reduce((sum, item) => {
     const days = calculateRentalDays(item);
     return sum + item.basePrice * item.quantity * days;
   }, 0);
-  
+
   console.log("Render - rentalTotal:", rentalTotal, "cartItems:", cartItems.length);
 
   const taxAmount = (rentalTotal * taxRate) / 100;
@@ -725,7 +786,7 @@ export default function Checkout() {
       if (response.status === "success" && response.data) {
         const discount = response.data.discount;
         let amount = response.data.amount || 0;
-        
+
         console.log("Applying discount:", {
           code: discount.code,
           isPublic: discount.isPublic,
@@ -737,12 +798,12 @@ export default function Checkout() {
           rentalTotal: rentalTotal,
           depositTotal: depositTotal,
           totalAmountForDiscount: rentalTotal + depositTotal,
-          expectedAmount: discount.type === "percent" 
-            ? ((rentalTotal + depositTotal) * discount.value) / 100 
+          expectedAmount: discount.type === "percent"
+            ? ((rentalTotal + depositTotal) * discount.value) / 100
             : discount.value,
           discount: discount
         });
-        
+
         // Kiểm tra loại discount (public hay private)
         if (discount.isPublic) {
           // Mã công khai - chỉ cho phép 1 mã công khai
@@ -760,7 +821,7 @@ export default function Checkout() {
           setPublicDiscount(discount);
           setPublicDiscountAmount(amount);
           console.log("Set public discount amount:", amount);
-          
+
           // Nếu đã có mã private, tính lại mã private với baseAmount mới
           if (privateDiscount) {
             const baseAmountAfterPublic = Math.max(0, baseAmountForDiscount - amount);
@@ -776,7 +837,7 @@ export default function Checkout() {
               console.error("Error revalidating private discount:", e);
             }
           }
-          
+
           toast.success("Áp dụng mã giảm giá công khai thành công!");
         } else {
           // Mã riêng tư - chỉ cho phép 1 mã riêng tư
@@ -809,7 +870,7 @@ export default function Checkout() {
           setPrivateDiscountAmount(amount);
           toast.success("Áp dụng mã giảm giá riêng tư thành công!");
         }
-        
+
         setDiscountCode("");
         setShowDiscountList(false);
       } else {
@@ -955,7 +1016,7 @@ export default function Checkout() {
     if (!editingData) return;
 
     const validation = validateItem(item._id, editingData, item);
-    
+
     if (!validation.isValid) {
       setItemErrors({
         ...itemErrors,
@@ -980,484 +1041,784 @@ export default function Checkout() {
     // Update sessionStorage
     sessionStorage.setItem("checkoutItems", JSON.stringify(updatedItems));
     setCartItems(updatedItems);
-    
+
     // Clear editing state
     cancelEditing(item._id);
   };
 
-const handleSubmit = async () => {
-  if (
-    !shipping.fullName ||
-    !shipping.street ||
-    !shipping.province ||
-    !shipping.phone
-  ) {
+  // const handleSubmit = async () => {
+  //   if (
+  //     !shipping.fullName ||
+  //     !shipping.street ||
+  //     !shipping.province ||
+  //     !shipping.phone
+  //   ) {
+  //     toast.error("Vui lòng điền đầy đủ thông tin địa chỉ");
+  //     return;
+  //   }
+
+  //   setIsSubmitting(true);
+  //   try {
+  //     let successCount = 0;
+  //     const failedItems: string[] = [];
+
+  //     for (const item of cartItems) {
+  //       console.log("Tạo đơn hàng:", item.title);
+
+  //       const result = await dispatch(
+  //         createOrderAction({
+  //           itemId: item.itemId,
+  //           quantity: item.quantity,
+  //           startAt: item.rentalStartDate,
+  //           endAt: item.rentalEndDate,
+  //           shippingAddress: shipping,
+  //           paymentMethod: "Wallet",
+  //           note,
+  //         })
+  //       );
+
+  //       if (!result?.success) {
+  //         const errorMessage = result?.error || "Không thể tạo đơn hàng";
+  //         toast.error(`Không thể tạo đơn cho sản phẩm: ${item.title}. ${errorMessage}`);
+  //         failedItems.push(item.title);
+  //         console.error(`Order failed for ${item.title}:`, result?.error);
+  //         continue; // Continue processing other items instead of throwing
+  //       }
+  //       try {
+  //         if (!result?.data?._id || !result?.data?.userId) {
+  //           toast.error("Không tìm thấy orderId hoặc userId.");
+  //           continue;
+  //         }
+  //         console.log("Gọi thanh toán ví:", result.data._id, result.data.userId);
+  //         const paymentResult = await payOrderWithWallet(result.data._id, result.data.userId);
+
+  //         if (!paymentResult.success) {
+  //           toast.error(`Thanh toán thất bại cho sản phẩm: ${item.title}. Lý do: ${paymentResult.error}`);
+  //           failedItems.push(item.title + " (thanh toán không thành công)");
+  //           continue; // bỏ qua item này, tiếp tục các item còn lại
+  //         }
+  //       } catch (paymentError) {
+  //         toast.error(`Lỗi thanh toán đơn ${item.title}`);
+  //         failedItems.push(item.title + " (lỗi thanh toán)");
+  //         continue;
+  //       }
+  //       // Only remove from cart if order was successful
+  //       if (!item._id?.startsWith("temp-")) {
+  //         try {
+  //           await dispatch(removeItemFromCartAction(item._id));
+  //         } catch (cartError) {
+  //           console.error(`Error removing item from cart: ${item.title}`, cartError);
+  //           // Don't fail the entire process if cart removal fails
+  //         }
+  //       }
+
+  //       successCount++;
+  //     }
+
+  //     // Show appropriate message based on results
+  //     if (failedItems.length === 0) {
+  //       toast.success("Tạo tất cả đơn hàng thành công!");
+  //       sessionStorage.removeItem("checkoutItems");
+  //       router.push("/auth/order");
+  //     } else if (successCount > 0) {
+  //       toast.warning(
+  //         `Đã tạo thành công ${successCount} đơn hàng. ${failedItems.length} đơn hàng thất bại: ${failedItems.join(", ")}`
+  //       );
+  //       // Keep only failed items in sessionStorage for retry
+  //       const remainingItems = cartItems.filter(
+  //         (item) => failedItems.includes(item.title)
+  //       );
+  //       if (remainingItems.length > 0) {
+  //         sessionStorage.setItem("checkoutItems", JSON.stringify(remainingItems));
+  //       } else {
+  //         sessionStorage.removeItem("checkoutItems");
+  //       }
+  //     } else {
+  //       toast.error("Không thể tạo bất kỳ đơn hàng nào. Vui lòng thử lại.");
+  //     }
+  //   } catch (err) {
+  //     console.error("Checkout error:", err);
+  //     toast.error("Có lỗi xảy ra khi tạo đơn hàng, vui lòng thử lại.");
+  //   } finally {
+  //     setIsSubmitting(false);
+  //   }
+  // };
+
+  // ham submit mơi 
+
+  const handleSubmit = async () => {
+    if (
+      !shipping.fullName ||
+      !shipping.street ||
+      !shipping.province ||
+      !shipping.phone
+    ) {
       toast.error("Vui lòng điền đầy đủ thông tin địa chỉ");
-    return;
-  }
+      return;
+    }
 
-  setIsSubmitting(true);
-  try {
-    let successCount = 0;
-    const failedItems: string[] = [];
+    setIsSubmitting(true);
+    try {
+      let successCount = 0;
+      const failedItems: string[] = [];
 
-    for (const item of cartItems) {
-      console.log("Tạo đơn hàng:", item.title);
+      for (const item of cartItems) {
+        console.log("Bắt đầu xử lý cho:", item.title);
 
-      const result = await dispatch(
-        createOrderAction({
-          itemId: item.itemId,
-          quantity: item.quantity,
-          startAt: item.rentalStartDate,
-          endAt: item.rentalEndDate,
-          shippingAddress: shipping,
-          paymentMethod: "Wallet",
-          note,
-          publicDiscountCode: publicDiscount?.code || null,
-          privateDiscountCode: privateDiscount?.code || null,
-        })
-      );
+        const result = await dispatch(
+          createOrderAction({
+            itemId: item.itemId,
+            quantity: item.quantity,
+            startAt: item.rentalStartDate,
+            endAt: item.rentalEndDate,
+            shippingAddress: shipping,
+            paymentMethod: "Wallet",
+            note,
+            publicDiscountCode: publicDiscount?.code || null,
+            privateDiscountCode: privateDiscount?.code || null,
+          })
+        );
 
-      if (!result?.success) {
-        const errorMessage = result?.error || "Không thể tạo đơn hàng";
-        toast.error(`Không thể tạo đơn cho sản phẩm: ${item.title}. ${errorMessage}`);
-        failedItems.push(item.title);
-        console.error(`Order failed for ${item.title}:`, result?.error);
-        continue; // Continue processing other items instead of throwing
-      }
-
-      // Only remove from cart if order was successful
-      if (!item._id?.startsWith("temp-")) {
-        try {
-          await dispatch(removeItemFromCartAction(item._id));
-        } catch (cartError) {
-          console.error(`Error removing item from cart: ${item.title}`, cartError);
-          // Don't fail the entire process if cart removal fails
+        if (!result?.success) {
+          const errorMessage = result?.error || "Không thể tạo đơn hàng";
+          toast.error(`Không thể tạo đơn cho sản phẩm: ${item.title}. ${errorMessage}`);
+          failedItems.push(item.title);
+          console.error(`Order failed for ${item.title}:`, result?.error);
+          continue; // Continue processing other items instead of throwing
         }
+        const orderIdRaw = result?.data?.orderId ?? result?.data?._id;
+        const userId = result?.data?.userId;
+
+        if (!orderIdRaw) {
+          console.error("Response từ createOrder:", result);
+          toast.error(`Không lấy được orderId cho sản phẩm: ${item.title}`);
+          failedItems.push(item.title + " (lỗi lấy orderId)");
+          continue;
+        }
+
+        const orderId =
+          typeof orderIdRaw === "string" ? orderIdRaw : String(orderIdRaw);
+        console.log(" Đã tạo order với ID:", orderId, "Bắt đầu thanh toán...");
+        console.log(" Order data:", result?.data);
+
+        try {
+          const paymentResult = await payOrderWithWallet(orderId, userId);
+
+          if (paymentResult && paymentResult.success === false) {
+            const errorMsg =
+              paymentResult.error ||
+              paymentResult.message ||
+              "Thanh toán thất bại";
+            toast.error(
+              `Thanh toán thất bại cho sản phẩm: ${item.title}. ${errorMsg}`
+            );
+            failedItems.push(item.title + " (thanh toán không thành công)");
+            continue;
+          }
+
+          console.log(" Thanh toán thành công cho order:", orderId);
+        } catch (paymentError: any) {
+          let errorMessage = "Thanh toán thất bại";
+
+          if (paymentError?.response?.data) {
+            const errorData = paymentError.response.data;
+            console.log(" Error data từ backend:", errorData);
+
+            errorMessage =
+              errorData.message || errorData.error || "Thanh toán thất bại";
+
+            const isInsufficientBalance =
+              errorData.error === "Ví người dùng không đủ tiền" ||
+              errorMessage.includes("không đủ tiền") ||
+              errorData.error?.includes("không đủ tiền") ||
+              errorData.error?.includes("Ví người dùng không đủ tiền");
+
+            console.log(
+              " Is insufficient balance?",
+              isInsufficientBalance,
+              "error:",
+              errorData.error
+            );
+
+            if (isInsufficientBalance) {
+              errorMessage = "Số dư ví không đủ. Vui lòng nạp tiền vào ví.";
+
+              console.log(" Đang mở modal với message:", errorMessage);
+              setErrorModalTitle("Ví không đủ tiền");
+              setErrorModalMessage(errorMessage);
+              setIsErrorModalOpen(true);
+              console.log(" Modal state đã được set:", {
+                title: "Ví không đủ tiền",
+                message: errorMessage,
+              });
+            } else {
+              toast.error(`${errorMessage} - Sản phẩm: ${item.title}`, {
+                duration: 5000,
+              });
+            }
+          } else if (paymentError?.message) {
+            errorMessage = paymentError.message;
+            toast.error(`${errorMessage} - Sản phẩm: ${item.title}`, {
+              duration: 5000,
+            });
+          } else {
+            toast.error(`Thanh toán thất bại cho sản phẩm: ${item.title}`, {
+              duration: 5000,
+            });
+          }
+
+          console.error(" Lỗi thanh toán:", paymentError);
+          console.error(" Error data:", paymentError?.response?.data);
+          failedItems.push(item.title + " (thanh toán không thành công)");
+          continue;
+        }
+
+        if (!item._id?.startsWith("temp-")) {
+          try {
+            await dispatch(removeItemFromCartAction(item._id));
+          } catch (cartError) {
+            console.error(
+              `Error removing item from cart: ${item.title}`,
+              cartError
+            );
+          }
+        }
+
+        successCount++;
       }
 
-      successCount++;
-    }
-
-    // Show appropriate message based on results
-    if (failedItems.length === 0) {
-      toast.success("Tạo tất cả đơn hàng thành công!");
-      sessionStorage.removeItem("checkoutItems");
-      router.push("/auth/order");
-    } else if (successCount > 0) {
-      toast.warning(
-        `Đã tạo thành công ${successCount} đơn hàng. ${failedItems.length} đơn hàng thất bại: ${failedItems.join(", ")}`
-      );
-      // Keep only failed items in sessionStorage for retry
-      const remainingItems = cartItems.filter(
-        (item) => failedItems.includes(item.title)
-      );
-      if (remainingItems.length > 0) {
-        sessionStorage.setItem("checkoutItems", JSON.stringify(remainingItems));
-      } else {
+      if (failedItems.length === 0) {
+        toast.success("Thanh toán & tạo đơn tất cả sản phẩm thành công!");
         sessionStorage.removeItem("checkoutItems");
+        router.push("/auth/order");
+      } else if (successCount > 0) {
+        toast.warning(
+          `Đã xử lý thành công ${successCount} đơn hàng. ${failedItems.length} đơn thất bại: ${failedItems.join(", ")}`
+        );
+        const remainingItems = cartItems.filter((item) =>
+          failedItems.includes(item.title)
+        );
+        if (remainingItems.length > 0) {
+          sessionStorage.setItem(
+            "checkoutItems",
+            JSON.stringify(remainingItems)
+          );
+        } else {
+          sessionStorage.removeItem("checkoutItems");
+        }
+      } else {
+        toast.error("Không thể xử lý đơn hàng nào. Vui lòng thử lại.");
       }
-    } else {
-      toast.error("Không thể tạo bất kỳ đơn hàng nào. Vui lòng thử lại.");
-    }
-  } catch (err) {
-    console.error("Checkout error:", err);
+    } catch (err) {
+      console.error("Checkout error:", err);
       toast.error("Có lỗi xảy ra khi tạo đơn hàng, vui lòng thử lại.");
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
 
-  if (!cartItems.length) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Package className="w-16 h-16 text-gray-400 mb-4" />
-        <p className="text-gray-500">Đang tải...</p>
-      </div>
-    );
-  }
+    if (!cartItems.length) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <Package className="w-16 h-16 text-gray-400 mb-4" />
+          <p className="text-gray-500">Đang tải...</p>
+        </div>
+      );
+    }
 
-  // Breadcrumb data
-  const breadcrumbs = [
-    { label: "Trang chủ", href: "/home", icon: Home },
-    { label: "Giỏ hàng", href: "/auth/cartitem", icon: ShoppingCart },
-    { label: "Xác nhận thuê đồ", href: "/auth/order", icon: Truck },
-  ];
+    // Breadcrumb data
+    const breadcrumbs = [
+      { label: "Trang chủ", href: "/home", icon: Home },
+      { label: "Giỏ hàng", href: "/auth/cartitem", icon: ShoppingCart },
+      { label: "Xác nhận thuê đồ", href: "/auth/order", icon: Truck },
+    ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50 py-10 px-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Breadcrumb Navigation */}
-        <nav className="mb-6">
-          <div className="flex items-center space-x-2 text-sm">
-            {breadcrumbs.map((breadcrumb, index) => {
-              const IconComponent = breadcrumb.icon;
-              const isLast = index === breadcrumbs.length - 1;
+    <>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50 py-10 px-6">
+        <div className="max-w-7xl mx-auto">
+          {/* Breadcrumb Navigation */}
+          <nav className="mb-6">
+            <div className="flex items-center space-x-2 text-sm">
+              {breadcrumbs.map((breadcrumb, index) => {
+                const IconComponent = breadcrumb.icon;
+                const isLast = index === breadcrumbs.length - 1;
 
-              return (
-                <div
-                  key={breadcrumb.href}
-                  className="flex items-center space-x-2"
-                >
-                  {index > 0 && (
-                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                  )}
+                return (
+                  <div
+                    key={breadcrumb.href}
+                    className="flex items-center space-x-2"
+                  >
+                    {index > 0 && (
+                      <ChevronRight className="w-4 h-4 text-gray-400" />
+                    )}
 
-                  {isLast ? (
-                    <span className="flex items-center space-x-1 text-gray-900 font-medium">
-                      {IconComponent && <IconComponent className="w-4 h-4" />}
-                      <span>{breadcrumb.label}</span>
-                    </span>
-                  ) : (
-                    <Link
-                      href={breadcrumb.href}
-                      className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 transition-colors"
-                    >
-                      {IconComponent && <IconComponent className="w-4 h-4" />}
-                      <span>{breadcrumb.label}</span>
-                    </Link>
-                  )}
-                </div>
-              );
-            })}
+                    {isLast ? (
+                      <span className="flex items-center space-x-1 text-gray-900 font-medium">
+                        {IconComponent && <IconComponent className="w-4 h-4" />}
+                        <span>{breadcrumb.label}</span>
+                      </span>
+                    ) : (
+                      <Link
+                        href={breadcrumb.href}
+                        className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 transition-colors"
+                      >
+                        {IconComponent && <IconComponent className="w-4 h-4" />}
+                        <span>{breadcrumb.label}</span>
+                      </Link>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </nav>
+
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center justify-center p-4 bg-emerald-100 rounded-2xl mb-4">
+              <Truck className="w-12 h-12 text-emerald-600" />
+            </div>
+            <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-3">
+              Xác nhận thuê đồ
+            </h1>
+            <p className="text-lg text-gray-600">
+              Kiểm tra thông tin trước khi thanh toán
+            </p>
           </div>
-        </nav>
 
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center p-4 bg-emerald-100 rounded-2xl mb-4">
-            <Truck className="w-12 h-12 text-emerald-600" />
-          </div>
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-3">
-            Xác nhận thuê đồ
-          </h1>
-          <p className="text-lg text-gray-600">
-            Kiểm tra thông tin trước khi thanh toán
-          </p>
-        </div>
+          <div className="grid lg:grid-cols-3 gap-8">
+            {/* Cột trái */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Sản phẩm */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+                <h2 className="font-bold text-xl mb-6 flex items-center gap-3">
+                  <Package className="w-7 h-7 text-blue-600" />
+                  Sản phẩm thuê ({cartItems.length})
+                </h2>
+                <div className="space-y-4">
+                  {currentItems.map((item) => {
+                    // Use editing data if available, otherwise use original data
+                    const editingData = editingItems[item._id];
+                    const displayItem: CartItem = editingData ? {
+                      ...item,
+                      quantity: editingData.quantity,
+                      rentalStartDate: editingData.rentalStartDate,
+                      rentalEndDate: editingData.rentalEndDate,
+                    } : item;
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Cột trái */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Sản phẩm */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-              <h2 className="font-bold text-xl mb-6 flex items-center gap-3">
-                <Package className="w-7 h-7 text-blue-600" />
-                Sản phẩm thuê ({cartItems.length})
-              </h2>
-              <div className="space-y-4">
-                {currentItems.map((item) => {
-                  // Use editing data if available, otherwise use original data
-                  const editingData = editingItems[item._id];
-                  const displayItem: CartItem = editingData ? {
-                    ...item,
-                    quantity: editingData.quantity,
-                    rentalStartDate: editingData.rentalStartDate,
-                    rentalEndDate: editingData.rentalEndDate,
-                  } : item;
+                    const days = calculateRentalDays(displayItem);
+                    const durationText = getRentalDurationText(
+                      days,
+                      displayItem.priceUnit
+                    );
+                    const itemTotal = displayItem.basePrice * displayItem.quantity * days;
+                    const itemDeposit = displayItem.depositAmount * displayItem.quantity;
 
-                  const days = calculateRentalDays(displayItem);
-                  const durationText = getRentalDurationText(
-                    days,
-                    displayItem.priceUnit
-                  );
-                  const itemTotal = displayItem.basePrice * displayItem.quantity * days;
-                  const itemDeposit = displayItem.depositAmount * displayItem.quantity;
-
-                  return (
-                    <div
-                      key={item._id}
-                      className="group flex gap-6 p-6 bg-white rounded-xl border-2 border-gray-200 hover:border-emerald-300 hover:shadow-lg transition-all duration-300"
-                    >
-                      <div className="relative bg-gray-100 rounded-xl w-32 h-32 flex-shrink-0 overflow-hidden ring-2 ring-gray-200 group-hover:ring-emerald-200 transition-all">
-                        {item.primaryImage ? (
-                          <img
-                            src={item.primaryImage}
-                            alt={item.title}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400">
-                            <Package className="w-14 h-14" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 space-y-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h3 className="text-xl font-bold text-gray-800 line-clamp-2 mb-2 group-hover:text-emerald-700 transition-colors">
-                          {item.title}
-                        </h3>
-                            <p className="text-sm text-gray-500 line-clamp-2">
-                          {item.shortDescription}
-                        </p>
-                          </div>
-                          {!editingItems[item._id] ? (
-                            <button
-                              onClick={() => startEditing(item)}
-                              className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
-                              title="Chỉnh sửa"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
+                    return (
+                      <div
+                        key={item._id}
+                        className="group flex gap-6 p-6 bg-white rounded-xl border-2 border-gray-200 hover:border-emerald-300 hover:shadow-lg transition-all duration-300"
+                      >
+                        <div className="relative bg-gray-100 rounded-xl w-32 h-32 flex-shrink-0 overflow-hidden ring-2 ring-gray-200 group-hover:ring-emerald-200 transition-all">
+                          {item.primaryImage ? (
+                            <img
+                              src={item.primaryImage}
+                              alt={item.title}
+                              className="w-full h-full object-cover"
+                            />
                           ) : (
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => saveItem(item)}
-                                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                                title="Lưu"
-                              >
-                                <Save className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => cancelEditing(item._id)}
-                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                title="Hủy"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
+                            <div className="w-full h-full flex items-center justify-center text-gray-400">
+                              <Package className="w-14 h-14" />
                             </div>
                           )}
                         </div>
-
-                        {!editingItems[item._id] ? (
-                          <>
-                            <div className="flex flex-wrap gap-2">
-                              <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-sm font-semibold border border-blue-200">
-                                <Package className="w-3.5 h-3.5" />
-                            {item.quantity} cái
-                          </span>
-                              <span className="inline-flex items-center gap-1.5 bg-purple-50 text-purple-700 px-3 py-1.5 rounded-lg text-sm font-semibold border border-purple-200">
-                                <Calendar className="w-3.5 h-3.5" />
-                            {durationText}
-                          </span>
-                        </div>
-                            <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
-                              <Calendar className="w-4 h-4 text-emerald-600" />
-                              <span className="font-medium">
-                          {format(
-                            new Date(item.rentalStartDate!),
-                                  "dd/MM/yyyy HH:mm"
-                          )} →{" "}
-                                {format(new Date(item.rentalEndDate!), "dd/MM/yyyy HH:mm")}
-                              </span>
-                        </div>
-                            {/* View Product Detail Button */}
-                            {item.itemId && (
-                              <div className="pt-2">
-                                <Link
-                                  href={`/products/details?id=${item.itemId}`}
-                                  className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-emerald-600 text-white rounded-lg hover:from-blue-700 hover:to-emerald-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm font-semibold"
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                        <div className="flex-1 space-y-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h3 className="text-xl font-bold text-gray-800 line-clamp-2 mb-2 group-hover:text-emerald-700 transition-colors">
+                                {item.title}
+                              </h3>
+                              <p className="text-sm text-gray-500 line-clamp-2">
+                                {item.shortDescription}
+                              </p>
+                            </div>
+                            {!editingItems[item._id] ? (
+                              <button
+                                onClick={() => startEditing(item)}
+                                className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                                title="Chỉnh sửa"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                            ) : (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => saveItem(item)}
+                                  className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                  title="Lưu"
                                 >
-                                  <Eye className="w-4 h-4" />
-                                  <span>Xem chi tiết sản phẩm</span>
-                                  <ExternalLink className="w-3.5 h-3.5 opacity-80" />
-                                </Link>
+                                  <Save className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => cancelEditing(item._id)}
+                                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                  title="Hủy"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
                               </div>
                             )}
-                          </>
-                        ) : (
-                          <div className="space-y-3 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
-                            {/* Quantity Input */}
-                          <div>
-                              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                Số lượng <span className="text-red-500">*</span>
-                              </label>
-                              <input
-                                type="number"
-                                min="1"
-                                max={item.availableQuantity}
-                                value={editingItems[item._id].quantity}
-                                onChange={(e) => updateEditingField(item._id, "quantity", parseInt(e.target.value) || 1)}
-                                className={`w-full px-3 py-2 text-base border-2 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition ${
-                                  itemErrors[item._id]?.quantity
-                                    ? "border-red-300 bg-red-50"
-                                    : "border-gray-300 hover:border-gray-400"
-                                }`}
-                              />
-                              <p className="mt-1 text-xs text-gray-500">
-                                Số lượng có sẵn: {item.availableQuantity} sản phẩm
-                              </p>
-                              {itemErrors[item._id]?.quantity && (
-                                <p className="mt-1 text-xs text-red-600">{itemErrors[item._id].quantity}</p>
-                              )}
                           </div>
 
-                            {/* Date Inputs */}
-                            <div className="grid grid-cols-2 gap-3">
-                            <div>
+                          {!editingItems[item._id] ? (
+                            <>
+                              <div className="flex flex-wrap gap-2">
+                                <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-sm font-semibold border border-blue-200">
+                                  <Package className="w-3.5 h-3.5" />
+                                  {item.quantity} cái
+                                </span>
+                                <span className="inline-flex items-center gap-1.5 bg-purple-50 text-purple-700 px-3 py-1.5 rounded-lg text-sm font-semibold border border-purple-200">
+                                  <Calendar className="w-3.5 h-3.5" />
+                                  {durationText}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
+                                <Calendar className="w-4 h-4 text-emerald-600" />
+                                <span className="font-medium">
+                                  {format(
+                                    new Date(item.rentalStartDate!),
+                                    "dd/MM/yyyy HH:mm"
+                                  )} →{" "}
+                                  {format(new Date(item.rentalEndDate!), "dd/MM/yyyy HH:mm")}
+                                </span>
+                              </div>
+                              {/* View Product Detail Button */}
+                              {item.itemId && (
+                                <div className="pt-2">
+                                  <Link
+                                    href={`/products/details?id=${item.itemId}`}
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-emerald-600 text-white rounded-lg hover:from-blue-700 hover:to-emerald-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm font-semibold"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                    <span>Xem chi tiết sản phẩm</span>
+                                    <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+                                  </Link>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <div className="space-y-3 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
+                              {/* Quantity Input */}
+                              <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                  Ngày bắt đầu <span className="text-red-500">*</span>
+                                  Số lượng <span className="text-red-500">*</span>
                                 </label>
                                 <input
-                                  type="datetime-local"
-                                  value={editingItems[item._id].rentalStartDate}
-                                  onChange={(e) => updateEditingField(item._id, "rentalStartDate", e.target.value)}
-                                  min={getMinDateTime()}
-                                  className={`w-full px-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition ${
-                                    itemErrors[item._id]?.rentalStartDate
+                                  type="number"
+                                  min="1"
+                                  max={item.availableQuantity}
+                                  value={editingItems[item._id].quantity}
+                                  onChange={(e) => updateEditingField(item._id, "quantity", parseInt(e.target.value) || 1)}
+                                  className={`w-full px-3 py-2 text-base border-2 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition ${itemErrors[item._id]?.quantity
+                                    ? "border-red-300 bg-red-50"
+                                    : "border-gray-300 hover:border-gray-400"
+                                    }`}
+                                />
+                                <p className="mt-1 text-xs text-gray-500">
+                                  Số lượng có sẵn: {item.availableQuantity} sản phẩm
+                                </p>
+                                {itemErrors[item._id]?.quantity && (
+                                  <p className="mt-1 text-xs text-red-600">{itemErrors[item._id].quantity}</p>
+                                )}
+                              </div>
+
+                              {/* Date Inputs */}
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Ngày bắt đầu <span className="text-red-500">*</span>
+                                  </label>
+                                  <input
+                                    type="datetime-local"
+                                    value={editingItems[item._id].rentalStartDate}
+                                    onChange={(e) => updateEditingField(item._id, "rentalStartDate", e.target.value)}
+                                    min={getMinDateTime()}
+                                    className={`w-full px-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition ${itemErrors[item._id]?.rentalStartDate
                                       ? "border-red-300 bg-red-50"
                                       : "border-gray-300 hover:border-gray-400"
-                                  }`}
-                                />
-                                {itemErrors[item._id]?.rentalStartDate && (
-                                  <p className="mt-1 text-xs text-red-600">{itemErrors[item._id].rentalStartDate}</p>
-                                )}
-                            </div>
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                  Ngày kết thúc <span className="text-red-500">*</span>
-                                </label>
-                                <input
-                                  type="datetime-local"
-                                  value={editingItems[item._id].rentalEndDate}
-                                  onChange={(e) => updateEditingField(item._id, "rentalEndDate", e.target.value)}
-                                  min={editingItems[item._id].rentalStartDate || getMinDateTime()}
-                                  className={`w-full px-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition ${
-                                    itemErrors[item._id]?.rentalEndDate
+                                      }`}
+                                  />
+                                  {itemErrors[item._id]?.rentalStartDate && (
+                                    <p className="mt-1 text-xs text-red-600">{itemErrors[item._id].rentalStartDate}</p>
+                                  )}
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Ngày kết thúc <span className="text-red-500">*</span>
+                                  </label>
+                                  <input
+                                    type="datetime-local"
+                                    value={editingItems[item._id].rentalEndDate}
+                                    onChange={(e) => updateEditingField(item._id, "rentalEndDate", e.target.value)}
+                                    min={editingItems[item._id].rentalStartDate || getMinDateTime()}
+                                    className={`w-full px-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition ${itemErrors[item._id]?.rentalEndDate
                                       ? "border-red-300 bg-red-50"
                                       : "border-gray-300 hover:border-gray-400"
-                                  }`}
-                                />
-                                {itemErrors[item._id]?.rentalEndDate && (
-                                  <p className="mt-1 text-xs text-red-600">{itemErrors[item._id].rentalEndDate}</p>
-                                )}
+                                      }`}
+                                  />
+                                  {itemErrors[item._id]?.rentalEndDate && (
+                                    <p className="mt-1 text-xs text-red-600">{itemErrors[item._id].rentalEndDate}</p>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                        )}
-                        <div className="flex flex-col gap-3 pt-4 border-t border-gray-200 bg-gradient-to-r from-emerald-50/50 to-blue-50/50 -mx-6 px-6 pb-2 rounded-b-xl">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium text-gray-700">Giá thuê:</span>
-                            <p className="text-2xl font-bold text-emerald-600">
-                              {itemTotal.toLocaleString("vi-VN")}₫
-                            </p>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium text-gray-700">Tiền cọc:</span>
-                            <p className="text-xl font-bold text-amber-600">
-                              {itemDeposit.toLocaleString("vi-VN")}₫
-                            </p>
+                          )}
+                          <div className="flex flex-col gap-3 pt-4 border-t border-gray-200 bg-gradient-to-r from-emerald-50/50 to-blue-50/50 -mx-6 px-6 pb-2 rounded-b-xl">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium text-gray-700">Giá thuê:</span>
+                              <p className="text-2xl font-bold text-emerald-600">
+                                {itemTotal.toLocaleString("vi-VN")}₫
+                              </p>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium text-gray-700">Tiền cọc:</span>
+                              <p className="text-xl font-bold text-amber-600">
+                                {itemDeposit.toLocaleString("vi-VN")}₫
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Pagination */}
-              {cartItems.length > itemsPerPage && (
-                <div className="mt-6 flex items-center justify-center gap-2">
-                  <button
-                    onClick={() => goToPage(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    className={`flex items-center gap-1 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${currentPage === 1
-                        ? "text-gray-400 border-gray-200 cursor-not-allowed bg-gray-50"
-                        : "text-gray-700 border-gray-300 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
-                      }`}
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                    Trước
-                  </button>
-
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => goToPage(pageNum)}
-                        className={`w-10 h-10 flex items-center justify-center rounded-lg border text-sm font-medium transition-all ${currentPage === pageNum
-                            ? "bg-emerald-600 text-white border-emerald-600 shadow-md"
-                            : "border-gray-300 text-gray-700 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
-                          }`}
-                      >
-                        {pageNum}
-                      </button>
                     );
                   })}
+                </div>
 
-                  <button
-                    onClick={() => goToPage(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    className={`flex items-center gap-1 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${currentPage === totalPages
+                {/* Pagination */}
+                {cartItems.length > itemsPerPage && (
+                  <div className="mt-6 flex items-center justify-center gap-2">
+                    <button
+                      onClick={() => goToPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className={`flex items-center gap-1 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${currentPage === 1
                         ? "text-gray-400 border-gray-200 cursor-not-allowed bg-gray-50"
                         : "text-gray-700 border-gray-300 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
-                      }`}
-                  >
-                    Sau
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
+                        }`}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      Trước
+                    </button>
 
-              {/* Pagination Info */}
-              {cartItems.length > itemsPerPage && (
-                <div className="mt-3 text-center text-sm text-gray-600">
-                  Trang {currentPage} / {totalPages} ({cartItems.length} sản phẩm)
-                </div>
-              )}
-            </div>
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
 
-            {/* Địa chỉ */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 hover:shadow-md transition-shadow">
-              <h2 className="font-bold text-xl mb-6 flex items-center gap-3">
-                <div className="p-2 bg-red-100 rounded-lg" />
-                <span>Địa chỉ nhận hàng</span>
-              </h2>
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => goToPage(pageNum)}
+                          className={`w-10 h-10 flex items-center justify-center rounded-lg border text-sm font-medium transition-all ${currentPage === pageNum
+                            ? "bg-emerald-600 text-white border-emerald-600 shadow-md"
+                            : "border-gray-300 text-gray-700 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
+                            }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
 
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-gray-700">
-                    Họ và tên <span className="text-red-500">*</span>
-                  </label>
-                <input
-                    placeholder="Nhập họ và tên"
-                    className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
-                  value={shipping.fullName}
-                  onChange={(e) =>
-                    setShipping({ ...shipping, fullName: e.target.value })
-                  }
-                />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-gray-700">
-                    Số điện thoại <span className="text-red-500">*</span>
-                  </label>
-                <input
-                    placeholder="Nhập số điện thoại"
-                    className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
-                  value={shipping.phone}
-                  onChange={(e) =>
-                    setShipping({ ...shipping, phone: e.target.value })
-                  }
-                />
-                </div>
+                    <button
+                      onClick={() => goToPage(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className={`flex items-center gap-1 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${currentPage === totalPages
+                        ? "text-gray-400 border-gray-200 cursor-not-allowed bg-gray-50"
+                        : "text-gray-700 border-gray-300 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
+                        }`}
+                    >
+                      Sau
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Pagination Info */}
+                {cartItems.length > itemsPerPage && (
+                  <div className="mt-3 text-center text-sm text-gray-600">
+                    Trang {currentPage} / {totalPages} ({cartItems.length} sản phẩm)
+                  </div>
+                )}
               </div>
 
-              {/* Address selector */}
+              {/* Địa chỉ */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 hover:shadow-md transition-shadow">
+                <h2 className="font-bold text-xl mb-6 flex items-center gap-3">
+                  <div className="p-2 bg-red-100 rounded-lg" />
+                  <span>Địa chỉ nhận hàng</span>
+                </h2>
+
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-gray-700">
+                      Họ và tên <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      placeholder="Nhập họ và tên"
+                      className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
+                      value={shipping.fullName}
+                      onChange={(e) =>
+                        setShipping({ ...shipping, fullName: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-gray-700">
+                      Số điện thoại <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      placeholder="Nhập số điện thoại"
+                      className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
+                      value={shipping.phone}
+                      onChange={(e) =>
+                        setShipping({ ...shipping, phone: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+
+                {/* Address selector */}
                 <div className="mt-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="block text-sm font-semibold text-gray-700">
+                      Chọn địa chỉ đã lưu
+                    </label>
+                    <button
+                      onClick={() => {
+                        setIsEditingAddress(true);
+                        setEditingAddressId(null);
+                        setNewAddress({ Address: "", City: "", District: "", IsDefault: false });
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-semibold"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Thêm mới
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    {userAddresses.map((address) => (
+                      <div
+                        key={address._id}
+                        className={`relative p-4 border-2 rounded-xl transition-all cursor-pointer ${selectedAddressId === address._id
+                          ? "border-emerald-500 bg-emerald-50/30"
+                          : "border-gray-200 hover:border-gray-300 bg-white"
+                          }`}
+                        onClick={() => handleAddressSelect(address._id)}
+                      >
+                        {/* Radio button and default badge */}
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="flex items-center gap-2">
+                            {selectedAddressId === address._id ? (
+                              <div className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-600 border-2 border-emerald-600 flex-shrink-0 cursor-pointer">
+                                <Check className="w-3.5 h-3.5 text-white" />
+                              </div>
+                            ) : (
+                              <div className="w-5 h-5 rounded-full border-2 border-gray-300 flex-shrink-0 cursor-pointer"></div>
+                            )}
+                          </div>
+                          {address.IsDefault && (
+                            <span className="inline-flex items-center px-2.5 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold">
+                              Mặc định
+                            </span>
+                          )}
+                          <div className="flex-1"></div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                startEditingAddress(address._id);
+                                setIsEditingAddress(true);
+                              }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
+                              title="Sửa địa chỉ"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                              Sửa
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteAddress(address._id);
+                              }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-200"
+                              title="Xóa địa chỉ"
+                              disabled={addressLoading}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              Xóa
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Address fields in form-like style */}
+                        <div className="space-y-3">
+                          <div className="space-y-1.5">
+                            <label className="block text-sm font-semibold text-gray-700">
+                              Địa chỉ (số nhà, đường...) <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={address.Address}
+                              readOnly
+                              className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-lg bg-gray-50 cursor-pointer"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                              <label className="block text-sm font-semibold text-gray-700">
+                                Phường/Xã <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={address.District}
+                                readOnly
+                                className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-lg bg-gray-50 cursor-pointer"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="block text-sm font-semibold text-gray-700">
+                                Tỉnh/Thành phố <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={address.City}
+                                readOnly
+                                className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-lg bg-gray-50 cursor-pointer"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
                 <AddressSelector
                   selectedAddressId={selectedAddressId}
                   onSelect={(addr) => {
                     setSelectedAddressId(addr._id);
                     applyAddressToShipping(addr);
                   }}
-                            />
-                          </div>
-                          
+                />
+              </div>
+
 
               {/* No Address Message */}
               {userAddresses.length === 0 && !isEditingAddress && !editingAddressId && (
@@ -1531,7 +1892,7 @@ const handleSubmit = async () => {
                           )}
                         </button>
                       </div>
-                <input
+                      <input
                         type="text"
                         placeholder="Nhập địa chỉ chi tiết"
                         value={newAddress.Address}
@@ -1574,7 +1935,7 @@ const handleSubmit = async () => {
                           const isOnlyDefault = address?.IsDefault && defaultAddresses.length === 0;
                           const isDisabled = isOnlyDefault;
                           const isChecked = isOnlyDefault ? true : newAddress.IsDefault;
-                          
+
                           return (
                             <>
                               <input
@@ -1642,49 +2003,49 @@ const handleSubmit = async () => {
               )}
 
 
-             
+
               {!isEditingAddress && !editingAddressId && !selectedAddressId && (
                 <div className="mt-6 space-y-4">
-                <div className="space-y-2 sm:col-span-2">
-                  <label className="text-sm font-semibold text-gray-700">
-                    Địa chỉ (số nhà, đường...) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    placeholder="Nhập địa chỉ chi tiết"
-                    className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
-                  value={shipping.street}
-                  onChange={(e) =>
-                    setShipping({ ...shipping, street: e.target.value })
-                  }
-                />
+                  <div className="space-y-2 sm:col-span-2">
+                    <label className="text-sm font-semibold text-gray-700">
+                      Địa chỉ (số nhà, đường...) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      placeholder="Nhập địa chỉ chi tiết"
+                      className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
+                      value={shipping.street}
+                      onChange={(e) =>
+                        setShipping({ ...shipping, street: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-gray-700">
+                      Phường/Xã
+                    </label>
+                    <input
+                      placeholder="Nhập phường/xã"
+                      className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
+                      value={shipping.ward}
+                      onChange={(e) =>
+                        setShipping({ ...shipping, ward: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-gray-700">
+                      Tỉnh/Thành phố <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      placeholder="Nhập tỉnh/thành phố"
+                      className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
+                      value={shipping.province}
+                      onChange={(e) =>
+                        setShipping({ ...shipping, province: e.target.value })
+                      }
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-gray-700">
-                    Phường/Xã
-                  </label>
-                <input
-                    placeholder="Nhập phường/xã"
-                    className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
-                  value={shipping.ward}
-                  onChange={(e) =>
-                    setShipping({ ...shipping, ward: e.target.value })
-                  }
-                />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-gray-700">
-                    Tỉnh/Thành phố <span className="text-red-500">*</span>
-                  </label>
-                <input
-                    placeholder="Nhập tỉnh/thành phố"
-                    className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
-                  value={shipping.province}
-                  onChange={(e) =>
-                    setShipping({ ...shipping, province: e.target.value })
-                  }
-                />
-              </div>
-              </div>
               )}
               <div className="mt-6">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -1709,7 +2070,7 @@ const handleSubmit = async () => {
                 </div>
                 <span>Tóm tắt thanh toán</span>
               </h2>
-              
+
               {/* Discount Code Section */}
               <div className="mb-4 bg-white/10 rounded-lg p-3 backdrop-blur-sm border border-white/20 relative" style={{ zIndex: showDiscountList ? 50 : 1, overflow: showDiscountList ? 'visible' : 'visible' }}>
                 <label className="block text-xs font-semibold text-white mb-1.5">
@@ -1727,8 +2088,8 @@ const handleSubmit = async () => {
                             <span className="text-[9px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded">Công khai</span>
                           </div>
                           <p className="text-[10px] text-blue-100 mt-0.5">
-                            {publicDiscount.type === "percent" 
-                              ? `Giảm ${publicDiscount.value}%` 
+                            {publicDiscount.type === "percent"
+                              ? `Giảm ${publicDiscount.value}%`
                               : `Giảm ${publicDiscount.value.toLocaleString("vi-VN")}₫`}
                           </p>
                         </div>
@@ -1751,8 +2112,8 @@ const handleSubmit = async () => {
                             <span className="text-[9px] bg-purple-100 text-purple-700 px-1 py-0.5 rounded">Riêng tư</span>
                           </div>
                           <p className="text-[10px] text-purple-100 mt-0.5">
-                            {privateDiscount.type === "percent" 
-                              ? `Giảm ${privateDiscount.value}%` 
+                            {privateDiscount.type === "percent"
+                              ? `Giảm ${privateDiscount.value}%`
                               : `Giảm ${privateDiscount.value.toLocaleString("vi-VN")}₫`}
                           </p>
                         </div>
@@ -2031,8 +2392,8 @@ const handleSubmit = async () => {
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-semibold text-white">Tổng cộng</span>
                   <span className="text-3xl font-bold text-yellow-200">
-                      {grandTotal.toLocaleString("vi-VN")}₫
-                    </span>
+                    {grandTotal.toLocaleString("vi-VN")}₫
+                  </span>
                 </div>
               </div>
               <button
@@ -2060,8 +2421,103 @@ const handleSubmit = async () => {
           </div>
         </div>
       </div>
+     
+      {/* Confirm Popup */}
+    {
+      confirmPopup.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() =>
+              setConfirmPopup({
+                isOpen: false,
+                title: "",
+                message: "",
+                onConfirm: () => { },
+              })
+            }
+          />
 
-      {/* Confirm Popup removed – handled inside AddressSelector */}
-    </div>
+          {/* Popup */}
+          <div className="relative w-full max-w-md mx-auto bg-white rounded-2xl shadow-2xl border-2 border-emerald-200 transform transition-all duration-300 scale-100 opacity-100">
+            {/* Content */}
+            <div className="p-6 text-center">
+              {/* Icon */}
+              <div className="flex justify-center mb-4">
+                <AlertCircle className="w-12 h-12 text-emerald-600" />
+              </div>
+
+              {/* Title */}
+              <h3 className="text-xl font-bold mb-3 text-gray-900">
+                {confirmPopup.title}
+              </h3>
+
+              {/* Message */}
+              <p className="text-base mb-6 leading-relaxed text-gray-700">
+                {confirmPopup.message}
+              </p>
+
+              {/* Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() =>
+                    setConfirmPopup({
+                      isOpen: false,
+                      title: "",
+                      message: "",
+                      onConfirm: () => { },
+                    })
+                  }
+                  className="flex-1 py-2.5 px-5 text-base font-semibold rounded-lg transition-all duration-200 hover:scale-105 border-2 border-gray-300 text-gray-700 hover:bg-gray-50 bg-white"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={() => {
+                    confirmPopup.onConfirm();
+                    setConfirmPopup({
+                      isOpen: false,
+                      title: "",
+                      message: "",
+                      onConfirm: () => { },
+                    });
+                  }}
+                  className="flex-1 py-2.5 px-5 text-base font-semibold rounded-lg transition-all duration-200 hover:scale-105 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md"
+                >
+                  Xác nhận
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {modal.open && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center">
+            <h3 className="font-bold text-lg mb-4 text-emerald-700">{modal.title}</h3>
+            <p className="text-gray-800 mb-6">{modal.message}</p>
+            <button className="px-4 py-2 bg-emerald-600 text-white rounded-xl" onClick={() => setModal({ ...modal, open: false })}>
+              Đóng
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal thông báo lỗi ví không đủ tiền */}
+      <PopupModal
+        isOpen={isErrorModalOpen}
+        onClose={() => setIsErrorModalOpen(false)}
+        type="error"
+        title={errorModalTitle}
+        message={errorModalMessage}
+        buttonText="Đã hiểu"
+        secondaryButtonText="Đến ví"
+        onSecondaryButtonClick={() => {
+          setIsErrorModalOpen(false);
+          router.push("/wallet");
+        }}
+      />
+    </>
   );
 }
