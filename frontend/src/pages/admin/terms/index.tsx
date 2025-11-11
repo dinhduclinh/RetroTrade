@@ -1,4 +1,3 @@
-// File: src/pages/admin/terms/index.tsx (updated with handleDelete local filter)
 import { useState, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
 import { TermsManagementTable } from "@/components/ui/admin/terms/terms-management-table";
@@ -10,7 +9,7 @@ import { Terms } from "@/services/terms/terms.api";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/common/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/common/card";
-import { History } from "lucide-react";
+import { History, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/common/badge";
 
 export default function AdminTermsPage() {
@@ -48,7 +47,6 @@ export default function AdminTermsPage() {
   };
 
   const handleDelete = (id: string) => {
-    // FIXED: Local filter after successful delete (API called in modal)
     setTermsList((prev) => prev.filter((t) => t._id !== id));
   };
 
@@ -102,7 +100,13 @@ export default function AdminTermsPage() {
               <History className="w-4 h-4" />
               Xem Lịch Sử
             </Button>
-            <Button onClick={() => setIsEditModalOpen(true)}>Tạo Mới</Button>
+            <Button
+              className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 flex items-center gap-2"
+              onClick={() => setIsEditModalOpen(true)}
+            >
+              <Plus className="w-4 h-4" />
+              Tạo Mới
+            </Button>
           </div>
         </CardHeader>
       </Card>

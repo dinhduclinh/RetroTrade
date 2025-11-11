@@ -8,6 +8,22 @@ import {
   Clock,
   AlertCircle,
   ChevronRight,
+  User,
+  Key,
+  Lock,
+  Mail,
+  Phone,
+  MapPin,
+  CreditCard,
+  DollarSign,
+  Users,
+  Globe,
+  Database,
+  Settings,
+  Info,
+  HelpCircle,
+  Zap,
+  Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/common/button";
 import { Badge } from "@/components/ui/common/badge";
@@ -24,6 +40,22 @@ const IconMap = {
   Clock,
   AlertCircle,
   CheckCircle,
+  User,
+  Key,
+  Lock,
+  Mail,
+  Phone,
+  MapPin,
+  CreditCard,
+  DollarSign,
+  Users,
+  Globe,
+  Database,
+  Settings,
+  Info,
+  HelpCircle,
+  Zap,
+  Star,
 };
 
 export default function TermsPage({ initialTerms }: TermsPageProps) {
@@ -170,8 +202,8 @@ export default function TermsPage({ initialTerms }: TermsPageProps) {
         {/* Main Content */}
         <div className="space-y-6">
           {sections.map((section, index) => {
-            const Icon =
-              IconMap[section.icon as keyof typeof IconMap] || FileText; 
+            const IconComponent =
+              IconMap[section.icon as keyof typeof IconMap] || FileText;
             return (
               <div
                 key={index}
@@ -194,7 +226,7 @@ export default function TermsPage({ initialTerms }: TermsPageProps) {
                             : "bg-white group-hover:bg-gradient-to-br group-hover:from-blue-600 group-hover:to-indigo-600"
                         }`}
                       >
-                        <Icon
+                        <IconComponent
                           className={`w-7 h-7 transition-colors duration-500 ${
                             activeSection === index
                               ? "text-white"

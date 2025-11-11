@@ -15,7 +15,29 @@ const termsSchema = new mongoose.Schema(
       {
         icon: {
           type: String,
-          enum: ["FileText", "Shield", "Clock", "AlertCircle", "CheckCircle"], // Map với lucide icons
+          enum: [
+            "FileText",
+            "Shield",
+            "Clock",
+            "AlertCircle",
+            "CheckCircle",
+            "User",
+            "Key",
+            "Lock",
+            "Mail",
+            "Phone",
+            "MapPin",
+            "CreditCard",
+            "DollarSign",
+            "Users",
+            "Globe",
+            "Database",
+            "Settings",
+            "Info",
+            "HelpCircle",
+            "Zap",
+            "Star",
+          ], // Map với lucide icons
           required: true,
         },
         title: {

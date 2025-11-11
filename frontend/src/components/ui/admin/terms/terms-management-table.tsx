@@ -1,5 +1,3 @@
-// File: src/components/ui/admin/terms/terms-management-table.tsx
-// FIXED: Simplified for active view only (no tools, no pagination, no delete/edit for history)
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/common/button";
@@ -19,8 +17,8 @@ import { Terms } from "@/services/terms/terms.api";
 interface TermsManagementTableProps {
   onEdit: (terms: Terms) => void;
   onView: (terms: Terms) => void;
-  data?: Terms[]; // Only active terms
-  isHistoryView?: boolean; // Ignored now, always simple view
+  data?: Terms[];
+  isHistoryView?: boolean; 
 }
 
 export function TermsManagementTable({

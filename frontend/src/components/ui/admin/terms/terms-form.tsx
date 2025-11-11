@@ -1,24 +1,59 @@
-// File: src/components/ui/admin/terms/terms-form.tsx
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/common/button";
 import { Input } from "@/components/ui/common/input";
+import { Textarea } from "@/components/ui/common/textarea";
 import {
   Card,
   CardHeader,
   CardTitle,
   CardContent,
 } from "@/components/ui/common/card";
-import { Save, X, FileText, Trash2 } from "lucide-react";
+import {
+  Save,
+  X,
+  FileText,
+  Plus,
+  Trash2,
+  Calendar,
+  AlertCircle,
+  Shield,
+  Clock,
+  CheckCircle,
+  User,
+  Key,
+  Lock,
+  Mail,
+  Phone,
+  MapPin,
+  CreditCard,
+  DollarSign,
+  Users,
+  Globe,
+  Database,
+  Settings,
+  Info,
+  HelpCircle,
+  Zap,
+  Star,
+  ChevronDown,
+} from "lucide-react";
 import { createTerms, updateTerms } from "@/services/terms/terms.api";
 import { toast } from "sonner";
 import { Terms, TermsSection } from "@/services/terms/terms.api";
+import type { LucideIcon } from "lucide-react";
 
 interface TermsFormProps {
   isOpen: boolean;
   terms?: Terms | null;
   onClose: () => void;
   onSuccess: () => void;
+}
+
+interface IconOption {
+  value: string;
+  label: string;
+  icon: LucideIcon;
 }
 
 const containerVariants = {
@@ -48,6 +83,30 @@ const itemVariants = {
   },
 } as const;
 
+const availableIcons: IconOption[] = [
+  { value: "FileText", label: "Tài liệu", icon: FileText },
+  { value: "Shield", label: "Bảo mật", icon: Shield },
+  { value: "Clock", label: "Thời gian", icon: Clock },
+  { value: "AlertCircle", label: "Cảnh báo", icon: AlertCircle },
+  { value: "CheckCircle", label: "Xác nhận", icon: CheckCircle },
+  { value: "User", label: "Người dùng", icon: User },
+  { value: "Key", label: "Khóa", icon: Key },
+  { value: "Lock", label: "Khóa", icon: Lock },
+  { value: "Mail", label: "Email", icon: Mail },
+  { value: "Phone", label: "Điện thoại", icon: Phone },
+  { value: "MapPin", label: "Vị trí", icon: MapPin },
+  { value: "CreditCard", label: "Thẻ tín dụng", icon: CreditCard },
+  { value: "DollarSign", label: "Tiền tệ", icon: DollarSign },
+  { value: "Users", label: "Người dùng nhóm", icon: Users },
+  { value: "Globe", label: "Toàn cầu", icon: Globe },
+  { value: "Database", label: "Cơ sở dữ liệu", icon: Database },
+  { value: "Settings", label: "Cài đặt", icon: Settings },
+  { value: "Info", label: "Thông tin", icon: Info },
+  { value: "HelpCircle", label: "Trợ giúp", icon: HelpCircle },
+  { value: "Zap", label: "Tia sét", icon: Zap },
+  { value: "Star", label: "Ngôi sao", icon: Star },
+];
+
 export function TermsForm({
   isOpen,
   terms,
@@ -63,8 +122,10 @@ export function TermsForm({
     changesSummary: "",
   });
   const [loading, setLoading] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<
+    Record<string, string>
+  >({});
 
-  // FIXED: Format effectiveDate properly for date input (YYYY-MM-DD)
   const formatDateForInput = (dateString: string | undefined): string => {
     if (!dateString) return new Date().toISOString().split("T")[0];
     try {
@@ -86,11 +147,47 @@ export function TermsForm({
       changesSummary: terms?.changesSummary || "",
     };
     setFormData(initialData);
+    setValidationErrors({});
   }, [terms]);
 
   if (!isOpen) {
     return null;
   }
+
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    if (!formData.title.trim()) {
+      errors.title = "Tiêu đề là bắt buộc";
+    }
+
+    if (!isEditing && !formData.version.trim()) {
+      errors.version = "Phiên bản là bắt buộc khi tạo mới";
+    }
+
+    if (!formData.effectiveDate) {
+      errors.effectiveDate = "Ngày hiệu lực là bắt buộc";
+    }
+
+    let hasSectionErrors = false;
+    formData.sections.forEach((s, index) => {
+      if (!s.title.trim()) {
+        errors[`section-${index}-title`] = "Tiêu đề phần là bắt buộc";
+        hasSectionErrors = true;
+      }
+      if (s.content.some((c) => !c.trim())) {
+        errors[`section-${index}-content`] = "Nội dung phần không được rỗng";
+        hasSectionErrors = true;
+      }
+    });
+
+    if (hasSectionErrors) {
+      errors.sections = "Vui lòng kiểm tra các phần điều khoản";
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const addSection = () => {
     setFormData({
@@ -103,12 +200,14 @@ export function TermsForm({
   };
 
   const removeSection = (index: number) => {
+    if (formData.sections.length <= 1) {
+      toast.warning("Phải có ít nhất một phần");
+      return;
+    }
     const newSections = formData.sections.filter((_, i) => i !== index);
     setFormData({
       ...formData,
-      sections: newSections.length
-        ? newSections
-        : [{ icon: "FileText", title: "", content: [""] }],
+      sections: newSections,
     });
   };
 
@@ -131,8 +230,9 @@ export function TermsForm({
   const removeContentItem = (sectionIndex: number, contentIndex: number) => {
     const newSections = [...formData.sections];
     newSections[sectionIndex].content.splice(contentIndex, 1);
-    if (newSections[sectionIndex].content.length === 0)
+    if (newSections[sectionIndex].content.length === 0) {
       newSections[sectionIndex].content.push("");
+    }
     setFormData({ ...formData, sections: newSections });
   };
 
@@ -148,19 +248,8 @@ export function TermsForm({
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (
-      !formData.title ||
-      formData.sections.some(
-        (s) => !s.title || s.content.some((c) => !c.trim())
-      )
-    ) {
-      toast.error("Vui lòng điền đầy đủ thông tin bắt buộc");
-      return;
-    }
-    if (!isEditing && !formData.version) {
-      toast.error("Vui lòng nhập phiên bản");
-      return;
-    }
+    if (!validateForm()) return;
+
     try {
       setLoading(true);
       let response: Response;
@@ -202,6 +291,54 @@ export function TermsForm({
     if (e.target === e.currentTarget) {
       onClose();
     }
+  };
+
+  const IconSelect = ({
+    value,
+    onChange,
+  }: {
+    value: string;
+    onChange: (val: string) => void;
+  }) => {
+    const [open, setOpen] = useState(false);
+    const selectedOption = availableIcons.find((i) => i.value === value) || availableIcons[0];
+    const IconComp = selectedOption.icon;
+    return (
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="border-gray-300 rounded px-3 py-2 w-32 text-sm flex items-center justify-between bg-white"
+        >
+          <div className="flex items-center gap-2">
+            <IconComp className="w-4 h-4" />
+            <span className="truncate">{selectedOption.label}</span>
+          </div>
+          <ChevronDown className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+        {open && (
+          <div className="absolute top-full left-0 z-10 bg-white border rounded shadow-lg w-48 max-h-60 overflow-y-auto">
+            {availableIcons.map((iconOption) => {
+              const OptionIcon = iconOption.icon;
+              return (
+                <button
+                  key={iconOption.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(iconOption.value);
+                    setOpen(false);
+                  }}
+                  className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center gap-2"
+                >
+                  <OptionIcon className="w-4 h-4 flex-shrink-0" />
+                  <span className="truncate">{iconOption.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -278,10 +415,20 @@ export function TermsForm({
                       onChange={(e) =>
                         setFormData({ ...formData, version: e.target.value })
                       }
-                      className="border-2 border-gray-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 rounded-xl transition-all duration-200 text-base px-4 py-3"
+                      className={`border-2 rounded-xl transition-all duration-200 text-base px-4 py-3 ${
+                        validationErrors.version
+                          ? "border-red-500 focus:border-red-500 focus:ring-red-100"
+                          : "border-gray-200 focus:border-indigo-500 focus:ring-indigo-100"
+                      }`}
                       placeholder="Nhập phiên bản (e.g., v1.0)"
                       required
                     />
+                    {validationErrors.version && (
+                      <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-4 h-4" />
+                        {validationErrors.version}
+                      </p>
+                    )}
                   </motion.div>
                 )}
                 <motion.div variants={itemVariants}>
@@ -294,14 +441,24 @@ export function TermsForm({
                     onChange={(e) =>
                       setFormData({ ...formData, title: e.target.value })
                     }
-                    className="border-2 border-gray-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 rounded-xl transition-all duration-200 text-base px-4 py-3"
+                    className={`border-2 rounded-xl transition-all duration-200 text-base px-4 py-3 ${
+                      validationErrors.title
+                        ? "border-red-500 focus:border-red-500 focus:ring-red-100"
+                        : "border-gray-200 focus:border-indigo-500 focus:ring-indigo-100"
+                    }`}
                     placeholder="Nhập tiêu đề điều khoản"
                     required
                   />
+                  {validationErrors.title && (
+                    <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-4 h-4" />
+                      {validationErrors.title}
+                    </p>
+                  )}
                 </motion.div>
                 <motion.div variants={itemVariants}>
                   <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-indigo-600" />
+                    <Calendar className="w-4 h-4 text-indigo-600" />
                     Ngày Hiệu Lực <span className="text-red-500">*</span>
                   </label>
                   <Input
@@ -313,16 +470,26 @@ export function TermsForm({
                         effectiveDate: e.target.value,
                       })
                     }
-                    className="border-2 border-gray-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 rounded-xl transition-all duration-200 text-base px-4 py-3"
+                    className={`border-2 rounded-xl transition-all duration-200 text-base px-4 py-3 ${
+                      validationErrors.effectiveDate
+                        ? "border-red-500 focus:border-red-500 focus:ring-red-100"
+                        : "border-gray-200 focus:border-indigo-500 focus:ring-indigo-100"
+                    }`}
                     required
                   />
+                  {validationErrors.effectiveDate && (
+                    <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-4 h-4" />
+                      {validationErrors.effectiveDate}
+                    </p>
+                  )}
                 </motion.div>
                 <motion.div variants={itemVariants}>
                   <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                     <FileText className="w-4 h-4 text-indigo-600" />
-                    Tóm Tắt Thay Đổi
+                    Tóm Tắt Thay Đổi (tùy chọn)
                   </label>
-                  <Input
+                  <Textarea
                     value={formData.changesSummary}
                     onChange={(e) =>
                       setFormData({
@@ -330,8 +497,9 @@ export function TermsForm({
                         changesSummary: e.target.value,
                       })
                     }
-                    className="border-2 border-gray-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 rounded-xl transition-all duration-200 text-base px-4 py-3"
-                    placeholder="Mô tả các thay đổi (tùy chọn)"
+                    className="border-2 border-gray-200 focus:border-indigo-500 focus:ring-indigo-100 rounded-xl transition-all duration-200 text-base px-4 py-3 min-h-[100px]"
+                    placeholder="Mô tả ngắn gọn các thay đổi (nếu có)"
+                    rows={3}
                   />
                 </motion.div>
                 <motion.div variants={itemVariants}>
@@ -339,40 +507,40 @@ export function TermsForm({
                     <FileText className="w-4 h-4 text-indigo-600" />
                     Các Phần Điều Khoản <span className="text-red-500">*</span>
                   </label>
+                  {validationErrors.sections && (
+                    <p className="text-sm text-red-600 mb-2 flex items-center gap-1">
+                      <AlertCircle className="w-4 h-4" />
+                      {validationErrors.sections}
+                    </p>
+                  )}
                   {formData.sections.map((section, sectionIndex) => (
                     <div
                       key={sectionIndex}
-                      className="border border-gray-200 rounded-xl p-4 mb-4 bg-gray-50"
+                      className="border border-gray-200 rounded-xl p-4 mb-4 bg-gray-50 hover:bg-gray-50 transition-colors"
                     >
-                      <div className="flex gap-2 mb-3">
-                        <select
+                      <div className="flex gap-2 mb-3 items-center">
+                        <IconSelect
                           value={section.icon}
-                          onChange={(e) =>
-                            updateSection(sectionIndex, "icon", e.target.value)
+                          onChange={(val) =>
+                            updateSection(sectionIndex, "icon", val)
                           }
-                          className="border-gray-300 rounded px-3 py-2 w-32"
-                        >
-                          <option value="FileText">FileText</option>
-                          <option value="Shield">Shield</option>
-                          <option value="Clock">Clock</option>
-                          <option value="AlertCircle">AlertCircle</option>
-                          <option value="CheckCircle">CheckCircle</option>
-                        </select>
+                        />
                         <Input
                           value={section.title}
                           onChange={(e) =>
                             updateSection(sectionIndex, "title", e.target.value)
                           }
-                          placeholder="Tiêu đề phần"
-                          className="flex-1"
+                          placeholder="Tiêu đề phần (e.g., Quyền và Trách nhiệm)"
+                          className="flex-1 text-sm"
                           required
                         />
                         {formData.sections.length > 1 && (
                           <Button
                             type="button"
-                            variant="destructive"
+                            variant="ghost"
                             size="sm"
                             onClick={() => removeSection(sectionIndex)}
+                            className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -389,17 +557,20 @@ export function TermsForm({
                                 e.target.value
                               )
                             }
-                            placeholder={`Bullet ${contentIndex + 1}`}
+                            placeholder={`Nội dung bullet ${
+                              contentIndex + 1
+                            } (e.g., • Người dùng phải... )`}
                             className="flex-1 text-sm"
                             required
                           />
                           <Button
                             type="button"
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
                             onClick={() =>
                               removeContentItem(sectionIndex, contentIndex)
                             }
+                            className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
                           >
                             Xóa
                           </Button>
@@ -410,8 +581,10 @@ export function TermsForm({
                         variant="ghost"
                         size="sm"
                         onClick={() => addContentItem(sectionIndex)}
+                        className="text-indigo-600 hover:text-indigo-700 mt-2"
                       >
-                        + Thêm bullet
+                        <Plus className="w-4 h-4 mr-1" />
+                        Thêm bullet
                       </Button>
                     </div>
                   ))}
@@ -419,9 +592,10 @@ export function TermsForm({
                     type="button"
                     variant="outline"
                     onClick={addSection}
-                    className="mt-2"
+                    className="mt-2 flex items-center gap-2"
                   >
-                    + Thêm phần mới
+                    <Plus className="w-4 h-4" />
+                    Thêm phần mới
                   </Button>
                 </motion.div>
                 <motion.div
@@ -439,7 +613,7 @@ export function TermsForm({
                   <Button
                     type="submit"
                     disabled={loading}
-                    className="px-8 py-3 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden"
+                    className="px-8 py-3 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden disabled:opacity-50"
                   >
                     {loading ? (
                       <span className="flex items-center gap-2">

@@ -1,7 +1,6 @@
-// File: controller/terms/terms.controller.js (FIXED: Hard delete for inactive terms to ensure removal)
-const Terms = require("../../models/Terms.model"); // Adjust path
+const Terms = require("../../models/Terms.model"); 
 
-// Public: Get active terms (no default creation)
+// Public: Get active terms 
 exports.getActiveTerms = async (req, res) => {
   try {
     const terms = await Terms.findOne({ isActive: true })
@@ -75,9 +74,6 @@ exports.createTerms = async (req, res) => {
 
     await newTerms.save();
 
-    // Optional: Log audit
-    // await AuditLogs.create({ tableName: 'Terms', primaryKeyValue: newTerms._id, operation: 'CREATE', changedByUserId: req.user._id });
-
     res.status(201).json({ success: true, data: newTerms });
   } catch (error) {
     console.error("Error in createTerms:", error);
@@ -87,7 +83,7 @@ exports.createTerms = async (req, res) => {
   }
 };
 
-// Admin: Update (create new version)
+// Admin: Update 
 exports.updateTerms = async (req, res) => {
   try {
     if (!req.user)
@@ -115,9 +111,6 @@ exports.updateTerms = async (req, res) => {
 
     await newTerms.save();
 
-    // Optional: Log audit
-    // await AuditLogs.create({ ... });
-
     res.status(200).json({ success: true, data: newTerms });
   } catch (error) {
     console.error("Error in updateTerms:", error);
@@ -127,7 +120,7 @@ exports.updateTerms = async (req, res) => {
   }
 };
 
-// Admin: Delete (hard delete for inactive terms)
+// Admin: Delete 
 exports.deleteTerms = async (req, res) => {
   try {
     if (!req.user)
@@ -145,7 +138,6 @@ exports.deleteTerms = async (req, res) => {
         .status(400)
         .json({ success: false, message: "Không xóa active" });
 
-    // FIXED: Hard delete for inactive terms
     await Terms.findByIdAndDelete(id);
 
     res.status(200).json({ success: true, message: "Xóa thành công" });

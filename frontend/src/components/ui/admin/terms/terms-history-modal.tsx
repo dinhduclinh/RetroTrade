@@ -1,4 +1,3 @@
-// File: src/components/ui/admin/terms/terms-history-modal.tsx (fixed ESLint prefer-const)
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {

@@ -84,12 +84,12 @@ export function TermsViewModal({ terms, onClose }: TermsViewModalProps) {
                   {terms.isActive ? "Phiên bản hiện tại" : "Phiên bản lưu trữ"}
                 </Badge>
               </div>
-              
+
               {/* Preview sections giống public UI */}
               <div className="space-y-6">
                 {terms.sections?.map((section, index) => {
                   const Icon =
-                    IconMap[section.icon as keyof typeof IconMap] || FileText; // Fallback
+                    IconMap[section.icon as keyof typeof IconMap] || FileText; 
                   return (
                     <motion.div
                       key={index}
