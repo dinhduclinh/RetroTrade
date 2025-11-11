@@ -4,10 +4,19 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { MapPin, Star, ShieldCheck, Truck, BadgeCheck, Clock3, ChevronLeft, ChevronRight, Search, Filter, X, Loader2, ChevronDown, ChevronUp } from "lucide-react";
-import { getPublicStoreByUserGuid } from "@/services/products/product.api";
+import { useAppSelector, useAppDispatch } from "@/store/hooks";
+import type { RootState } from "@/store/redux_store";
+import { MapPin, Star, Bookmark, ShieldCheck, Truck, BadgeCheck, Clock3, ChevronLeft, ChevronRight, Search, Filter, X, Loader2, ChevronDown, ChevronUp, Eye } from "lucide-react";
+import { getFavorites, getPublicStoreByUserGuid } from "@/services/products/product.api";
+import { toast } from "sonner";
 
 interface Product {
+  DepositAmount: number;
+  IsHighlighted: any;
+  FavoriteCount: number;
+  RentCount: number;
+  ViewCount: number;
+  Quantity: number;
   _id: string;
   Title: string;
   ShortDescription?: string;
@@ -69,6 +78,11 @@ export default function OwnerStorePage() {
     sortBy: "newest",
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [favoriteLoading, setFavoriteLoading] = useState<Set<string>>(new Set());
+  const isAuthenticated = useAppSelector((state: RootState) => !!state.auth.accessToken);
+  const accessToken = useAppSelector((state: RootState) => state.auth.accessToken);
+  const dispatch = useAppDispatch();
 
   const totalPages = useMemo(() => Math.ceil((total || 0) / LIMIT), [total]);
   const hasActiveFilters = useMemo(() => 
@@ -118,7 +132,136 @@ export default function OwnerStorePage() {
     }
   }, [router.isReady, router.query.page]);
 
-  // Fetch store data
+  // Fetch user's favorites on component mount
+  useEffect(() => {
+    // Import API functions
+    const loadFavorites = async () => {
+      const { getFavorites } = await import('@/services/products/product.api');
+      return getFavorites;
+    };
+    const fetchFavorites = async () => {
+      if (!isAuthenticated) return;
+      
+      try {
+        const res = await getFavorites();
+        
+        if (res.ok) {
+          const data = await res.json();
+          // Normalize IDs to string to satisfy Set<string> typing
+          const favoriteIdsArray = (data?.data || []).map((fav: any) => {
+            const id = fav?.productId?._id ?? fav?.productId;
+            return id == null ? null : String(id);
+          }).filter((id: string | null): id is string => id !== null);
+          const favoriteIds = new Set<string>(favoriteIdsArray);
+          setFavorites(favoriteIds);
+        } else if (res.status === 401 || res.status === 403) {
+          // Handle unauthorized
+          router.push('/auth/login');
+          toast.error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
+        }
+      } catch (error) {
+        console.error('Error fetching favorites:', error);
+        toast.error('Không thể tải danh sách yêu thích');
+      }
+    };
+
+    fetchFavorites();
+  }, [isAuthenticated, router]);
+
+  // Toggle favorite status
+  const toggleFavorite = useCallback(async (productId: string, currentFavoriteCount: number) => {
+    if (!isAuthenticated) {
+      router.push('/auth/login');
+      toast.error('Vui lòng đăng nhập để thêm vào yêu thích');
+      return;
+    }
+
+    if (favoriteLoading.has(productId)) return;
+    
+    const isFavorite = favorites.has(productId);
+    
+    // Optimistic update
+    setFavoriteLoading(prev => new Set(prev).add(productId));
+    
+    // Update local state
+    setFavorites(prev => {
+      const newSet = new Set(prev);
+      if (isFavorite) {
+        newSet.delete(productId);
+      } else {
+        newSet.add(productId);
+      }
+      return newSet;
+    });
+
+    // Update the item's favorite count
+    setItems(prev => 
+      prev.map(item => 
+        item._id === productId 
+          ? { 
+              ...item, 
+              FavoriteCount: isFavorite 
+                ? Math.max(0, (item.FavoriteCount || 1) - 1)
+                : (item.FavoriteCount || 0) + 1
+            } 
+          : item
+      )
+    );
+
+    try {
+      // Dynamically import the required API functions
+      const { addToFavorites, removeFromFavorites } = await import('@/services/products/product.api');
+      
+      if (isFavorite) {
+        await removeFromFavorites(productId);
+      } else {
+        await addToFavorites(productId);
+      }
+
+      // Success - state already updated optimistically
+      toast.success(isFavorite ? 'Đã xóa khỏi yêu thích!' : 'Đã thêm vào yêu thích!');
+    } catch (error: any) {
+      console.error('Error toggling favorite:', error);
+      
+      // Revert optimistic update
+      setFavorites(prev => {
+        const newSet = new Set(prev);
+        if (isFavorite) {
+          newSet.add(productId);
+        } else {
+          newSet.delete(productId);
+        }
+        return newSet;
+      });
+      
+      setItems(prev => 
+        prev.map(item => 
+          item._id === productId 
+            ? { 
+                ...item, 
+                FavoriteCount: isFavorite 
+                  ? (item.FavoriteCount || 0) + 1
+                  : Math.max(0, (item.FavoriteCount || 1) - 1)
+              } 
+            : item
+        )
+      );
+      
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        router.push('/auth/login');
+        toast.error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
+      } else {
+        toast.error(error.message || 'Có lỗi xảy ra, vui lòng thử lại');
+      }
+    } finally {
+      setFavoriteLoading(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(productId);
+        return newSet;
+      });
+    }
+  }, [favorites, favoriteLoading, isAuthenticated, router]);
+
   const fetchStoreData = useCallback(async () => {
     if (!userGuid) {
       setError("Không có userGuid");
@@ -473,39 +616,136 @@ export default function OwnerStorePage() {
               <p>Chưa có sản phẩm nào.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {items.map((it) => {
-                const thumb = it.Images?.[0]?.Url;
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {items.map((it, index) => {
+                const thumb = it.Images?.[0]?.Url || '/placeholder.jpg';
                 const href = `/products/details?id=${it._id}`;
+                const availableQuantity = it.AvailableQuantity || 0;
+                const quantity = it.Quantity || 1;
+                const viewCount = it.ViewCount || 0;
+                const rentCount = it.RentCount || 0;
+                const favoriteCount = it.FavoriteCount || 0;
+                
                 return (
-                  <Link key={it._id} href={href} className="block group">
-                    <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden hover:shadow-xl hover:-translate-y-2 transition-all duration-300 cursor-pointer">
-                      <div className="relative w-full aspect-video bg-gray-50 group-hover:bg-gray-100 transition-colors">
-                        {thumb ? (
-                          <img src={thumb} alt={it.Title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400">No image</div>
-                        )}
-                      </div>
-                      <div className="p-4">
-                        <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 mb-2 group-hover:text-blue-600 transition-colors">
-                          {it.Title}
-                        </h3>
-                        <div className="flex items-baseline justify-between mb-2">
-                          <div className="text-lg font-bold text-blue-600">
-                            {formatPrice(it.BasePrice, it.Currency)}
-                          </div>
-                          <span className="text-xs text-gray-500">/{it.PriceUnit?.UnitName || "ngày"}</span>
+                  <div
+                    key={it._id}
+                    onClick={() => router.push(href)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === 'Enter' && router.push(href)}
+                    className="group h-full flex flex-col cursor-pointer bg-white rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 overflow-hidden"
+                    style={{
+                      transitionDelay: `${index * 50}ms`,
+                    }}
+                  >
+                    <div className="relative h-48 bg-gray-200 overflow-hidden">
+                      <img
+                        src={thumb}
+                        alt={it.Title}
+                        className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-105"
+                      />
+                      {availableQuantity === 0 && (
+                        <div className="absolute top-3 right-3 bg-red-600 text-white px-2 py-1 rounded-full text-xs font-semibold">
+                          Hết hàng
                         </div>
-                        {(it.City || it.District) && (
-                          <div className="flex items-center gap-1 text-xs text-gray-600">
-                            <MapPin className="w-3 h-3" />
-                            <span>{it.District || ""}{it.City ? `${it.District ? ", " : ""}${it.City}` : ""}</span>
+                      )}
+                      {it.IsHighlighted && (
+                        <div className="absolute top-3 left-3 bg-yellow-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                          <Star className="w-3 h-3" />
+                          <span>Nổi bật</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4 flex-1 flex flex-col">
+                      <h3 className="font-bold text-gray-900 text-base mb-2 line-clamp-2 min-h-[3.5rem]">
+                        {it.Title}
+                      </h3>
+                      <div className="flex items-center justify-between mb-3 text-xs text-gray-500 min-h-[2rem]">
+                        <div className="flex items-center gap-2">
+                          {it.Category && (
+                            <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded">
+                              {it.Category.name}
+                            </span>
+                          )}
+                        </div>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavorite(it._id, it.FavoriteCount || 0);
+                          }}
+                          className="flex items-center gap-1 group relative"
+                          disabled={favoriteLoading.has(it._id)}
+                          title={favorites.has(it._id) ? 'Xóa khỏi yêu thích' : 'Thêm vào yêu thích'}
+                        >
+                          {favoriteLoading.has(it._id) ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                          ) : (
+                            <Bookmark 
+                              size={16} 
+                              className={`transition-colors ${
+                                favorites.has(it._id) 
+                                  ? 'text-yellow-500 fill-yellow-500' 
+                                  : 'text-gray-400 hover:text-yellow-500'
+                              }`} 
+                            />
+                          )}
+                          <span 
+                            className={`text-sm ${
+                              favorites.has(it._id) 
+                                ? 'text-yellow-600 font-medium' 
+                                : 'text-gray-500'
+                            }`}
+                          >
+                            {it.FavoriteCount || 0}
+                          </span>
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-1 text-sm text-gray-600 mb-3 min-h-[1.5rem]">
+                        <MapPin size={14} className="text-gray-400" />
+                        <span className="truncate">
+                          {it.District || ''}{it.City ? `, ${it.City}` : ''}
+                        </span>
+                      </div>
+                      <div className="bg-blue-50 rounded-lg p-3 mb-3 min-h-[4.5rem]">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs text-gray-600 mb-1">
+                              Giá thuê
+                            </p>
+                            <p className="text-lg font-bold text-blue-600">
+                              {formatPrice(it.BasePrice, it.Currency)}
+                              <span className="text-sm font-normal text-gray-600">
+                                /{it.PriceUnit?.UnitName || "ngày"}
+                              </span>
+                            </p>
                           </div>
-                        )}
+                          <div className="text-right">
+                            <p className="text-xs text-gray-600 mb-1">
+                              Đặt cọc
+                            </p>
+                            <p className="text-sm font-semibold text-gray-700">
+                              {formatPrice(it.DepositAmount || 0, it.Currency)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-gray-600 mb-2">
+                        <div className="flex items-center gap-1">
+                          <Eye size={14} className="text-gray-400" />
+                          <span>{viewCount} lượt xem</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Truck size={14} className="text-gray-400" />
+                          <span>{rentCount} lượt thuê</span>
+                        </div>
+                        <div>
+                          <span className="font-semibold">
+                            {availableQuantity}/{quantity}
+                          </span> sản phẩm
+                        </div>
                       </div>
                     </div>
-                  </Link>
+                  </div>
                 );
               })}
             </div>
