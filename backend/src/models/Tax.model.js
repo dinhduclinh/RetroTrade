@@ -57,7 +57,7 @@ taxSchema.statics.getCurrentTaxRate = async function () {
   return tax ? tax.taxRate : 3; // Default 3% nếu không có
 };
 
-// Method để lấy tax setting hiện tại
+
 taxSchema.statics.getCurrentTax = async function () {
   return await this.findOne({ isActive: true }).sort({ createdAt: -1 });
 };

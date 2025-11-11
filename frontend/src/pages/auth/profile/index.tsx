@@ -26,10 +26,10 @@ import dynamic from 'next/dynamic';
 
 // Render trang Ví & giao dịch inline
 const WalletPage = dynamic(() => import('@/pages/wallet'), { ssr: false });
-// Render trang Đơn hàng inline
+
 const OrdersPage = dynamic(() => import('@/components/ui/auth/order'), { ssr: false });
 const OrderDetailInline = dynamic(() => import('@/components/ui/auth/order/[id]'), { ssr: false });
-// Render Mã giảm giá inline
+
 const DiscountsPage = dynamic(() => import('@/components/ui/auth/discounts'), { ssr: false });
 
 export default function ProfilePage() {

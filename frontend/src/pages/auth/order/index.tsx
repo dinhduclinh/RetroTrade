@@ -2059,7 +2059,7 @@ const handleSubmit = async () => {
         </div>
       </div>
 
-      {/* Confirm Popup removed – handled inside AddressSelector */}
+    
     </div>
   );
 }

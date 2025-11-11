@@ -38,19 +38,19 @@ module.exports = {
       if (!itemId || !finalStartAt || !finalEndAt || !shippingAddress) {
         await session.abortTransaction();
         return res.status(400).json({
-          message: "Missing required fields",
+          message: "Thiếu các trường bắt buộc",
         });
       }
 
       const item = await Item.findById(itemId).session(session);
       if (!item || item.IsDeleted || item.StatusId !== 2) {
         await session.abortTransaction();
-        return res.status(404).json({ message: "Item unavailable" });
+        return res.status(404).json({ message: "Sản phẩm không có sẵn" });
       }
 
       if (item.AvailableQuantity < quantity) {
         await session.abortTransaction();
-        return res.status(400).json({ message: "Not enough quantity" });
+        return res.status(400).json({ message: "Số lượng không đủ" });
       }
 
       const images = await ItemImages.find({
@@ -88,19 +88,15 @@ module.exports = {
       const { totalAmount, depositAmount, serviceFee, duration, unitName } =
         result;
 
-      // === DISCOUNT ===
-      // Tính baseAmount cho discount = totalAmount (tiền thuê) + depositAmount (tiền cọc)
       const baseAmountForDiscount = totalAmount + depositAmount;
       let discountInfo = null;
       let finalAmount = baseAmountForDiscount;
       let totalDiscountAmount = 0;
       const discountCodes = [];
       
-      // Legacy support: if discountCode is provided, use it
       const publicCode = publicDiscountCode || (discountCode ? discountCode : null);
       const privateCode = privateDiscountCode;
-      
-      // Apply public discount first (if exists)
+    
       if (publicCode) {
         try {
           const DiscountController = require("./discount.controller");
@@ -109,7 +105,7 @@ module.exports = {
           const DiscountRedemption = require("../../models/Discount/DiscountRedemption.model");
           const validated = await DiscountController.validateAndCompute({
             code: publicCode,
-            baseAmount: baseAmountForDiscount,
+            baseAmount: baseAmountForDiscount, 
             ownerId: item.OwnerId,
             itemId: item._id,
             userId: renterId,
@@ -124,7 +120,7 @@ module.exports = {
               value: validated.discount.value,
               amountApplied: validated.amount,
             };
-            // Store discount info for later use (after order is created)
+        
             if (!discountInfo._publicDiscountData) {
               discountInfo._publicDiscountData = {
                 discount: validated.discount,
@@ -133,11 +129,10 @@ module.exports = {
             }
           }
         } catch (e) {
-          // ignore discount errors to not block order creation
+         
         }
       }
       
-      // Apply private discount on remaining amount (if exists)
       if (privateCode && finalAmount > 0) {
         try {
           const DiscountController = require("./discount.controller");
@@ -178,15 +173,11 @@ module.exports = {
             }
           }
         } catch (e) {
-          // ignore discount errors to not block order creation
+        
         }
       }
-
-      // Tính lại finalAmount sau khi apply discount
-      // finalAmount = totalAmount + serviceFee + depositAmount - totalDiscountAmount
       const finalOrderAmount = Math.max(0, totalAmount + serviceFee + depositAmount - totalDiscountAmount);
 
-      // Clean up internal data before saving
       const cleanDiscountInfo = discountInfo ? {
         code: discountInfo.code,
         type: discountInfo.type,
@@ -199,7 +190,6 @@ module.exports = {
         totalAmountApplied: discountInfo.totalAmountApplied || totalDiscountAmount,
       } : null;
 
-      // === TẠO ORDER ===
       const orderDoc = await Order.create(
         [
           {
@@ -236,11 +226,10 @@ module.exports = {
 
       const newOrder = orderDoc[0];
 
-      // Cập nhật DiscountRedemption với orderId và increment usedCount trong transaction
       const publicDiscountData = discountInfo?._publicDiscountData;
       const privateDiscountData = discountInfo?._privateDiscountData;
 
-      // Increment discount usedCount and create DiscountRedemption for public discount
+     
       if (publicDiscountData) {
         try {
           const Discount = require("../../models/Discount.model");
@@ -260,7 +249,7 @@ module.exports = {
               { session }
             );
           } catch (assignErr) {
-            // Ignore nếu không có assignment (đối với discount công khai không được claim)
+          
           }
           
           try {
@@ -279,7 +268,7 @@ module.exports = {
         }
       }
 
-      // Increment discount usedCount and create DiscountRedemption for private discount
+    
       if (privateDiscountData) {
         try {
           const Discount = require("../../models/Discount.model");

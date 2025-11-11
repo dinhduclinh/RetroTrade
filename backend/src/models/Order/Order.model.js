@@ -46,7 +46,6 @@ const orderSchema = new mongoose.Schema(
       },
     },
     totalAmount: { type: Number, required: true, min: 0 },
-    // discount fields - hỗ trợ cả public và private discount
     discount: {
       // Public discount
       code: String,

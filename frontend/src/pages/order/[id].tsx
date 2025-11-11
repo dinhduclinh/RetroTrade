@@ -733,9 +733,11 @@ export default function OrderDetail() {
                 </span>
               </div>
               {!order.isContractSigned && (
-                <button className="mt-3 w-full bg-emerald-600 text-white py-2 rounded-xl font-medium hover:bg-emerald-700 transition">
-                  Ký hợp đồng ngay
-                </button>
+                <Link href={`/auth/contract/sign/${id}`}>
+                  <button className="mt-3 w-full bg-emerald-600 text-white py-2 rounded-xl font-medium hover:bg-emerald-700 transition">
+                    Ký hợp đồng ngay
+                  </button>
+                </Link>
               )}
             </div>
 
