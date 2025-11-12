@@ -74,7 +74,7 @@ export function ServiceFeeManagementTable() {
     try {
       setLoading(true);
       setError(null);
-      const response = await getAllServiceFeeSettings(page, 20, false);
+      const response = await getAllServiceFeeSettings(page, 20, true);
       if (response.success && response.data) {
         setServiceFees(response.data);
         if (response.pagination) {

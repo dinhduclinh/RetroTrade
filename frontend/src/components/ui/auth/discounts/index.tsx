@@ -90,35 +90,57 @@ export default function MyDiscountsPage() {
     }
   };
 
-  // Filter available public discounts
+  // Filter available public discounts (only active and within time window) - for featured section
   const availablePublicDiscounts = useMemo(() => {
     const now = new Date();
     return items.filter((d) => {
       const start = new Date(d.startAt);
       const end = new Date(d.endAt);
-      return d.isPublic && d.active && start <= now && end >= now;
+      const isPublic = d.isPublic === true || Boolean(d.isPublic);
+      return isPublic && d.active && start <= now && end >= now;
+    });
+  }, [items]);
+
+  // Filter all public + active discounts (regardless of time) - for main list
+  const allPublicActiveDiscounts = useMemo(() => {
+    return items.filter((d) => {
+      const isPublic = d.isPublic === true || Boolean(d.isPublic);
+      return isPublic && d.active;
     });
   }, [items]);
 
   const filteredItems = useMemo(() => {
     const now = new Date();
-    let list = items.filter((d) => d.isPublic === true);
 
+    // Start with ALL public + active discounts
+    let list = allPublicActiveDiscounts;
+
+    // Apply tab filters
     if (tab === "active") {
-      list = list.filter((d) => new Date(d.startAt) <= now && new Date(d.endAt) >= now && d.active);
-    } else if (tab === "expiring") {
+      // Only show discounts that are currently usable (within time window)
       list = list.filter((d) => {
+        const start = new Date(d.startAt);
+        const end = new Date(d.endAt);
+        return start <= now && end >= now;
+      });
+    } else if (tab === "expiring") {
+      // Only show discounts that are expiring soon (within 7 days) and currently active
+      list = list.filter((d) => {
+        const start = new Date(d.startAt);
         const end = new Date(d.endAt);
         const diffDays = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        return d.active && diffDays > 0 && diffDays <= 7;
+        return start <= now && end >= now && diffDays > 0 && diffDays <= 7;
       });
     }
+    // "all" tab shows all public + active discounts regardless of time
 
+    // Apply type filter
     if (typeFilter !== "all") {
       list = list.filter((d) => d.type === typeFilter);
     }
+
     return list;
-  }, [items, tab, typeFilter]);
+  }, [allPublicActiveDiscounts, tab, typeFilter]);
 
   const tabs = [
     { key: "all" as const, label: "Tất cả", icon: Tag },
@@ -331,6 +353,8 @@ export default function MyDiscountsPage() {
                   const start = new Date(d.startAt);
                   const end = new Date(d.endAt);
                   const isActiveWindow = start <= now && end >= now && d.active;
+                  const isUpcoming = start > now;
+                  const isExpired = end < now;
                   const diffDays = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
                   const isExpiring = isActiveWindow && diffDays > 0 && diffDays <= 7;
                   const usageBadge = d.usageLimit ? `${d.usedCount || 0}/${d.usageLimit}` : "∞";
@@ -340,7 +364,11 @@ export default function MyDiscountsPage() {
                       key={d._id}
                       className={cn(
                         "group hover:shadow-lg transition-all duration-300 overflow-hidden",
-                        isActiveWindow ? "border-2 border-emerald-200" : "border border-gray-200 opacity-75"
+                        isActiveWindow 
+                          ? "border-2 border-emerald-200" 
+                          : isUpcoming 
+                          ? "border-2 border-blue-200 opacity-90" 
+                          : "border border-gray-200 opacity-75"
                       )}
                     >
                       <div className="flex">
@@ -374,6 +402,24 @@ export default function MyDiscountsPage() {
                               <div className="flex items-center gap-2 mb-2 flex-wrap">
                                 <Tag className="w-4 h-4 text-gray-500 flex-shrink-0" />
                                 <span className="font-bold text-gray-900 text-lg">{d.code}</span>
+                                {isUpcoming && (
+                                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200 text-[10px]">
+                                    <Calendar className="w-3 h-3 mr-1" />
+                                    Sắp tới
+                                  </Badge>
+                                )}
+                                {isExpired && (
+                                  <Badge variant="secondary" className="bg-gray-100 text-gray-800 border-gray-200 text-[10px]">
+                                    <X className="w-3 h-3 mr-1" />
+                                    Đã hết hạn
+                                  </Badge>
+                                )}
+                                {isActiveWindow && !isExpiring && (
+                                  <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px]">
+                                    <CheckCircle className="w-3 h-3 mr-1" />
+                                    Đang hiệu lực
+                                  </Badge>
+                                )}
                                 {isExpiring && (
                                   <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-200 text-[10px]">
                                     <Clock className="w-3 h-3 mr-1" />

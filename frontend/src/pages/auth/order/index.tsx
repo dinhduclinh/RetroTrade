@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter } from "next/router";
 import { createOrderAction } from "@/store/order/orderActions";
@@ -12,12 +12,12 @@ import { decodeToken } from "@/utils/jwtHelper";
 import { getUserProfile } from "@/services/auth/user.api";
 import {
   Package,
-  MapPin,
   Truck,
   Calendar,
   CreditCard,
   AlertCircle,
   CheckCircle2,
+  Check,
   Home,
   ShoppingCart,
   ChevronRight,
@@ -27,25 +27,19 @@ import {
   Save,
   Eye,
   ExternalLink,
-  MapPin,
 } from "lucide-react";
-import { getCurrentServiceFee } from "@/services/serviceFee/serviceFee.api";
+import { 
+  type Discount, 
+  validateDiscount, 
+  listAvailableDiscounts 
+} from "@/services/products/discount/discount.api";
+import api from "../../../services/customizeAPI";
 import Link from "next/link";
+import Image from "next/image";
 import { toast } from "sonner";
 import {
   type UserAddress,
-  getUserAddresses,
-  createUserAddress,
-  updateUserAddress,
-  deleteUserAddress,
-  type CreateAddressRequest,
 } from "@/services/auth/userAddress.api";
-
-import {
-  Plus,
-  Trash2,
-  Check,
-} from "lucide-react";
 import { payOrderWithWallet } from "@/services/wallet/wallet.api";
 import PopupModal from "@/components/ui/common/PopupModal";
 
@@ -108,26 +102,6 @@ const getRentalDurationText = (
   }
 };
 
-type CheckoutOrderPayload = {
-  itemId: string;
-  quantity: number;
-  startAt?: string;
-  endAt?: string;
-  shippingAddress: {
-    fullName: string;
-    street: string;
-    ward: string;
-    district: string;
-    province: string;
-    phone: string;
-  };
-  paymentMethod: string;
-  note: string;
-  discountCode?: string;
-  discountAmount?: number;
-  discountType?: "percent" | "fixed";
-};
-
 type ApiError = {
   response?: {
     data?: {
@@ -135,6 +109,7 @@ type ApiError = {
       error?: string;
     };
   };
+  message?: string;
 };
 
 export default function Checkout() {
@@ -158,10 +133,6 @@ export default function Checkout() {
   const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
   const [errorModalTitle, setErrorModalTitle] = useState("");
   const [errorModalMessage, setErrorModalMessage] = useState("");
-  // State cho modal thông báo lỗi
-  const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
-  const [errorModalTitle, setErrorModalTitle] = useState("");
-  const [errorModalMessage, setErrorModalMessage] = useState("");
   const [editingItems, setEditingItems] = useState<Record<string, {
     quantity: number;
     rentalStartDate: string;
@@ -172,20 +143,9 @@ export default function Checkout() {
     rentalStartDate?: string;
     rentalEndDate?: string;
   }>>({});
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const [hasInitializedSelection, setHasInitializedSelection] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
-
-  // Address management state
-  const [userAddresses, setUserAddresses] = useState<UserAddress[]>([]);
-  const [isEditingAddress, setIsEditingAddress] = useState(false);
-  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
-  const [newAddress, setNewAddress] = useState<CreateAddressRequest>({
-    Address: "",
-    City: "",
-    District: "",
-    IsDefault: false,
-  });
-  const [addressLoading, setAddressLoading] = useState(false);
-  const [locationLoading, setLocationLoading] = useState(false);
   const [confirmPopup, setConfirmPopup] = useState<{
     isOpen: boolean;
     title: string;
@@ -212,6 +172,7 @@ export default function Checkout() {
   const [availableDiscounts, setAvailableDiscounts] = useState<Discount[]>([]);
   const [loadingDiscounts, setLoadingDiscounts] = useState(false);
   const [showDiscountList, setShowDiscountList] = useState(false);
+  const [discountListError, setDiscountListError] = useState<string | null>(null);
 
   // Lấy từ sessionStorage
   useEffect(() => {
@@ -229,15 +190,21 @@ export default function Checkout() {
       return;
     }
     setCartItems(items);
+    setSelectedItemIds(items.map((item) => item._id));
+    setHasInitializedSelection(true);
   }, [router]);
 
 
   useEffect(() => {
     const fetchServiceFeeRate = async () => {
       try {
-        const response = await getCurrentServiceFee();
-        if (response.success && response.data) {
-          setServiceFeeRate(response.data.serviceFeeRate);
+        const response = await api.get("/serviceFee/current");
+        if (!response.ok) {
+          throw new Error(`Request failed with status ${response.status}`);
+        }
+        const data = await response.json();
+        if (data?.success && data?.data?.serviceFeeRate !== undefined) {
+          setServiceFeeRate(data.data.serviceFeeRate);
         }
       } catch (error) {
         console.error("Error fetching serviceFee rate:", error);
@@ -280,48 +247,6 @@ export default function Checkout() {
         }));
       }
 
-      // Load user addresses
-      const addressesResponse = await getUserAddresses(); // Khai báo ngoài else
-      console.log("Addresses response:", addressesResponse);
-
-      if (
-        addressesResponse?.code &&
-        addressesResponse.code >= 200 &&
-        addressesResponse.code < 300 &&
-        addressesResponse?.data !== undefined
-      ) {
-        if (Array.isArray(addressesResponse.data)) {
-          const addresses = addressesResponse.data;
-          setUserAddresses(addresses);
-          // Auto-select
-          if (addresses.length > 0) {
-            const defaultAddress = addresses.find(addr => addr.IsDefault);
-            if (defaultAddress) {
-              setSelectedAddressId(defaultAddress._id);
-              applyAddressToShipping(defaultAddress);
-            } else {
-              setSelectedAddressId(addresses[0]._id);
-              applyAddressToShipping(addresses[0]);
-            }
-          }
-        } else if (
-          addressesResponse.data !== null &&
-          typeof addressesResponse.data === "object" &&
-          "_id" in addressesResponse.data
-        ) {
-          // Single address
-          const singleAddress = addressesResponse.data;
-          setUserAddresses([singleAddress]);
-          setSelectedAddressId(singleAddress._id);
-          applyAddressToShipping(singleAddress);
-        }
-      } else {
-        console.log("No addresses found - response failed or no data:", {
-          code: addressesResponse?.code,
-          hasData: addressesResponse?.data !== undefined,
-        });
-        // Không gọi lại getUserAddresses(); vì đã gọi rồi
-      }
     } catch (error) {
       console.error("Error loading user info:", error);
     }
@@ -332,30 +257,40 @@ export default function Checkout() {
   }
 }, [accessToken]);
 
-  
-  
-  // Load available discounts for user
   useEffect(() => {
-    const loadAvailableDiscounts = async () => {
+    if (!hasInitializedSelection) return;
+    setSelectedItemIds((prev) =>
+      prev.filter((id) => cartItems.some((item) => item._id === id))
+    );
+  }, [cartItems, hasInitializedSelection]);
+
+  const loadAvailableDiscounts = useCallback(async () => {
       if (!accessToken) return;
 
       setLoadingDiscounts(true);
+    setDiscountListError(null);
       try {
         const response = await listAvailableDiscounts(1, 50);
         if (response.status === "success" && response.data) {
+          // Hiển thị tất cả discount active - logic validate sẽ kiểm tra thời gian khi áp dụng
           setAvailableDiscounts(response.data);
+      } else {
+        setDiscountListError(response.message || "Không thể tải danh sách mã giảm giá.");
         }
       } catch (error) {
         console.error("Error loading available discounts:", error);
+      setDiscountListError("Không thể tải danh sách mã giảm giá. Vui lòng thử lại.");
       } finally {
         setLoadingDiscounts(false);
       }
-    };
+  }, [accessToken]);
 
+  // Load available discounts for user
+  useEffect(() => {
     if (accessToken && cartItems.length > 0) {
       loadAvailableDiscounts();
     }
-  }, [accessToken, cartItems.length]);
+  }, [accessToken, cartItems.length, loadAvailableDiscounts]);
 
   // Close discount dropdown when clicking outside
   useEffect(() => {
@@ -376,394 +311,103 @@ export default function Checkout() {
   }, [showDiscountList]);
 
 
-  // Handle address selection
-  const handleAddressSelect = (addressId: string) => {
-    setSelectedAddressId(addressId);
-    const address = userAddresses.find(addr => addr._id === addressId);
-    if (address) {
-      applyAddressToShipping(address);
-    }
-    setIsEditingAddress(false);
-    setEditingAddressId(null);
-  };
-
-  // Handle create new address
-  const handleCreateAddress = async () => {
-    if (!newAddress.Address || !newAddress.City || !newAddress.District) {
-      toast.error("Vui lòng điền đầy đủ thông tin địa chỉ");
-      return;
-    }
-
-    // Địa chỉ mới luôn được set làm mặc định (backend sẽ tự động xử lý)
-    // Không cần truyền IsDefault vì backend sẽ luôn set = true
-
-    setAddressLoading(true);
-    try {
-      // Backend sẽ tự động set địa chỉ mới làm mặc định
-      const response = await createUserAddress(newAddress);
-      if (response?.data) {
-        // Reload all addresses to ensure sync with backend (especially for default addresses)
-        const addressesResponse = await getUserAddresses();
-        if (addressesResponse?.data && Array.isArray(addressesResponse.data)) {
-          setUserAddresses(addressesResponse.data);
-
-          // Select the newly created address
-          const newAddressData = addressesResponse.data.find(addr => addr._id === (response.data as UserAddress)._id);
-          if (newAddressData) {
-            setSelectedAddressId(newAddressData._id);
-            applyAddressToShipping(newAddressData);
-          }
-        } else {
-          // Fallback: use the response data
-          const updatedAddresses = [...userAddresses, response.data as UserAddress];
-          setUserAddresses(updatedAddresses);
-          setSelectedAddressId(response.data._id);
-          applyAddressToShipping(response.data as UserAddress);
-        }
-
-        setNewAddress({ Address: "", City: "", District: "", IsDefault: false });
-        setIsEditingAddress(false);
-        toast.success("Tạo địa chỉ thành công");
-      } else {
-        toast.error(response?.message || "Có lỗi xảy ra khi tạo địa chỉ");
-      }
-    } catch (error) {
-      console.error("Error creating address:", error);
-      toast.error("Có lỗi xảy ra khi tạo địa chỉ");
-    } finally {
-      setAddressLoading(false);
-    }
-  };
-
-  // Handle update address
-  const handleUpdateAddress = async (addressId: string) => {
-    const address = userAddresses.find(addr => addr._id === addressId);
-    if (!address) return;
-
-    // Check if trying to unset default and this is the only default address
-    const defaultAddresses = userAddresses.filter(addr => addr.IsDefault && addr._id !== addressId);
-    if (address.IsDefault && !newAddress.IsDefault && defaultAddresses.length === 0) {
-      toast.error("Phải có ít nhất một địa chỉ mặc định. Vui lòng chọn một địa chỉ khác làm mặc định trước.");
-      return;
-    }
-
-    setAddressLoading(true);
-    try {
-      const updateData = {
-        Address: newAddress.Address || address.Address,
-        City: newAddress.City || address.City,
-        District: newAddress.District || address.District,
-        IsDefault: newAddress.IsDefault,
-      };
-
-      const response = await updateUserAddress(addressId, updateData);
-      if (response?.data) {
-        // Reload all addresses to ensure sync with backend (especially when default changes)
-        const addressesResponse = await getUserAddresses();
-        if (addressesResponse?.data && Array.isArray(addressesResponse.data)) {
-          setUserAddresses(addressesResponse.data);
-
-          // Select the updated address if it was selected before
-          const updatedAddress = addressesResponse.data.find(addr => addr._id === addressId);
-          if (selectedAddressId === addressId && updatedAddress) {
-            applyAddressToShipping(updatedAddress);
-          }
-
-          // If we set a new default, select it
-          if (updateData.IsDefault) {
-            const newDefault = addressesResponse.data.find(addr => addr.IsDefault);
-            if (newDefault) {
-              setSelectedAddressId(newDefault._id);
-              applyAddressToShipping(newDefault);
-            }
-          }
-        } else {
-          // Fallback: use the response data
-          const updatedAddresses = userAddresses.map(addr =>
-            addr._id === addressId ? (response.data as UserAddress) :
-              updateData.IsDefault ? { ...addr, IsDefault: false } : addr
-          );
-          setUserAddresses(updatedAddresses);
-          if (selectedAddressId === addressId) {
-            applyAddressToShipping(response.data as UserAddress);
-          }
-        }
-
-        setNewAddress({ Address: "", City: "", District: "", IsDefault: false });
-        setIsEditingAddress(false);
-        setEditingAddressId(null);
-        toast.success("Cập nhật địa chỉ thành công");
-      } else {
-        toast.error(response?.message || "Có lỗi xảy ra khi cập nhật địa chỉ");
-      }
-    } catch (error) {
-      console.error("Error updating address:", error);
-      toast.error("Có lỗi xảy ra khi cập nhật địa chỉ");
-    } finally {
-      setAddressLoading(false);
-    }
-  };
-
-  // Handle delete address
-  const handleDeleteAddress = (addressId: string) => {
-    const address = userAddresses.find(addr => addr._id === addressId);
-    if (!address) return;
-
-
-    const otherAddresses = userAddresses.filter(addr => addr._id !== addressId);
-    if (address.IsDefault && otherAddresses.length > 0) {
-      toast.error("Không thể xóa địa chỉ mặc định. Vui lòng chọn một địa chỉ khác làm mặc định trước khi xóa.");
-      return;
-    }
-
-    setConfirmPopup({
-      isOpen: true,
-      title: "Xác nhận xóa địa chỉ",
-      message: "Bạn có chắc chắn muốn xóa địa chỉ này?",
-      onConfirm: async () => {
-        setAddressLoading(true);
-        try {
-          const response = await deleteUserAddress(addressId);
-          if (response?.code === 200 || response?.code === 201) {
-            toast.success("Xóa địa chỉ thành công");
-            const updatedAddresses = userAddresses.filter(addr => addr._id !== addressId);
-            setUserAddresses(updatedAddresses);
-
-            // If we deleted the default and there are other addresses, set the first one as default
-            if (address.IsDefault && updatedAddresses.length > 0) {
-              try {
-                await updateUserAddress(updatedAddresses[0]._id, {
-                  IsDefault: true,
-                });
-                // Reload addresses to get updated default
-                const addressesResponse = await getUserAddresses();
-                if (addressesResponse?.data && Array.isArray(addressesResponse.data)) {
-                  setUserAddresses(addressesResponse.data);
-                  const defaultAddr = addressesResponse.data.find(addr => addr.IsDefault);
-                  if (defaultAddr) {
-                    setSelectedAddressId(defaultAddr._id);
-                    applyAddressToShipping(defaultAddr);
-                  }
-                }
-              } catch (error) {
-                console.error("Error setting new default:", error);
-              }
-            }
-
-            if (selectedAddressId === addressId) {
-              // Select another address or clear
-              if (updatedAddresses.length > 0) {
-                const defaultAddr = updatedAddresses.find(addr => addr.IsDefault) || updatedAddresses[0];
-                handleAddressSelect(defaultAddr._id);
-              } else {
-                setSelectedAddressId(null);
-                setShipping(prev => ({
-                  ...prev,
-                  street: "",
-                  ward: "",
-                  province: "",
-                }));
-              }
-            }
-          } else {
-            toast.error(response?.message || "Có lỗi xảy ra khi xóa địa chỉ");
-          }
-        } catch (error) {
-          console.error("Error deleting address:", error);
-          toast.error("Có lỗi xảy ra khi xóa địa chỉ");
-        } finally {
-          setAddressLoading(false);
-        }
-      },
-    });
-  };
-
-  // Start editing address
-  const startEditingAddress = (addressId: string) => {
-    const address = userAddresses.find(addr => addr._id === addressId);
-    if (address) {
-      setEditingAddressId(addressId);
-      setNewAddress({
-        Address: address.Address,
-        City: address.City,
-        District: address.District,
-        IsDefault: address.IsDefault,
-      });
-    }
-  };
-
-
-  const getCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error("Trình duyệt của bạn không hỗ trợ lấy vị trí");
-      return;
-    }
-
-    setLocationLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const { latitude, longitude } = position.coords;
-          console.log("Getting location for:", latitude, longitude);
-
-          // Use Nominatim (OpenStreetMap) for reverse geocoding (free, no API key needed)
-          // Add language=vi for Vietnamese results
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&accept-language=vi`,
-            {
-              method: 'GET',
-              headers: {
-                'User-Agent': 'RetroTrade/1.0', // Required by Nominatim
-                'Accept': 'application/json',
-              }
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-
-          const data = await response.json();
-          console.log("Reverse geocoding response:", data);
-
-          if (data && data.address) {
-            const addr = data.address;
-
-            // Map OpenStreetMap address to our format (Vietnam-specific)
-            // For Vietnam, we typically have: house_number, road, ward, district, city, state
-            const street = addr.road || addr.street || addr.pedestrian || "";
-            const houseNumber = addr.house_number || "";
-            const fullStreet = houseNumber && street ? `${houseNumber} ${street}`.trim() : (street || houseNumber);
-
-            // Vietnam address structure: ward (phường/xã), district (quận/huyện), city (tỉnh/thành phố)
-            const ward = addr.ward || addr.suburb || addr.neighbourhood || "";
-            const district = addr.district || addr.county || addr.city_district || "";
-            const city = addr.city || addr.town || addr.municipality || "";
-            const province = addr.state || addr.province || "";
-
-            // Build full address
-            const finalWard = ward || district || "";
-            const finalCity = city || province || "";
-
-            // Update shipping address form
-            setShipping(prev => ({
-              ...prev,
-              street: fullStreet || prev.street,
-              ward: finalWard || prev.ward,
-              province: finalCity || prev.province,
-            }));
-
-            // Update new address form if editing
-            if (isEditingAddress || editingAddressId) {
-              setNewAddress(prev => ({
-                ...prev,
-                Address: fullStreet || prev.Address,
-                District: finalWard || prev.District,
-                City: finalCity || prev.City,
-              }));
-            }
-
-            toast.success("Đã lấy địa chỉ hiện tại thành công!");
-          } else {
-            console.warn("No address data in response:", data);
-            // Fallback: show display_name if available
-            if (data.display_name) {
-              setShipping(prev => ({
-                ...prev,
-                street: data.display_name.split(',')[0] || prev.street,
-              }));
-              toast.success("Đã lấy một phần địa chỉ. Vui lòng kiểm tra và chỉnh sửa thêm.");
-            } else {
-              throw new Error("Không thể lấy địa chỉ từ tọa độ");
-            }
-          }
-        } catch (error) {
-          console.error("Error getting address from coordinates:", error);
-          const errorMessage = error instanceof Error ? error.message : "Có lỗi xảy ra khi lấy địa chỉ";
-          toast.error(`${errorMessage}. Vui lòng thử lại hoặc nhập thủ công.`);
-        } finally {
-          setLocationLoading(false);
-        }
-      },
-      (error) => {
-        console.error("Geolocation error:", error);
-        let message = "Không thể lấy vị trí hiện tại.";
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            message = "Bạn cần cấp quyền truy cập vị trí để sử dụng tính năng này.";
-            break;
-          case error.POSITION_UNAVAILABLE:
-            message = "Thông tin vị trí không khả dụng.";
-            break;
-          case error.TIMEOUT:
-            message = "Yêu cầu lấy vị trí hết thời gian chờ.";
-            break;
-        }
-        toast.error(message);
-        setLocationLoading(false);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
-      }
-    );
-  };
-
-
   // Pagination calculations
   const totalPages = Math.ceil(cartItems.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentItems = cartItems.slice(startIndex, endIndex);
+  const selectedCartItems = cartItems.filter((item) =>
+    selectedItemIds.includes(item._id)
+  );
 
-  const rentalTotal = cartItems.reduce((sum, item) => {
+  const rentalTotal = selectedCartItems.reduce((sum, item) => {
     const days = calculateRentalDays(item);
     return sum + item.basePrice * item.quantity * days;
   }, 0);
 
   console.log("Render - rentalTotal:", rentalTotal, "cartItems:", cartItems.length);
 
-  const serviceFeeAmount = (rentalTotal * serviceFeeRate) / 100;
-  const depositTotal = cartItems.reduce(
+  // Tính depositTotal
+  const depositTotal = selectedCartItems.reduce(
     (sum, item) => sum + item.depositAmount * item.quantity,
     0
   );
-  const totalDiscountAmount = publicDiscountAmount + privateDiscountAmount;
+
+  // Tính serviceFee trên rentalTotal (trước discount) - theo logic backend
+  const serviceFeeAmount = (rentalTotal * serviceFeeRate) / 100;
+
+  // Tính totalDiscountAmount từ public và private discount (chỉ áp dụng khi có sản phẩm được chọn)
+  const effectivePublicDiscountAmount = selectedCartItems.length > 0 ? publicDiscountAmount : 0;
+  const effectivePrivateDiscountAmount = selectedCartItems.length > 0 ? privateDiscountAmount : 0;
+  const totalDiscountAmount = effectivePublicDiscountAmount + effectivePrivateDiscountAmount;
+
+  // Tính grandTotal theo logic backend: totalAmount + serviceFee + depositAmount - totalDiscountAmount
   const grandTotal = Math.max(0, rentalTotal + serviceFeeAmount + depositTotal - totalDiscountAmount);
 
-  // Tính lại discount amount khi cartItems thay đổi (vì rentalTotal và depositTotal phụ thuộc vào cartItems)
-  // Sử dụng useMemo để tính totalAmountForDiscount trước, sau đó useEffect sẽ sử dụng giá trị này
-  const totalAmountForDiscountMemo = useMemo(() => {
-    const rental = cartItems.reduce((sum, item) => {
-      const days = calculateRentalDays(item);
-      return sum + item.basePrice * item.quantity * days;
-    }, 0);
-    const deposit = cartItems.reduce((sum, item) => sum + item.depositAmount * item.quantity, 0);
-    return rental + deposit;
-  }, [cartItems]);
-
-  const discountAmount = appliedDiscount?.amount ?? 0;
-  const discountedRental = Math.max(0, rentalTotal - discountAmount);
-  const serviceFeeAmount = (discountedRental * serviceFeeRate) / 100;
-  const grandTotal = discountedRental + serviceFeeAmount + depositTotal;
-
+  // Kiểm tra minOrderAmount cho public discount
   useEffect(() => {
     if (
-      appliedDiscount &&
-      appliedDiscount.discount.minOrderAmount &&
-      rentalTotal < appliedDiscount.discount.minOrderAmount
+      publicDiscount &&
+      publicDiscount.minOrderAmount &&
+      (rentalTotal + depositTotal) < publicDiscount.minOrderAmount
     ) {
-      setAppliedDiscount(null);
-      toast.info("Đơn hàng không còn đáp ứng điều kiện tối thiểu của mã giảm giá đã chọn.");
+      setPublicDiscount(null);
+      setPublicDiscountAmount(0);
+      toast.info("Đơn hàng không còn đáp ứng điều kiện tối thiểu của mã giảm giá công khai đã chọn.");
     }
-  }, [appliedDiscount, rentalTotal]);
+  }, [publicDiscount, rentalTotal, depositTotal]);
+
+  // Kiểm tra minOrderAmount cho private discount
+  useEffect(() => {
+    if (
+      privateDiscount &&
+      privateDiscount.minOrderAmount
+    ) {
+      const baseAmountAfterPublic = Math.max(0, (rentalTotal + depositTotal) - publicDiscountAmount);
+      if (baseAmountAfterPublic < privateDiscount.minOrderAmount) {
+        setPrivateDiscount(null);
+        setPrivateDiscountAmount(0);
+        toast.info("Đơn hàng không còn đáp ứng điều kiện tối thiểu của mã giảm giá riêng tư đã chọn.");
+      }
+    }
+  }, [privateDiscount, rentalTotal, depositTotal, publicDiscountAmount]);
 
   const goToPage = (page: number) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+  };
+
+  const handleToggleItemSelection = (itemId: string) => {
+    setSelectedItemIds((prev) =>
+      prev.includes(itemId)
+        ? prev.filter((id) => id !== itemId)
+        : [...prev, itemId]
+    );
+  };
+
+  const handleSelectAllItems = () => {
+    setSelectedItemIds(cartItems.map((item) => item._id));
+  };
+
+  const handleDeselectAllItems = () => {
+    setSelectedItemIds([]);
+  };
+
+  // Helper function to calculate discount amount (same logic as backend)
+  const calculateDiscountAmount = (
+    type: "percent" | "fixed",
+    value: number,
+    baseAmount: number,
+    maxDiscountAmount?: number
+  ): number => {
+    let amount = type === "percent" ? (baseAmount * value) / 100 : value;
+    if (maxDiscountAmount && maxDiscountAmount > 0) {
+      amount = Math.min(amount, maxDiscountAmount);
+    }
+    amount = Math.max(0, Math.min(baseAmount, Math.floor(amount)));
+    return amount;
   };
 
   // Handle discount code
@@ -774,20 +418,56 @@ export default function Checkout() {
       return;
     }
 
+    if (selectedCartItems.length === 0) {
+      setDiscountError("Vui lòng chọn ít nhất một sản phẩm để áp dụng mã giảm giá");
+      return;
+    }
+
     setDiscountLoading(true);
     setDiscountError(null);
 
     try {
       // Tính discount dựa trên tổng tiền (tiền thuê + tiền cọc)
       const baseAmountForDiscount = rentalTotal + depositTotal;
+      
+      console.log("Validating discount:", {
+        code: codeToApply.toUpperCase(),
+        baseAmount: baseAmountForDiscount,
+        rentalTotal,
+        depositTotal,
+        selectedItemsCount: selectedCartItems.length
+      });
+      
       const response = await validateDiscount({
         code: codeToApply.toUpperCase(),
         baseAmount: baseAmountForDiscount,
       });
+      
+      console.log("Validation response:", response);
 
       if (response.status === "success" && response.data) {
         const discount = response.data.discount;
         let amount = response.data.amount || 0;
+
+        // Tính lại discount amount để đảm bảo chính xác
+        const calculatedAmount = calculateDiscountAmount(
+          discount.type,
+          discount.value,
+          baseAmountForDiscount,
+          discount.maxDiscountAmount
+        );
+        
+        // Sử dụng amount từ backend, nhưng log để debug
+        console.log("Discount calculation:", {
+          code: discount.code,
+          type: discount.type,
+          value: discount.value,
+          baseAmount: baseAmountForDiscount,
+          maxDiscountAmount: discount.maxDiscountAmount || 0,
+          backendAmount: amount,
+          calculatedAmount: calculatedAmount,
+          match: Math.abs(amount - calculatedAmount) < 0.01
+        });
 
         console.log("Applying discount:", {
           code: discount.code,
@@ -876,11 +556,82 @@ export default function Checkout() {
         setDiscountCode("");
         setShowDiscountList(false);
       } else {
-        setDiscountError(response.message || "Mã giảm giá không hợp lệ");
+        // Hiển thị lý do cụ thể từ backend nếu có
+        const errorMessage = response.message || "Mã giảm giá không hợp lệ";
+        const reason = (response as { reason?: string }).reason;
+        
+        let detailedMessage = errorMessage;
+        if (reason) {
+          switch (reason) {
+            case "INVALID_CODE":
+              detailedMessage = "Mã giảm giá không tồn tại";
+              break;
+            case "NOT_STARTED":
+              detailedMessage = "Mã giảm giá chưa đến thời gian sử dụng";
+              break;
+            case "EXPIRED":
+              detailedMessage = "Mã giảm giá đã hết hạn";
+              break;
+            case "USAGE_LIMIT":
+              detailedMessage = "Mã giảm giá đã hết lượt sử dụng";
+              break;
+            case "BELOW_MIN_ORDER":
+              const baseAmount = rentalTotal + depositTotal;
+              // Try to get minOrderAmount from available discounts
+              const discountInfo = availableDiscounts.find(d => d.code === codeToApply.toUpperCase());
+              if (discountInfo?.minOrderAmount) {
+                const needed = discountInfo.minOrderAmount - baseAmount;
+                detailedMessage = `Đơn hàng cần thêm ${needed.toLocaleString("vi-VN")}₫ để áp dụng mã này (Tối thiểu: ${discountInfo.minOrderAmount.toLocaleString("vi-VN")}₫, Hiện tại: ${baseAmount.toLocaleString("vi-VN")}₫)`;
+              } else {
+                detailedMessage = `Đơn hàng chưa đạt mức tối thiểu để áp dụng mã này (Hiện tại: ${baseAmount.toLocaleString("vi-VN")}₫)`;
+              }
+              break;
+            case "NOT_ALLOWED_USER":
+              detailedMessage = "Bạn không có quyền sử dụng mã giảm giá này";
+              break;
+            case "PER_USER_LIMIT":
+              detailedMessage = "Bạn đã sử dụng hết số lần cho phép của mã này";
+              break;
+            case "OWNER_NOT_MATCH":
+              detailedMessage = "Mã giảm giá này chỉ áp dụng cho sản phẩm của chủ sở hữu cụ thể";
+              break;
+            case "ITEM_NOT_MATCH":
+              detailedMessage = "Mã giảm giá này chỉ áp dụng cho sản phẩm cụ thể";
+              break;
+            case "ASSIGN_NOT_STARTED":
+              detailedMessage = "Mã giảm giá riêng tư chưa đến thời gian sử dụng";
+              break;
+            case "ASSIGN_EXPIRED":
+              detailedMessage = "Mã giảm giá riêng tư đã hết thời gian sử dụng";
+              break;
+            default:
+              detailedMessage = errorMessage;
+          }
+        }
+        
+        // Log chi tiết để debug
+        console.error("Discount validation failed:", {
+          code: codeToApply,
+          reason,
+          message: detailedMessage,
+          baseAmount: baseAmountForDiscount,
+          response
+        });
+        
+        setDiscountError(detailedMessage);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error applying discount:", error);
-      setDiscountError("Có lỗi xảy ra khi áp dụng mã giảm giá");
+      let errorMessage = "Có lỗi xảy ra khi áp dụng mã giảm giá";
+      if (error && typeof error === "object") {
+        const apiError = error as ApiError;
+        errorMessage = apiError?.response?.data?.message || 
+                      apiError?.message || 
+                      errorMessage;
+      } else if (typeof error === "string") {
+        errorMessage = error;
+      }
+      setDiscountError(errorMessage);
     } finally {
       setDiscountLoading(false);
     }
@@ -1050,211 +801,6 @@ export default function Checkout() {
     cancelEditing(item._id);
   };
 
-  // const handleSubmit = async () => {
-  //   if (
-  //     !shipping.fullName ||
-  //     !shipping.street ||
-  //     !shipping.province ||
-  //     !shipping.phone
-  //   ) {
-  //     toast.error("Vui lòng điền đầy đủ thông tin địa chỉ");
-  //     return;
-  //   }
-
-  //   setIsSubmitting(true);
-  //   try {
-  //     let successCount = 0;
-  //     const failedItems: string[] = [];
-
-  //     for (const item of cartItems) {
-  //       console.log("Tạo đơn hàng:", item.title);
-
-  //       const result = await dispatch(
-  //         createOrderAction({
-  //           itemId: item.itemId,
-  //           quantity: item.quantity,
-  //           startAt: item.rentalStartDate,
-  //           endAt: item.rentalEndDate,
-  //           shippingAddress: shipping,
-  //           paymentMethod: "Wallet",
-  //           note,
-  //         })
-  //       );
-
-  //       if (!result?.success) {
-  //         const errorMessage = result?.error || "Không thể tạo đơn hàng";
-  //         toast.error(`Không thể tạo đơn cho sản phẩm: ${item.title}. ${errorMessage}`);
-  //         failedItems.push(item.title);
-  //         console.error(`Order failed for ${item.title}:`, result?.error);
-  //         continue; // Continue processing other items instead of throwing
-  //       }
-  //       try {
-  //         if (!result?.data?._id || !result?.data?.userId) {
-  //           toast.error("Không tìm thấy orderId hoặc userId.");
-  //           continue;
-  //         }
-  //         console.log("Gọi thanh toán ví:", result.data._id, result.data.userId);
-  //         const paymentResult = await payOrderWithWallet(result.data._id, result.data.userId);
-
-  //         if (!paymentResult.success) {
-  //           toast.error(`Thanh toán thất bại cho sản phẩm: ${item.title}. Lý do: ${paymentResult.error}`);
-  //           failedItems.push(item.title + " (thanh toán không thành công)");
-  //           continue; // bỏ qua item này, tiếp tục các item còn lại
-  //         }
-  //       } catch (paymentError) {
-  //         toast.error(`Lỗi thanh toán đơn ${item.title}`);
-  //         failedItems.push(item.title + " (lỗi thanh toán)");
-  //         continue;
-  //       }
-  //       // Only remove from cart if order was successful
-  //       if (!item._id?.startsWith("temp-")) {
-  //         try {
-  //           await dispatch(removeItemFromCartAction(item._id));
-  //         } catch (cartError) {
-  //           console.error(`Error removing item from cart: ${item.title}`, cartError);
-  //           // Don't fail the entire process if cart removal fails
-  //         }
-  //       }
-
-  //       successCount++;
-  //     }
-
-  //     // Show appropriate message based on results
-  //     if (failedItems.length === 0) {
-  //       toast.success("Tạo tất cả đơn hàng thành công!");
-  //       sessionStorage.removeItem("checkoutItems");
-  //       router.push("/auth/order");
-  //     } else if (successCount > 0) {
-  //       toast.warning(
-  //         `Đã tạo thành công ${successCount} đơn hàng. ${failedItems.length} đơn hàng thất bại: ${failedItems.join(", ")}`
-  //       );
-  //       // Keep only failed items in sessionStorage for retry
-  //       const remainingItems = cartItems.filter(
-  //         (item) => failedItems.includes(item.title)
-  //       );
-  //       if (remainingItems.length > 0) {
-  //         sessionStorage.setItem("checkoutItems", JSON.stringify(remainingItems));
-  //       } else {
-  //         sessionStorage.removeItem("checkoutItems");
-  //       }
-  //     } else {
-  //       toast.error("Không thể tạo bất kỳ đơn hàng nào. Vui lòng thử lại.");
-  //     }
-  //   } catch (err) {
-  //     console.error("Checkout error:", err);
-  //     toast.error("Có lỗi xảy ra khi tạo đơn hàng, vui lòng thử lại.");
-  //   } finally {
-  //     setIsSubmitting(false);
-  //   }
-  // };
-
-  // ham submit mơi 
-
-  const handleSubmit = async () => {
-    if (
-      !shipping.fullName ||
-      !shipping.street ||
-      !shipping.province ||
-      !shipping.phone
-    ) {
-  // const handleSubmit = async () => {
-  //   if (
-  //     !shipping.fullName ||
-  //     !shipping.street ||
-  //     !shipping.province ||
-  //     !shipping.phone
-  //   ) {
-  //     toast.error("Vui lòng điền đầy đủ thông tin địa chỉ");
-  //     return;
-  //   }
-
-  //   setIsSubmitting(true);
-  //   try {
-  //     let successCount = 0;
-  //     const failedItems: string[] = [];
-
-  //     for (const item of cartItems) {
-  //       console.log("Tạo đơn hàng:", item.title);
-
-  //       const result = await dispatch(
-  //         createOrderAction({
-  //           itemId: item.itemId,
-  //           quantity: item.quantity,
-  //           startAt: item.rentalStartDate,
-  //           endAt: item.rentalEndDate,
-  //           shippingAddress: shipping,
-  //           paymentMethod: "Wallet",
-  //           note,
-  //         })
-  //       );
-
-  //       if (!result?.success) {
-  //         const errorMessage = result?.error || "Không thể tạo đơn hàng";
-  //         toast.error(`Không thể tạo đơn cho sản phẩm: ${item.title}. ${errorMessage}`);
-  //         failedItems.push(item.title);
-  //         console.error(`Order failed for ${item.title}:`, result?.error);
-  //         continue; // Continue processing other items instead of throwing
-  //       }
-  //       try {
-  //         if (!result?.data?._id || !result?.data?.userId) {
-  //           toast.error("Không tìm thấy orderId hoặc userId.");
-  //           continue;
-  //         }
-  //         console.log("Gọi thanh toán ví:", result.data._id, result.data.userId);
-  //         const paymentResult = await payOrderWithWallet(result.data._id, result.data.userId);
-
-  //         if (!paymentResult.success) {
-  //           toast.error(`Thanh toán thất bại cho sản phẩm: ${item.title}. Lý do: ${paymentResult.error}`);
-  //           failedItems.push(item.title + " (thanh toán không thành công)");
-  //           continue; // bỏ qua item này, tiếp tục các item còn lại
-  //         }
-  //       } catch (paymentError) {
-  //         toast.error(`Lỗi thanh toán đơn ${item.title}`);
-  //         failedItems.push(item.title + " (lỗi thanh toán)");
-  //         continue;
-  //       }
-  //       // Only remove from cart if order was successful
-  //       if (!item._id?.startsWith("temp-")) {
-  //         try {
-  //           await dispatch(removeItemFromCartAction(item._id));
-  //         } catch (cartError) {
-  //           console.error(`Error removing item from cart: ${item.title}`, cartError);
-  //           // Don't fail the entire process if cart removal fails
-  //         }
-  //       }
-
-  //       successCount++;
-  //     }
-
-  //     // Show appropriate message based on results
-  //     if (failedItems.length === 0) {
-  //       toast.success("Tạo tất cả đơn hàng thành công!");
-  //       sessionStorage.removeItem("checkoutItems");
-  //       router.push("/auth/order");
-  //     } else if (successCount > 0) {
-  //       toast.warning(
-  //         `Đã tạo thành công ${successCount} đơn hàng. ${failedItems.length} đơn hàng thất bại: ${failedItems.join(", ")}`
-  //       );
-  //       // Keep only failed items in sessionStorage for retry
-  //       const remainingItems = cartItems.filter(
-  //         (item) => failedItems.includes(item.title)
-  //       );
-  //       if (remainingItems.length > 0) {
-  //         sessionStorage.setItem("checkoutItems", JSON.stringify(remainingItems));
-  //       } else {
-  //         sessionStorage.removeItem("checkoutItems");
-  //       }
-  //     } else {
-  //       toast.error("Không thể tạo bất kỳ đơn hàng nào. Vui lòng thử lại.");
-  //     }
-  //   } catch (err) {
-  //     console.error("Checkout error:", err);
-  //     toast.error("Có lỗi xảy ra khi tạo đơn hàng, vui lòng thử lại.");
-  //   } finally {
-  //     setIsSubmitting(false);
-  //   }
-  // };
-
   // ham submit mơi 
 
   const handleSubmit = async () => {
@@ -1267,15 +813,22 @@ export default function Checkout() {
       toast.error("Vui lòng điền đầy đủ thông tin địa chỉ");
       return;
     }
+
+    if (selectedCartItems.length === 0) {
+      toast.error("Vui lòng chọn ít nhất một sản phẩm để đặt thuê");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      let successCount = 0;
-      const failedItems: string[] = [];
+      const itemsToProcess = selectedCartItems;
+      const unselectedItems = cartItems.filter(
+        (item) => !selectedItemIds.includes(item._id)
+      );
+      const failedItemIds: string[] = [];
+      const failedItemMessages: string[] = [];
 
-      for (const item of cartItems) {
+      for (const item of itemsToProcess) {
         console.log("Bắt đầu xử lý cho:", item.title);
 
         const result = await dispatch(
@@ -1295,17 +848,22 @@ export default function Checkout() {
         if (!result?.success) {
           const errorMessage = result?.error || "Không thể tạo đơn hàng";
           toast.error(`Không thể tạo đơn cho sản phẩm: ${item.title}. ${errorMessage}`);
-          failedItems.push(item.title);
+          failedItemMessages.push(item.title);
+          failedItemIds.push(item._id);
           console.error(`Order failed for ${item.title}:`, result?.error);
-          continue; // Continue processing other items instead of throwing
+          continue;
         }
-        const orderIdRaw = result?.data?.orderId ?? result?.data?._id;
-        const userId = result?.data?.userId;
+        const orderData = result?.data as
+          | { orderId?: string; _id?: string; userId?: string }
+          | undefined;
+        const orderIdRaw = orderData?.orderId ?? orderData?._id;
+        const userId = orderData?.userId;
 
         if (!orderIdRaw) {
           console.error("Response từ createOrder:", result);
           toast.error(`Không lấy được orderId cho sản phẩm: ${item.title}`);
-          failedItems.push(item.title + " (lỗi lấy orderId)");
+          failedItemMessages.push(item.title + " (lỗi lấy orderId)");
+          failedItemIds.push(item._id);
           continue;
         }
 
@@ -1325,64 +883,80 @@ export default function Checkout() {
             toast.error(
               `Thanh toán thất bại cho sản phẩm: ${item.title}. ${errorMsg}`
             );
-            failedItems.push(item.title + " (thanh toán không thành công)");
+            failedItemMessages.push(item.title + " (thanh toán không thành công)");
+            failedItemIds.push(item._id);
             continue;
           }
 
           console.log(" Thanh toán thành công cho order:", orderId);
-        } catch (paymentError: any) {
+        } catch (paymentError: unknown) {
           let errorMessage = "Thanh toán thất bại";
 
-          if (paymentError?.response?.data) {
-            const errorData = paymentError.response.data;
-            console.log(" Error data từ backend:", errorData);
+          if (paymentError && typeof paymentError === "object") {
+            const error = paymentError as ApiError;
+            const errorData = error.response?.data;
 
-            errorMessage =
-              errorData.message || errorData.error || "Thanh toán thất bại";
+            if (errorData) {
+              console.log(" Error data từ backend:", errorData);
 
-            const isInsufficientBalance =
-              errorData.error === "Ví người dùng không đủ tiền" ||
-              errorMessage.includes("không đủ tiền") ||
-              errorData.error?.includes("không đủ tiền") ||
-              errorData.error?.includes("Ví người dùng không đủ tiền");
+              errorMessage =
+                errorData.message || errorData.error || "Thanh toán thất bại";
 
-            console.log(
-              " Is insufficient balance?",
-              isInsufficientBalance,
-              "error:",
-              errorData.error
-            );
+              const isInsufficientBalance =
+                errorData.error === "Ví người dùng không đủ tiền" ||
+                errorMessage.includes("không đủ tiền") ||
+                errorData.error?.includes("không đủ tiền") ||
+                errorData.error?.includes("Ví người dùng không đủ tiền");
 
-            if (isInsufficientBalance) {
-              errorMessage = "Số dư ví không đủ. Vui lòng nạp tiền vào ví.";
+              console.log(
+                " Is insufficient balance?",
+                isInsufficientBalance,
+                "error:",
+                errorData.error
+              );
 
-              console.log(" Đang mở modal với message:", errorMessage);
-              setErrorModalTitle("Ví không đủ tiền");
-              setErrorModalMessage(errorMessage);
-              setIsErrorModalOpen(true);
-              console.log(" Modal state đã được set:", {
-                title: "Ví không đủ tiền",
-                message: errorMessage,
-              });
-            } else {
+              if (isInsufficientBalance) {
+                errorMessage = "Số dư ví không đủ. Vui lòng nạp tiền vào ví.";
+
+                console.log(" Đang mở modal với message:", errorMessage);
+                setErrorModalTitle("Ví không đủ tiền");
+                setErrorModalMessage(errorMessage);
+                setIsErrorModalOpen(true);
+                console.log(" Modal state đã được set:", {
+                  title: "Ví không đủ tiền",
+                  message: errorMessage,
+                });
+              } else {
+                toast.error(`${errorMessage} - Sản phẩm: ${item.title}`, {
+                  duration: 5000,
+                });
+              }
+              failedItemMessages.push(item.title + " (thanh toán không thành công)");
+              failedItemIds.push(item._id);
+              continue;
+            }
+
+            if (typeof error.message === "string") {
+              errorMessage = error.message;
               toast.error(`${errorMessage} - Sản phẩm: ${item.title}`, {
                 duration: 5000,
               });
+              failedItemMessages.push(item.title + " (thanh toán không thành công)");
+              failedItemIds.push(item._id);
+              continue;
             }
-          } else if (paymentError?.message) {
-            errorMessage = paymentError.message;
-            toast.error(`${errorMessage} - Sản phẩm: ${item.title}`, {
-              duration: 5000,
-            });
-          } else {
-            toast.error(`Thanh toán thất bại cho sản phẩm: ${item.title}`, {
-              duration: 5000,
-            });
           }
 
+          if (typeof paymentError === "string") {
+            errorMessage = paymentError;
+          }
+
+          toast.error(`Thanh toán thất bại cho sản phẩm: ${item.title}`, {
+            duration: 5000,
+          });
           console.error(" Lỗi thanh toán:", paymentError);
-          console.error(" Error data:", paymentError?.response?.data);
-          failedItems.push(item.title + " (thanh toán không thành công)");
+          failedItemMessages.push(item.title + " (thanh toán không thành công)");
+          failedItemIds.push(item._id);
           continue;
         }
 
@@ -1396,39 +970,44 @@ export default function Checkout() {
             );
           }
         }
-
-        successCount++;
       }
 
-      if (failedItems.length === 0) {
-        toast.success("Thanh toán & tạo đơn tất cả sản phẩm thành công!");
-        sessionStorage.removeItem("checkoutItems");
-        router.push("/auth/order");
-      } else if (successCount > 0) {
-        toast.warning(
-          `Đã xử lý thành công ${successCount} đơn hàng. ${failedItems.length} đơn thất bại: ${failedItems.join(", ")}`
-        );
-        const remainingItems = cartItems.filter((item) =>
-          failedItems.includes(item.title)
-        );
+      const successCount = itemsToProcess.length - failedItemIds.length;
+
+      if (failedItemIds.length === 0) {
+        toast.success("Thanh toán & tạo đơn tất cả sản phẩm đã chọn thành công!");
+        const remainingItems = unselectedItems;
         if (remainingItems.length > 0) {
-          sessionStorage.setItem(
-            "checkoutItems",
-            JSON.stringify(remainingItems)
-          );
+          sessionStorage.setItem("checkoutItems", JSON.stringify(remainingItems));
         } else {
           sessionStorage.removeItem("checkoutItems");
         }
+        router.push("/auth/order");
+      } else if (successCount > 0) {
+        toast.warning(
+          `Đã xử lý thành công ${successCount} đơn hàng. ${failedItemMessages.length} đơn thất bại: ${failedItemMessages.join(", ")}`
+        );
+        const remainingItems = [
+          ...unselectedItems,
+          ...itemsToProcess.filter((item) => failedItemIds.includes(item._id)),
+        ];
+        sessionStorage.setItem(
+          "checkoutItems",
+          JSON.stringify(remainingItems)
+        );
       } else {
-        toast.error("Không thể xử lý đơn hàng nào. Vui lòng thử lại.");
+        toast.error(
+          `Không thể xử lý đơn hàng nào. Chi tiết: ${failedItemMessages.join(", ")}`
+        );
+        const remainingItems = [...unselectedItems, ...itemsToProcess];
+        sessionStorage.setItem(
+          "checkoutItems",
+          JSON.stringify(remainingItems)
+        );
       }
     } catch (err) {
       console.error("Checkout error:", err);
       toast.error("Có lỗi xảy ra khi tạo đơn hàng, vui lòng thử lại.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
     } finally {
       setIsSubmitting(false);
     }
@@ -1504,24 +1083,55 @@ export default function Checkout() {
           </div>
 
           <div className="grid lg:grid-cols-3 gap-8">
-            {/* Cột trái */}
+            {/* Left column: products + address */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Sản phẩm */}
+              {/* Products */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
                 <h2 className="font-bold text-xl mb-6 flex items-center gap-3">
                   <Package className="w-7 h-7 text-blue-600" />
                   Sản phẩm thuê ({cartItems.length})
                 </h2>
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-6 p-4 bg-gradient-to-r from-emerald-50 to-blue-50 rounded-xl border border-emerald-100">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-emerald-200 shadow-sm">
+                      <CheckCircle2 className={`w-4 h-4 ${selectedItemIds.length > 0 ? "text-emerald-600" : "text-gray-400"}`} />
+                      <span className="text-sm font-semibold text-gray-700">
+                        Đã chọn <span className="text-emerald-600">{selectedItemIds.length}</span>/{cartItems.length} sản phẩm
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={handleSelectAllItems}
+                      disabled={cartItems.length === 0 || selectedItemIds.length === cartItems.length}
+                      className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all transform hover:scale-105 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-md"
+                    >
+                      <Check className="w-4 h-4" />
+                      Chọn tất cả
+                    </button>
+                    <button
+                      onClick={handleDeselectAllItems}
+                      disabled={selectedItemIds.length === 0}
+                      className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-white border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all transform hover:scale-105 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-sm"
+                    >
+                      <X className="w-4 h-4" />
+                      Bỏ chọn tất cả
+                    </button>
+                  </div>
+                </div>
+
                 <div className="space-y-4">
                   {currentItems.map((item) => {
-                    // Use editing data if available, otherwise use original data
                     const editingData = editingItems[item._id];
-                    const displayItem: CartItem = editingData ? {
-                      ...item,
-                      quantity: editingData.quantity,
-                      rentalStartDate: editingData.rentalStartDate,
-                      rentalEndDate: editingData.rentalEndDate,
-                    } : item;
+                    const displayItem: CartItem = editingData
+                      ? {
+                          ...item,
+                          quantity: editingData.quantity,
+                          rentalStartDate: editingData.rentalStartDate,
+                          rentalEndDate: editingData.rentalEndDate,
+                        }
+                      : item;
+                    const isSelected = selectedItemIds.includes(item._id);
 
                     const days = calculateRentalDays(displayItem);
                     const durationText = getRentalDurationText(
@@ -1534,25 +1144,69 @@ export default function Checkout() {
                     return (
                       <div
                         key={item._id}
-                        className="group flex gap-6 p-6 bg-white rounded-xl border-2 border-gray-200 hover:border-emerald-300 hover:shadow-lg transition-all duration-300"
+                        className={`group relative flex gap-4 p-5 rounded-2xl border-2 transition-all duration-300 ${
+                          isSelected
+                            ? "border-emerald-500 bg-gradient-to-br from-emerald-50 to-white shadow-xl ring-2 ring-emerald-200"
+                            : "bg-white border-gray-200 hover:border-emerald-300 hover:shadow-lg"
+                        }`}
                       >
-                        <div className="relative bg-gray-100 rounded-xl w-32 h-32 flex-shrink-0 overflow-hidden ring-2 ring-gray-200 group-hover:ring-emerald-200 transition-all">
+                        {/* Checkbox at the beginning */}
+                        <div className="flex-shrink-0 pt-1">
+                          <label className="relative flex items-center justify-center cursor-pointer group/checkbox">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleToggleItemSelection(item._id)}
+                              className="sr-only peer"
+                              aria-label={`Chọn sản phẩm ${item.title}`}
+                            />
+                            <div className={`relative w-6 h-6 rounded-lg border-2 transition-all duration-200 flex items-center justify-center ${
+                              isSelected
+                                ? "bg-emerald-600 border-emerald-600 shadow-md scale-110"
+                                : "bg-white border-gray-300 group-hover/checkbox:border-emerald-400 group-hover/checkbox:bg-emerald-50"
+                            }`}>
+                              {isSelected && (
+                                <Check className="w-4 h-4 text-white" />
+                              )}
+                            </div>
+                          </label>
+                        </div>
+
+                        {/* Product Image */}
+                        <div className={`relative bg-gray-100 rounded-xl w-32 h-32 flex-shrink-0 overflow-hidden ring-2 transition-all ${
+                          isSelected
+                            ? "ring-emerald-300 shadow-md"
+                            : "ring-gray-200 group-hover:ring-emerald-200"
+                        }`}>
                           {item.primaryImage ? (
-                            <img
+                            <Image
                               src={item.primaryImage}
                               alt={item.title}
-                              className="w-full h-full object-cover"
+                              fill
+                              sizes="128px"
+                              className="object-cover"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-gray-400">
                               <Package className="w-14 h-14" />
                             </div>
                           )}
+                          {isSelected && (
+                            <div className="absolute top-2 right-2 bg-emerald-600 text-white rounded-full p-1 shadow-lg animate-pulse">
+                              <Check className="w-3 h-3" />
+                            </div>
+                          )}
                         </div>
-                        <div className="flex-1 space-y-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <h3 className="text-xl font-bold text-gray-800 line-clamp-2 mb-2 group-hover:text-emerald-700 transition-colors">
+
+                        {/* Product Content */}
+                        <div className="flex-1 space-y-4 min-w-0">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <h3 className={`text-xl font-bold line-clamp-2 mb-2 transition-colors ${
+                                isSelected
+                                  ? "text-emerald-800"
+                                  : "text-gray-800 group-hover:text-emerald-700"
+                              }`}>
                                 {item.title}
                               </h3>
                               <p className="text-sm text-gray-500 line-clamp-2">
@@ -1562,13 +1216,13 @@ export default function Checkout() {
                             {!editingItems[item._id] ? (
                               <button
                                 onClick={() => startEditing(item)}
-                                className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                                className="flex-shrink-0 p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                                 title="Chỉnh sửa"
                               >
                                 <Edit2 className="w-4 h-4" />
                               </button>
                             ) : (
-                              <div className="flex gap-2">
+                              <div className="flex gap-2 flex-shrink-0">
                                 <button
                                   onClick={() => saveItem(item)}
                                   className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
@@ -1605,11 +1259,9 @@ export default function Checkout() {
                                   {format(
                                     new Date(item.rentalStartDate!),
                                     "dd/MM/yyyy HH:mm"
-                                  )} →{" "}
-                                  {format(new Date(item.rentalEndDate!), "dd/MM/yyyy HH:mm")}
+                                  )} → {format(new Date(item.rentalEndDate!), "dd/MM/yyyy HH:mm")}
                                 </span>
                               </div>
-                              {/* View Product Detail Button */}
                               {item.itemId && (
                                 <div className="pt-2">
                                   <Link
@@ -1627,7 +1279,6 @@ export default function Checkout() {
                             </>
                           ) : (
                             <div className="space-y-3 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
-                              {/* Quantity Input */}
                               <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                                   Số lượng <span className="text-red-500">*</span>
@@ -1637,8 +1288,15 @@ export default function Checkout() {
                                   min="1"
                                   max={item.availableQuantity}
                                   value={editingItems[item._id].quantity}
-                                  onChange={(e) => updateEditingField(item._id, "quantity", parseInt(e.target.value) || 1)}
-                                  className={`w-full px-3 py-2 text-base border-2 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition ${itemErrors[item._id]?.quantity
+                                  onChange={(e) =>
+                                    updateEditingField(
+                                      item._id,
+                                      "quantity",
+                                      parseInt(e.target.value) || 1
+                                    )
+                                  }
+                                  className={`w-full px-3 py-2 text-base border-2 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition ${
+                                    itemErrors[item._id]?.quantity
                                     ? "border-red-300 bg-red-50"
                                     : "border-gray-300 hover:border-gray-400"
                                     }`}
@@ -1647,11 +1305,12 @@ export default function Checkout() {
                                   Số lượng có sẵn: {item.availableQuantity} sản phẩm
                                 </p>
                                 {itemErrors[item._id]?.quantity && (
-                                  <p className="mt-1 text-xs text-red-600">{itemErrors[item._id].quantity}</p>
+                                  <p className="mt-1 text-xs text-red-600">
+                                    {itemErrors[item._id].quantity}
+                                  </p>
                                 )}
                               </div>
 
-                              {/* Date Inputs */}
                               <div className="grid grid-cols-2 gap-3">
                                 <div>
                                   <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -1660,15 +1319,20 @@ export default function Checkout() {
                                   <input
                                     type="datetime-local"
                                     value={editingItems[item._id].rentalStartDate}
-                                    onChange={(e) => updateEditingField(item._id, "rentalStartDate", e.target.value)}
+                                    onChange={(e) =>
+                                      updateEditingField(item._id, "rentalStartDate", e.target.value)
+                                    }
                                     min={getMinDateTime()}
-                                    className={`w-full px-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition ${itemErrors[item._id]?.rentalStartDate
+                                    className={`w-full px-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition ${
+                                      itemErrors[item._id]?.rentalStartDate
                                       ? "border-red-300 bg-red-50"
                                       : "border-gray-300 hover:border-gray-400"
                                       }`}
                                   />
                                   {itemErrors[item._id]?.rentalStartDate && (
-                                    <p className="mt-1 text-xs text-red-600">{itemErrors[item._id].rentalStartDate}</p>
+                                    <p className="mt-1 text-xs text-red-600">
+                                      {itemErrors[item._id].rentalStartDate}
+                                    </p>
                                   )}
                                 </div>
                                 <div>
@@ -1678,20 +1342,26 @@ export default function Checkout() {
                                   <input
                                     type="datetime-local"
                                     value={editingItems[item._id].rentalEndDate}
-                                    onChange={(e) => updateEditingField(item._id, "rentalEndDate", e.target.value)}
+                                    onChange={(e) =>
+                                      updateEditingField(item._id, "rentalEndDate", e.target.value)
+                                    }
                                     min={editingItems[item._id].rentalStartDate || getMinDateTime()}
-                                    className={`w-full px-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition ${itemErrors[item._id]?.rentalEndDate
+                                    className={`w-full px-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition ${
+                                      itemErrors[item._id]?.rentalEndDate
                                       ? "border-red-300 bg-red-50"
                                       : "border-gray-300 hover:border-gray-400"
                                       }`}
                                   />
                                   {itemErrors[item._id]?.rentalEndDate && (
-                                    <p className="mt-1 text-xs text-red-600">{itemErrors[item._id].rentalEndDate}</p>
+                                    <p className="mt-1 text-xs text-red-600">
+                                      {itemErrors[item._id].rentalEndDate}
+                                    </p>
                                   )}
                                 </div>
                               </div>
                             </div>
                           )}
+
                           <div className="flex flex-col gap-3 pt-4 border-t border-gray-200 bg-gradient-to-r from-emerald-50/50 to-blue-50/50 -mx-6 px-6 pb-2 rounded-b-xl">
                             <div className="flex justify-between items-center">
                               <span className="text-sm font-medium text-gray-700">Giá thuê:</span>
@@ -1712,13 +1382,13 @@ export default function Checkout() {
                   })}
                 </div>
 
-                {/* Pagination */}
                 {cartItems.length > itemsPerPage && (
                   <div className="mt-6 flex items-center justify-center gap-2">
                     <button
                       onClick={() => goToPage(currentPage - 1)}
                       disabled={currentPage === 1}
-                      className={`flex items-center gap-1 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${currentPage === 1
+                      className={`flex items-center gap-1 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
+                        currentPage === 1
                         ? "text-gray-400 border-gray-200 cursor-not-allowed bg-gray-50"
                         : "text-gray-700 border-gray-300 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
                         }`}
@@ -1743,7 +1413,8 @@ export default function Checkout() {
                         <button
                           key={pageNum}
                           onClick={() => goToPage(pageNum)}
-                          className={`w-10 h-10 flex items-center justify-center rounded-lg border text-sm font-medium transition-all ${currentPage === pageNum
+                          className={`w-10 h-10 flex items-center justify-center rounded-lg border text-sm font-medium transition-all ${
+                            currentPage === pageNum
                             ? "bg-emerald-600 text-white border-emerald-600 shadow-md"
                             : "border-gray-300 text-gray-700 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
                             }`}
@@ -1756,7 +1427,8 @@ export default function Checkout() {
                     <button
                       onClick={() => goToPage(currentPage + 1)}
                       disabled={currentPage === totalPages}
-                      className={`flex items-center gap-1 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${currentPage === totalPages
+                      className={`flex items-center gap-1 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
+                        currentPage === totalPages
                         ? "text-gray-400 border-gray-200 cursor-not-allowed bg-gray-50"
                         : "text-gray-700 border-gray-300 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
                         }`}
@@ -1767,7 +1439,6 @@ export default function Checkout() {
                   </div>
                 )}
 
-                {/* Pagination Info */}
                 {cartItems.length > itemsPerPage && (
                   <div className="mt-3 text-center text-sm text-gray-600">
                     Trang {currentPage} / {totalPages} ({cartItems.length} sản phẩm)
@@ -1775,7 +1446,7 @@ export default function Checkout() {
                 )}
               </div>
 
-              {/* Địa chỉ */}
+              {/* Address */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 hover:shadow-md transition-shadow">
                 <h2 className="font-bold text-xl mb-6 flex items-center gap-3">
                   <div className="p-2 bg-red-100 rounded-lg" />
@@ -1811,122 +1482,7 @@ export default function Checkout() {
                   </div>
                 </div>
 
-                {/* Address selector */}
                 <div className="mt-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <label className="block text-sm font-semibold text-gray-700">
-                      Chọn địa chỉ đã lưu
-                    </label>
-                    <button
-                      onClick={() => {
-                        setIsEditingAddress(true);
-                        setEditingAddressId(null);
-                        setNewAddress({ Address: "", City: "", District: "", IsDefault: false });
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-semibold"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      Thêm mới
-                    </button>
-                  </div>
-                  <div className="space-y-4">
-                    {userAddresses.map((address) => (
-                      <div
-                        key={address._id}
-                        className={`relative p-4 border-2 rounded-xl transition-all cursor-pointer ${selectedAddressId === address._id
-                          ? "border-emerald-500 bg-emerald-50/30"
-                          : "border-gray-200 hover:border-gray-300 bg-white"
-                          }`}
-                        onClick={() => handleAddressSelect(address._id)}
-                      >
-                        {/* Radio button and default badge */}
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="flex items-center gap-2">
-                            {selectedAddressId === address._id ? (
-                              <div className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-600 border-2 border-emerald-600 flex-shrink-0 cursor-pointer">
-                                <Check className="w-3.5 h-3.5 text-white" />
-                              </div>
-                            ) : (
-                              <div className="w-5 h-5 rounded-full border-2 border-gray-300 flex-shrink-0 cursor-pointer"></div>
-                            )}
-                          </div>
-                          {address.IsDefault && (
-                            <span className="inline-flex items-center px-2.5 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-semibold">
-                              Mặc định
-                            </span>
-                          )}
-                          <div className="flex-1"></div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                startEditingAddress(address._id);
-                                setIsEditingAddress(true);
-                              }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
-                              title="Sửa địa chỉ"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                              Sửa
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteAddress(address._id);
-                              }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors border border-red-200"
-                              title="Xóa địa chỉ"
-                              disabled={addressLoading}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              Xóa
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Address fields in form-like style */}
-                        <div className="space-y-3">
-                          <div className="space-y-1.5">
-                            <label className="block text-sm font-semibold text-gray-700">
-                              Địa chỉ (số nhà, đường...) <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                              type="text"
-                              value={address.Address}
-                              readOnly
-                              className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-lg bg-gray-50 cursor-pointer"
-                            />
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1.5">
-                              <label className="block text-sm font-semibold text-gray-700">
-                                Phường/Xã <span className="text-red-500">*</span>
-                              </label>
-                              <input
-                                type="text"
-                                value={address.District}
-                                readOnly
-                                className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-lg bg-gray-50 cursor-pointer"
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <label className="block text-sm font-semibold text-gray-700">
-                                Tỉnh/Thành phố <span className="text-red-500">*</span>
-                              </label>
-                              <input
-                                type="text"
-                                value={address.City}
-                                readOnly
-                                className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-lg bg-gray-50 cursor-pointer"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
                 <AddressSelector
                   selectedAddressId={selectedAddressId}
                   onSelect={(address) => {
@@ -1936,192 +1492,7 @@ export default function Checkout() {
                 />
               </div>
 
-
-              {/* No Address Message */}
-              {userAddresses.length === 0 && !isEditingAddress && !editingAddressId && (
-                <div className="mt-6 p-4 bg-amber-50 border-2 border-amber-200 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-amber-800 mb-2">
-                        Vui lòng nhập địa chỉ
-                      </p>
-                      <p className="text-xs text-amber-700 mb-3">
-                        Bạn chưa có địa chỉ đã lưu. Vui lòng thêm địa chỉ mới hoặc nhập địa chỉ bên dưới.
-                      </p>
-                      <button
-                        onClick={() => {
-                          setIsEditingAddress(true);
-                          setEditingAddressId(null);
-                          setNewAddress({ Address: "", City: "", District: "", IsDefault: false });
-                        }}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-semibold"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Thêm địa chỉ mới
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Add/Edit Address Form - After name and phone */}
-              {(isEditingAddress || editingAddressId) && (
-                <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-gray-800">
-                      {editingAddressId ? "Sửa địa chỉ" : "Thêm địa chỉ mới"}
-                    </h3>
-                    <button
-                      onClick={() => {
-                        setIsEditingAddress(false);
-                        setEditingAddressId(null);
-                        setNewAddress({ Address: "", City: "", District: "", IsDefault: false });
-                      }}
-                      className="p-1 text-gray-500 hover:text-gray-700 transition-colors"
-                      title="Đóng"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <div className="space-y-3">
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-sm font-semibold text-gray-700">
-                          Địa chỉ (số nhà, đường...) <span className="text-red-500">*</span>
-                        </label>
-                        <button
-                          onClick={getCurrentLocation}
-                          disabled={locationLoading}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Lấy địa chỉ hiện tại từ vị trí GPS"
-                        >
-                          {locationLoading ? (
-                            <>
-                              <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                              <span>Đang lấy...</span>
-                            </>
-                          ) : (
-                            <>
-                              <MapPin className="w-3.5 h-3.5" />
-                              <span>Lấy địa chỉ hiện tại</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-                      <input
-                        type="text"
-                        placeholder="Nhập địa chỉ chi tiết"
-                        value={newAddress.Address}
-                        onChange={(e) => setNewAddress({ ...newAddress, Address: e.target.value })}
-                        className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">
-                          Phường/Xã <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Nhập phường/xã"
-                          value={newAddress.District}
-                          onChange={(e) => setNewAddress({ ...newAddress, District: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">
-                          Tỉnh/Thành phố <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Nhập tỉnh/thành phố"
-                          value={newAddress.City}
-                          onChange={(e) => setNewAddress({ ...newAddress, City: e.target.value })}
-                          className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
-                        />
-                      </div>
-                    </div>
-                    {/* Chỉ hiển thị checkbox khi đang sửa địa chỉ, không hiển thị khi thêm mới */}
-                    {editingAddressId && (
-                      <div className="flex items-center gap-2">
-                        {(() => {
-                          const address = userAddresses.find(addr => addr._id === editingAddressId);
-                          const defaultAddresses = userAddresses.filter(addr => addr.IsDefault && addr._id !== editingAddressId);
-                          const isOnlyDefault = address?.IsDefault && defaultAddresses.length === 0;
-                          const isDisabled = isOnlyDefault;
-                          const isChecked = isOnlyDefault ? true : newAddress.IsDefault;
-
-                          return (
-                            <>
-                              <input
-                                type="checkbox"
-                                id="isDefault"
-                                checked={isChecked}
-                                disabled={isDisabled}
-                                onChange={(e) => {
-                                  if (!isDisabled) {
-                                    setNewAddress({ ...newAddress, IsDefault: e.target.checked });
-                                  }
-                                }}
-                                className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                              />
-                              <label htmlFor="isDefault" className="text-sm text-gray-700 cursor-pointer">
-                                Đặt làm địa chỉ mặc định
-                                {isOnlyDefault && (
-                                  <span className="text-xs text-gray-500 ml-1">
-                                    (bắt buộc - đây là địa chỉ mặc định duy nhất)
-                                  </span>
-                                )}
-                              </label>
-                            </>
-                          );
-                        })()}
-                      </div>
-                    )}
-                    {!editingAddressId && (
-                      <div className="flex items-center gap-2">
-                        <div className="inline-flex items-center px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg">
-                          <Check className="w-4 h-4 text-emerald-600 mr-2" />
-                          <span className="text-sm text-emerald-700 font-medium">
-                            Địa chỉ mới sẽ tự động được đặt làm mặc định
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          if (editingAddressId) {
-                            handleUpdateAddress(editingAddressId);
-                          } else {
-                            handleCreateAddress();
-                          }
-                        }}
-                        disabled={addressLoading}
-                        className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {addressLoading ? "Đang xử lý..." : editingAddressId ? "Cập nhật" : "Thêm mới"}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setIsEditingAddress(false);
-                          setEditingAddressId(null);
-                          setNewAddress({ Address: "", City: "", District: "", IsDefault: false });
-                        }}
-                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-semibold"
-                      >
-                        Hủy
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-
-
-              {!isEditingAddress && !editingAddressId && !selectedAddressId && (
+                {!selectedAddressId && (
                 <div className="mt-6 space-y-4">
                   <div className="space-y-2 sm:col-span-2">
                     <label className="text-sm font-semibold text-gray-700">
@@ -2164,6 +1535,7 @@ export default function Checkout() {
                   </div>
                 </div>
               )}
+
               <div className="mt-6">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Ghi chú (tùy chọn)
@@ -2179,24 +1551,8 @@ export default function Checkout() {
             </div>
           </div>
 
-          <div className="lg:col-span-1 space-y-6">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <h2 className="font-bold text-xl mb-4 flex items-center gap-3 text-gray-800">
-                <div className="p-2 bg-emerald-100 rounded-lg">
-                  <Percent className="w-5 h-5 text-emerald-600" />
-                </div>
-                <span>Mã giảm giá</span>
-              </h2>
-              <p className="text-sm text-gray-600 mb-4">
-                Chọn một mã giảm giá phù hợp để tiết kiệm cho đơn hàng hiện tại của bạn.
-              </p>
-              <DiscountSelector
-                rentalTotal={rentalTotal}
-                selectedDiscount={appliedDiscount}
-                onSelect={setAppliedDiscount}
-              />
-            </div>
-
+            {/* Right column: payment summary */}
+            <aside className="lg:col-span-1 space-y-6">
             <div className="bg-gradient-to-br from-emerald-600 via-emerald-600 to-teal-600 text-white rounded-2xl shadow-2xl p-8 sticky top-24 border-2 border-emerald-500/20">
               <h2 className="font-bold text-2xl mb-6 flex items-center gap-3">
                 <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
@@ -2206,262 +1562,290 @@ export default function Checkout() {
               </h2>
 
               {/* Discount Code Section */}
-              <div className="mb-4 bg-white/10 rounded-lg p-3 backdrop-blur-sm border border-white/20 relative" style={{ zIndex: showDiscountList ? 50 : 1, overflow: showDiscountList ? 'visible' : 'visible' }}>
-                <label className="block text-xs font-semibold text-white mb-1.5">
+                <div
+                  className="mb-4 bg-white/10 rounded-lg p-3 backdrop-blur-sm border border-white/20 relative"
+                  style={{ zIndex: showDiscountList ? 50 : 1, overflow: showDiscountList ? "visible" : "visible" }}
+                >
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <label className="block text-xs font-semibold text-white">
                   Mã giảm giá (Tối đa: 1 công khai + 1 riêng tư)
                 </label>
-                {(publicDiscount || privateDiscount) ? (
-                  <div className="space-y-1.5">
-                    {/* Public Discount */}
+                    <button
+                      type="button"
+                      onClick={loadAvailableDiscounts}
+                      className="text-[10px] font-semibold text-white/80 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={loadingDiscounts}
+                    >
+                      {loadingDiscounts ? "Đang tải..." : "Làm mới"}
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
                     {publicDiscount && (
-                      <div className="flex items-center justify-between p-2 bg-blue-500/20 rounded-lg border border-blue-300/30">
+                      <div className="flex items-center justify-between p-2.5 bg-blue-500/20 rounded-lg border border-blue-300/30 shadow-sm">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-blue-300 flex-shrink-0" />
-                            <span className="font-semibold text-white text-sm truncate">{publicDiscount.code}</span>
-                            <span className="text-[9px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded">Công khai</span>
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <CheckCircle2 className="w-4 h-4 text-blue-300 flex-shrink-0" />
+                            <span className="font-bold text-white text-sm truncate">
+                              {publicDiscount.code}
+                            </span>
+                            <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-semibold">
+                              Công khai
+                            </span>
+                            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+                              publicDiscount.type === "percent"
+                                ? "bg-orange-100 text-orange-700"
+                                : "bg-emerald-100 text-emerald-700"
+                            }`}>
+                              {publicDiscount.type === "percent"
+                                ? `-${publicDiscount.value}%`
+                                : `-${publicDiscount.value.toLocaleString("vi-VN")}₫`}
+                            </span>
                           </div>
-                          <p className="text-[10px] text-blue-100 mt-0.5">
-                            {publicDiscount.type === "percent"
-                              ? `Giảm ${publicDiscount.value}%`
-                              : `Giảm ${publicDiscount.value.toLocaleString("vi-VN")}₫`}
+                          <p className="text-[10px] text-blue-100/90 font-medium">
+                            Đã giảm: <span className="font-bold">{effectivePublicDiscountAmount.toLocaleString("vi-VN")}₫</span>
                           </p>
                         </div>
                         <button
                           onClick={handleRemovePublicDiscount}
-                          className="p-0.5 text-white hover:text-red-200 transition-colors flex-shrink-0"
-                          title="Xóa mã giảm giá công khai"
+                          className="p-1 text-white/80 hover:text-red-200 hover:bg-red-500/20 rounded transition-all flex-shrink-0"
+                          title="Xóa mã công khai"
                         >
-                          <X className="w-3.5 h-3.5" />
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
                     )}
-                    {/* Private Discount */}
+
                     {privateDiscount && (
-                      <div className="flex items-center justify-between p-2 bg-purple-500/20 rounded-lg border border-purple-300/30">
+                      <div className="flex items-center justify-between p-2.5 bg-purple-500/20 rounded-lg border border-purple-300/30 shadow-sm">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-purple-300 flex-shrink-0" />
-                            <span className="font-semibold text-white text-sm truncate">{privateDiscount.code}</span>
-                            <span className="text-[9px] bg-purple-100 text-purple-700 px-1 py-0.5 rounded">Riêng tư</span>
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <CheckCircle2 className="w-4 h-4 text-purple-300 flex-shrink-0" />
+                            <span className="font-bold text-white text-sm truncate">
+                              {privateDiscount.code}
+                            </span>
+                            <span className="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-semibold">
+                              Riêng tư
+                            </span>
+                            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+                              privateDiscount.type === "percent"
+                                ? "bg-orange-100 text-orange-700"
+                                : "bg-emerald-100 text-emerald-700"
+                            }`}>
+                              {privateDiscount.type === "percent"
+                                ? `-${privateDiscount.value}%`
+                                : `-${privateDiscount.value.toLocaleString("vi-VN")}₫`}
+                            </span>
                           </div>
-                          <p className="text-[10px] text-purple-100 mt-0.5">
-                            {privateDiscount.type === "percent"
-                              ? `Giảm ${privateDiscount.value}%`
-                              : `Giảm ${privateDiscount.value.toLocaleString("vi-VN")}₫`}
+                          <p className="text-[10px] text-purple-100/90 font-medium">
+                            Đã giảm: <span className="font-bold">{effectivePrivateDiscountAmount.toLocaleString("vi-VN")}₫</span>
                           </p>
                         </div>
                         <button
                           onClick={handleRemovePrivateDiscount}
-                          className="p-0.5 text-white hover:text-red-200 transition-colors flex-shrink-0"
-                          title="Xóa mã giảm giá riêng tư"
+                          className="p-1 text-white/80 hover:text-red-200 hover:bg-red-500/20 rounded transition-all flex-shrink-0"
+                          title="Xóa mã riêng tư"
                         >
-                          <X className="w-3.5 h-3.5" />
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
                     )}
-                    {/* Input field - hiển thị nếu chưa có đủ 2 mã */}
-                    {(!publicDiscount || !privateDiscount) && (
-                      <div className="space-y-1.5">
+
                         <div className="flex gap-1.5">
-                          <div className="flex-1 relative discount-input-container min-w-0" style={{ zIndex: showDiscountList ? 100 : 1 }}>
+                      <div
+                        className="flex-1 relative discount-input-container min-w-0"
+                        style={{ zIndex: showDiscountList ? 100 : 1 }}
+                      >
                             <input
                               type="text"
-                              placeholder={publicDiscount ? "Nhập mã riêng tư" : privateDiscount ? "Nhập mã công khai" : "Nhập mã giảm giá"}
+                          placeholder={
+                            publicDiscount && !privateDiscount
+                              ? "Nhập mã riêng tư"
+                              : !publicDiscount && privateDiscount
+                              ? "Nhập mã công khai"
+                              : "Nhập mã giảm giá"
+                          }
                               value={discountCode}
                               onChange={(e) => {
                                 setDiscountCode(e.target.value.toUpperCase());
                                 setDiscountError(null);
                               }}
-                              onKeyPress={(e) => {
+                          onKeyDown={(e) => {
                                 if (e.key === "Enter") {
+                              e.preventDefault();
                                   handleApplyDiscount();
                                 }
                               }}
                               onFocus={() => setShowDiscountList(true)}
                               className="w-full px-2.5 py-1.5 text-xs bg-white/20 border border-white/30 rounded-lg text-white placeholder:text-white/60 focus:outline-none focus:ring-1 focus:ring-white/50 focus:border-white/50"
                             />
-                            {/* Available Discounts Dropdown */}
-                            {showDiscountList && availableDiscounts.length > 0 && (
-                              <div className="absolute top-full left-0 right-0 z-[10000] w-full mt-1 bg-white rounded-lg shadow-2xl border-2 border-emerald-200 max-h-48 overflow-y-auto" style={{ zIndex: 10000, position: 'absolute' }}>
-                                <div className="p-1.5 border-b border-gray-200">
-                                  <p className="text-[10px] font-semibold text-gray-600">Mã giảm giá có sẵn</p>
+
+                        {showDiscountList && (
+                          <div className="absolute top-full left-0 right-0 z-[10000] w-full mt-1 bg-white rounded-lg shadow-2xl border-2 border-emerald-200 max-h-64 overflow-y-auto">
+                                <div className="sticky top-0 bg-emerald-50 p-2 border-b border-emerald-200">
+                                  <div className="flex items-center justify-between">
+                                    <p className="text-xs font-bold text-emerald-700">Mã giảm giá có sẵn</p>
+                                    <span className="text-[10px] text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">
+                                      {availableDiscounts.length} mã
+                                    </span>
+                                  </div>
                                 </div>
                                 {loadingDiscounts ? (
-                                  <div className="p-3 text-center text-gray-500 text-xs">Đang tải...</div>
-                                ) : (
+                                  <div className="p-4 text-center">
+                                    <div className="inline-block w-4 h-4 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mb-2"></div>
+                                    <p className="text-xs text-gray-500">Đang tải mã giảm giá...</p>
+                                  </div>
+                            ) : availableDiscounts.length > 0 ? (
                                   <div className="divide-y divide-gray-100">
-                                    {availableDiscounts.map((discount) => (
-                                      <button
-                                        key={discount._id}
-                                        onClick={() => handleSelectDiscount(discount)}
-                                        className="w-full p-2 text-left hover:bg-emerald-50 transition-colors"
-                                      >
-                                        <div className="flex items-center justify-between gap-2">
-                                          <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-1.5 flex-wrap">
-                                              <span className="font-semibold text-emerald-600 text-xs">{discount.code}</span>
-                                              {discount.type === "percent" ? (
-                                                <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">
-                                                  -{discount.value}%
+                                    {availableDiscounts.map((discount) => {
+                                      const now = new Date();
+                                      const start = new Date(discount.startAt);
+                                      const end = new Date(discount.endAt);
+                                      const isInTimeWindow = start <= now && end >= now;
+                                      const isUpcoming = start > now;
+                                      const isExpired = end < now;
+                                      const isAlreadyApplied = Boolean(
+                                        (publicDiscount && publicDiscount.code === discount.code) ||
+                                        (privateDiscount && privateDiscount.code === discount.code)
+                                      );
+                                      const canUse = discount.active && isInTimeWindow && !isAlreadyApplied;
+                                      
+                                      return (
+                                        <button
+                                          key={discount._id}
+                                          onClick={() => canUse && handleSelectDiscount(discount)}
+                                          disabled={!canUse}
+                                          className={`w-full p-3 text-left transition-all ${
+                                            !canUse
+                                              ? "bg-gray-50 opacity-60 cursor-not-allowed"
+                                              : "hover:bg-emerald-50 hover:shadow-sm"
+                                          }`}
+                                        >
+                                          <div className="flex items-start justify-between gap-2">
+                                            <div className="flex-1 min-w-0">
+                                              <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                                                <span className={`font-bold text-sm ${
+                                                  !canUse ? "text-gray-500" : "text-emerald-600"
+                                                }`}>
+                                                  {discount.code}
                                                 </span>
-                                              ) : (
-                                                <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">
-                                                  -{discount.value.toLocaleString("vi-VN")}₫
+                                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
+                                                  discount.type === "percent"
+                                                    ? "bg-orange-100 text-orange-700"
+                                                    : "bg-blue-100 text-blue-700"
+                                                }`}>
+                                                  {discount.type === "percent"
+                                                    ? `-${discount.value}%`
+                                                    : `-${discount.value.toLocaleString("vi-VN")}₫`}
                                                 </span>
+                                                {discount.isPublic ? (
+                                                  <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">
+                                                    Công khai
+                                                  </span>
+                                                ) : (
+                                                  <span className="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-medium">
+                                                    Riêng tư
+                                                  </span>
+                                                )}
+                                                {isUpcoming && (
+                                                  <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">
+                                                    Sắp tới
+                                                  </span>
+                                                )}
+                                                {isExpired && (
+                                                  <span className="text-[9px] bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded font-medium">
+                                                    Đã hết hạn
+                                                  </span>
+                                                )}
+                                                {!discount.active && (
+                                                  <span className="text-[9px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-medium">
+                                                    Đã tắt
+                                                  </span>
+                                                )}
+                                                {isAlreadyApplied && (
+                                                  <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-medium">
+                                                    Đã áp dụng
+                                                  </span>
+                                                )}
+                                              </div>
+                                              {discount.minOrderAmount && (
+                                                <p className="text-[10px] text-gray-600 mt-1">
+                                                  <span className="font-medium">Đơn tối thiểu:</span> {discount.minOrderAmount.toLocaleString("vi-VN")}₫
+                                                </p>
                                               )}
-                                              {discount.isPublic && discount.isClaimed && (
-                                                <span className="text-[9px] bg-green-100 text-green-700 px-1 py-0.5 rounded">
-                                                  Đã lấy
-                                                </span>
+                                              {discount.maxDiscountAmount && discount.maxDiscountAmount > 0 && (
+                                                <p className="text-[10px] text-gray-600">
+                                                  <span className="font-medium">Giảm tối đa:</span> {discount.maxDiscountAmount.toLocaleString("vi-VN")}₫
+                                                </p>
                                               )}
-                                              {discount.isPublic && !discount.isClaimed && (
-                                                <span className="text-[9px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded">
-                                                  Công khai
-                                                </span>
-                                              )}
+                                              {canUse && (() => {
+                                                const baseAmount = rentalTotal + depositTotal;
+                                                const previewAmount = calculateDiscountAmount(
+                                                  discount.type,
+                                                  discount.value,
+                                                  baseAmount,
+                                                  discount.maxDiscountAmount
+                                                );
+                                                return (
+                                                  <p className="text-[10px] text-emerald-600 font-bold mt-1.5">
+                                                    Sẽ giảm: <span className="text-emerald-700">{previewAmount.toLocaleString("vi-VN")}₫</span>
+                                                  </p>
+                                                );
+                                              })()}
                                             </div>
-                                            {discount.minOrderAmount && (
-                                              <p className="text-[10px] text-gray-500 mt-0.5">
-                                                Đơn tối thiểu: {discount.minOrderAmount.toLocaleString("vi-VN")}₫
-                                              </p>
+                                            {canUse && (
+                                              <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
                                             )}
                                           </div>
-                                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-                                        </div>
-                                      </button>
-                                    ))}
+                                        </button>
+                                      );
+                                    })}
                                   </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                          <button
-                            onClick={() => handleApplyDiscount()}
-                            disabled={discountLoading || !discountCode.trim()}
-                            className="px-3 py-1.5 bg-white text-emerald-600 rounded-lg hover:bg-white/90 transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-                          >
-                            {discountLoading ? (
-                              <div className="w-3.5 h-3.5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
                             ) : (
-                              "Áp dụng"
-                            )}
-                          </button>
+                              <div className="p-4 text-center">
+                                <div className="text-gray-400 mb-2">
+                                  <Package className="w-8 h-8 mx-auto opacity-50" />
+                                </div>
+                                <p className="text-xs text-gray-500 font-medium">
+                                  Hiện chưa có mã giảm giá khả dụng
+                                </p>
+                                <p className="text-[10px] text-gray-400 mt-1">
+                                  Vui lòng thử lại sau
+                                </p>
                         </div>
-                        {availableDiscounts.length > 0 && (
-                          <button
-                            onClick={() => setShowDiscountList(!showDiscountList)}
-                            className="text-[10px] text-white/80 hover:text-white transition-colors underline"
-                          >
-                            {showDiscountList ? "Ẩn" : "Xem"} mã giảm giá có sẵn ({availableDiscounts.length})
-                          </button>
-                        )}
-                        {discountError && (
-                          <p className="text-[10px] text-red-200">{discountError}</p>
                         )}
                       </div>
                     )}
                   </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    <div className="flex gap-1.5">
-                      <div className="flex-1 relative discount-input-container min-w-0" style={{ zIndex: showDiscountList ? 100 : 1 }}>
-                        <input
-                          type="text"
-                          placeholder="Nhập mã giảm giá"
-                          value={discountCode}
-                          onChange={(e) => {
-                            setDiscountCode(e.target.value.toUpperCase());
-                            setDiscountError(null);
-                          }}
-                          onKeyPress={(e) => {
-                            if (e.key === "Enter") {
-                              handleApplyDiscount();
-                            }
-                          }}
-                          onFocus={() => setShowDiscountList(true)}
-                          className="w-full px-2.5 py-1.5 text-xs bg-white/20 border border-white/30 rounded-lg text-white placeholder:text-white/60 focus:outline-none focus:ring-1 focus:ring-white/50 focus:border-white/50"
-                        />
-                        {/* Available Discounts Dropdown */}
-                        {showDiscountList && availableDiscounts.length > 0 && (
-                          <div className="absolute top-full left-0 right-0 z-[10000] w-full mt-1 bg-white rounded-lg shadow-2xl border-2 border-emerald-200 max-h-48 overflow-y-auto" style={{ zIndex: 10000, position: 'absolute' }}>
-                            <div className="p-1.5 border-b border-gray-200">
-                              <p className="text-[10px] font-semibold text-gray-600">Mã giảm giá có sẵn</p>
-                            </div>
-                            {loadingDiscounts ? (
-                              <div className="p-3 text-center text-gray-500 text-xs">Đang tải...</div>
-                            ) : (
-                              <div className="divide-y divide-gray-100">
-                                {availableDiscounts.map((discount) => (
-                                  <button
-                                    key={discount._id}
-                                    onClick={() => handleSelectDiscount(discount)}
-                                    className="w-full p-2 text-left hover:bg-emerald-50 transition-colors"
-                                  >
-                                    <div className="flex items-center justify-between gap-2">
-                                      <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-1.5 flex-wrap">
-                                          <span className="font-semibold text-emerald-600 text-xs">{discount.code}</span>
-                                          {discount.type === "percent" ? (
-                                            <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">
-                                              -{discount.value}%
-                                            </span>
-                                          ) : (
-                                            <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">
-                                              -{discount.value.toLocaleString("vi-VN")}₫
-                                            </span>
-                                          )}
-                                          {discount.isPublic && discount.isClaimed && (
-                                            <span className="text-[9px] bg-green-100 text-green-700 px-1 py-0.5 rounded">
-                                              Đã lấy
-                                            </span>
-                                          )}
-                                          {discount.isPublic && !discount.isClaimed && (
-                                            <span className="text-[9px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded">
-                                              Công khai
-                                            </span>
-                                          )}
-                                        </div>
-                                        {discount.minOrderAmount && (
-                                          <p className="text-[10px] text-gray-500 mt-0.5">
-                                            Đơn tối thiểu: {discount.minOrderAmount.toLocaleString("vi-VN")}₫
-                                          </p>
-                                        )}
-                                      </div>
-                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-                                    </div>
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
+
                       <button
                         onClick={() => handleApplyDiscount()}
                         disabled={discountLoading || !discountCode.trim()}
                         className="px-3 py-1.5 bg-white text-emerald-600 rounded-lg hover:bg-white/90 transition-colors text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
                       >
                         {discountLoading ? (
-                          <div className="w-3.5 h-3.5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
+                          <div className="w-3.5 h-3.5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
                         ) : (
                           "Áp dụng"
                         )}
                       </button>
                     </div>
+
                     {availableDiscounts.length > 0 && (
                       <button
-                        onClick={() => setShowDiscountList(!showDiscountList)}
+                        onClick={() => setShowDiscountList((prev) => !prev)}
                         className="text-[10px] text-white/80 hover:text-white transition-colors underline"
                       >
                         {showDiscountList ? "Ẩn" : "Xem"} mã giảm giá có sẵn ({availableDiscounts.length})
                       </button>
                     )}
-                    {discountError && (
-                      <p className="text-[10px] text-red-200">{discountError}</p>
+
+                    {discountError && <p className="text-[10px] text-red-200">{discountError}</p>}
+                    {discountListError && <p className="text-[10px] text-red-200">{discountListError}</p>}
+                    {!loadingDiscounts && availableDiscounts.length === 0 && !discountListError && (
+                      <p className="text-[10px] text-white/70">Hiện chưa có mã giảm giá khả dụng.</p>
                     )}
                   </div>
-                )}
               </div>
 
               <div className="space-y-3 text-base bg-white/10 rounded-xl p-4 backdrop-blur-sm relative" style={{ zIndex: 1 }}>
@@ -2471,20 +1855,42 @@ export default function Checkout() {
                     {rentalTotal.toLocaleString("vi-VN")}₫
                   </span>
                 </div>
-                {appliedDiscount && (
-                  <div className="flex justify-between items-center py-2 border-b border-white/20">
-                    <span className="text-emerald-50">
-                      Giảm giá ({appliedDiscount.discount.code})
-                    </span>
+
+                  {totalDiscountAmount > 0 && (
+                    <div className="space-y-1">
+                      {effectivePublicDiscountAmount > 0 && (
+                        <div className="flex justify-between items-center py-1 border-b border-white/10">
+                          <span className="text-emerald-50 text-sm">
+                            Giảm giá công khai ({publicDiscount?.code})
+                      </span>
+                          <span className="font-semibold text-emerald-100 text-sm">
+                            -{effectivePublicDiscountAmount.toLocaleString("vi-VN")}₫
+                          </span>
+                        </div>
+                      )}
+                      {effectivePrivateDiscountAmount > 0 && (
+                        <div className="flex justify-between items-center py-1 border-b border-white/10">
+                          <span className="text-emerald-50 text-sm">
+                            Giảm giá riêng tư ({privateDiscount?.code})
+                          </span>
+                          <span className="font-semibold text-emerald-100 text-sm">
+                            -{effectivePrivateDiscountAmount.toLocaleString("vi-VN")}₫
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center py-2 border-b border-white/20">
+                        <span className="text-emerald-50 font-semibold">Tổng giảm giá</span>
                     <span className="font-semibold text-emerald-100">
-                      -{discountAmount.toLocaleString("vi-VN")}₫
+                          -{totalDiscountAmount.toLocaleString("vi-VN")}₫
                     </span>
+                      </div>
                   </div>
                 )}
+
                 <div className="flex justify-between items-center py-2 border-b border-white/20">
-                  <span className="text-yellow-200">Phí dịch vụ ({serviceFeeRate}%)</span>
+                    <span className="text-yellow-200">Phí dịch vụ ({serviceFeeRate}%)</span>
                   <span className="font-semibold text-yellow-100">
-                    {serviceFeeAmount.toLocaleString("vi-VN")}₫
+                      {serviceFeeAmount.toLocaleString("vi-VN")}₫
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-white/20">
@@ -2499,16 +1905,16 @@ export default function Checkout() {
                   </p>
                 </div>
               </div>
+
               <div className="mt-6 bg-white/20 rounded-xl p-4 backdrop-blur-sm border border-white/30">
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-semibold text-white">Tổng cộng</span>
                   <span className="text-3xl font-bold text-yellow-200">
                     {grandTotal.toLocaleString("vi-VN")}₫
                   </span>
-                    {grandTotal.toLocaleString("vi-VN")}₫
-                  </span>
                 </div>
               </div>
+
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
@@ -2526,18 +1932,19 @@ export default function Checkout() {
                   </>
                 )}
               </button>
+
               <div className="mt-4 flex items-center justify-center gap-2 text-xs text-emerald-100 bg-white/10 rounded-lg p-3 backdrop-blur-sm">
                 <AlertCircle className="w-4 h-4" />
                 <span>Thanh toán an toàn qua Ví điện tử</span>
               </div>
             </div>
+            </aside>
           </div>
         </div>
       </div>
      
       {/* Confirm Popup */}
-    {
-      confirmPopup.isOpen && (
+      {confirmPopup.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
           <div

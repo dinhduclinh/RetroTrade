@@ -270,7 +270,7 @@ export default function OrderDetailPage() {
 
   // Calculate pricing breakdown
   const rentalTotal = order.itemSnapshot.basePrice * order.unitCount * rentalDuration;
-  const taxAmount = order.serviceFee || 0;
+  const serviceFeeAmount = order.serviceFee || 0;
   const depositAmount = order.depositAmount || 0;
   const grandTotal = order.totalAmount;
 
@@ -571,7 +571,7 @@ export default function OrderDetailPage() {
                 </div>
                 <div className="flex justify-between text-yellow-200">
                   <span>Phí dịch vụ</span>
-                  <span>{formatPrice(taxAmount, order.currency)}</span>
+                  <span>{formatPrice(serviceFeeAmount, order.currency)}</span>
                 </div>
                 <div className="flex justify-between text-amber-200">
                   <span>Tiền cọc</span>

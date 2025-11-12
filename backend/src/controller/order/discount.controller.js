@@ -319,11 +319,10 @@ module.exports = {
     try {
       const { ownerId, itemId, page = 1, limit = 20 } = req.query;
       const now = new Date();
+      // Filter: chỉ lấy discount public + active, KHÔNG filter thời gian
+      // Frontend sẽ tự filter để chỉ hiển thị discount có thể sử dụng ngay
       const filter = {
         active: true,
-        startAt: { $lte: now },
-        endAt: { $gte: now },
-        // public or assigned to current user via assignments
         isPublic: true,
       };
       if (ownerId) filter.ownerId = ownerId;
@@ -375,12 +374,12 @@ module.exports = {
       const claimedIds = new Set(validAssignments.map(a => String(a.discountId)));
       
       // Lấy TẤT CẢ discount được assign (bất kể isPublic) - không paginate để đảm bảo user thấy tất cả discount được assign
+      // KHÔNG filter thời gian - frontend sẽ tự filter để chỉ hiển thị discount có thể sử dụng ngay
       const allAssignedDiscounts = assignedIds.length
         ? await Discount.find({
             _id: { $in: assignedIds },
             active: true,
-            startAt: { $lte: now },
-            endAt: { $gte: now },
+            // Không filter startAt/endAt - lấy tất cả discount active được assign
             // Không filter isPublic để lấy cả discount công khai được assign
             // Không filter ownerId/itemId ở đây vì đây là discount được assign cho user
             // User có quyền sử dụng discount đã được assign, không cần match ownerId/itemId
