@@ -3,18 +3,18 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/common/button";
 import {
-  getCurrentTax,
-  getAllTaxSettings,
-  createTaxSetting,
-  updateTaxSetting,
-  deleteTaxSetting,
-  getTaxHistory,
-  getAllTaxHistory,
-  activateTaxSetting,
-  type TaxSetting,
-  type CreateTaxRequest,
-  type UpdateTaxRequest,
-} from "@/services/tax/tax.api";
+  getCurrentServiceFee,
+  getAllServiceFeeSettings,
+  createServiceFeeSetting,
+  updateServiceFeeSetting,
+  deleteServiceFeeSetting,
+  getServiceFeeHistory,
+  getAllServiceFeeHistory,
+  activateServiceFeeSetting,
+  type ServiceFeeSetting,
+  type CreateServiceFeeRequest,
+  type UpdateServiceFeeRequest,
+} from "@/services/serviceFee/serviceFee.api";
 import {
   Plus,
   Edit,
@@ -32,9 +32,9 @@ import { Label } from "@/components/ui/common/label";
 import { Textarea } from "@/components/ui/common/textarea";
 import { Switch } from "@/components/ui/common/switch";
 
-export function TaxManagementTable() {
-  const [taxes, setTaxes] = useState<TaxSetting[]>([]);
-  const [currentTax, setCurrentTax] = useState<any>(null);
+export function ServiceFeeManagementTable() {
+  const [serviceFees, setServiceFees] = useState<ServiceFeeSetting[]>([]);
+  const [currentServiceFee, setCurrentServiceFee] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -43,48 +43,48 @@ export function TaxManagementTable() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [isAllHistoryDialogOpen, setIsAllHistoryDialogOpen] = useState(false);
-  const [selectedTax, setSelectedTax] = useState<TaxSetting | null>(null);
+  const [selectedServiceFee, setSelectedServiceFee] = useState<ServiceFeeSetting | null>(null);
   const [history, setHistory] = useState<any>(null);
   const [allHistory, setAllHistory] = useState<any>(null);
 
   // Form states
-  const [formData, setFormData] = useState<CreateTaxRequest>({
-    taxRate: 3,
+  const [formData, setFormData] = useState<CreateServiceFeeRequest>({
+    serviceFeeRate: 3,
     description: "",
     effectiveFrom: new Date().toISOString().split("T")[0],
   });
 
   useEffect(() => {
-    loadCurrentTax();
-    loadTaxes();
+    loadCurrentServiceFee();
+    loadServiceFees();
   }, [page]);
 
-  const loadCurrentTax = async () => {
+  const loadCurrentServiceFee = async () => {
     try {
-      const response = await getCurrentTax();
+      const response = await getCurrentServiceFee();
       if (response.success && response.data) {
-        setCurrentTax(response.data);
+        setCurrentServiceFee(response.data);
       }
     } catch (err: any) {
-      console.error("Error loading current tax:", err);
+      console.error("Error loading current serviceFee:", err);
     }
   };
 
-  const loadTaxes = async () => {
+  const loadServiceFees = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await getAllTaxSettings(page, 20, false);
+      const response = await getAllServiceFeeSettings(page, 20, false);
       if (response.success && response.data) {
-        setTaxes(response.data);
+        setServiceFees(response.data);
         if (response.pagination) {
           setTotalPages(response.pagination.totalPages);
         }
       } else {
-        setError(response.message || "Không thể tải danh sách thuế");
+        setError(response.message || "Không thể tải danh sách phí dịch vụ");
       }
     } catch (err: any) {
-      setError(err.message || "Lỗi khi tải danh sách thuế");
+      setError(err.message || "Lỗi khi tải danh sách phí dịch vụ");
     } finally {
       setLoading(false);
     }
@@ -93,89 +93,89 @@ export function TaxManagementTable() {
   const handleCreate = async () => {
     try {
       setError(null);
-      const response = await createTaxSetting(formData);
+      const response = await createServiceFeeSetting(formData);
       if (response.success) {
         setIsCreateDialogOpen(false);
         setFormData({
-          taxRate: 3,
+          serviceFeeRate: 3,
           description: "",
           effectiveFrom: new Date().toISOString().split("T")[0],
         });
-        loadTaxes();
-        loadCurrentTax();
+        loadServiceFees();
+        loadCurrentServiceFee();
       } else {
-        setError(response.message || "Không thể tạo cấu hình thuế");
+        setError(response.message || "Không thể tạo cấu hình phí dịch vụ");
       }
     } catch (err: any) {
-      setError(err.message || "Lỗi khi tạo cấu hình thuế");
+      setError(err.message || "Lỗi khi tạo cấu hình phí dịch vụ");
     }
   };
 
   const handleUpdate = async () => {
-    if (!selectedTax) return;
+    if (!selectedServiceFee) return;
 
     try {
       setError(null);
-      const updateData: UpdateTaxRequest = {
-        taxRate: formData.taxRate,
+      const updateData: UpdateServiceFeeRequest = {
+        serviceFeeRate: formData.serviceFeeRate,
         description: formData.description,
         effectiveFrom: formData.effectiveFrom,
       };
-      const response = await updateTaxSetting(selectedTax._id, updateData);
+      const response = await updateServiceFeeSetting(selectedServiceFee._id, updateData);
       if (response.success) {
         setIsEditDialogOpen(false);
-        setSelectedTax(null);
-        loadTaxes();
-        loadCurrentTax();
+        setSelectedServiceFee(null);
+        loadServiceFees();
+        loadCurrentServiceFee();
       } else {
-        setError(response.message || "Không thể cập nhật cấu hình thuế");
+        setError(response.message || "Không thể cập nhật cấu hình phí dịch vụ");
       }
     } catch (err: any) {
-      setError(err.message || "Lỗi khi cập nhật cấu hình thuế");
+      setError(err.message || "Lỗi khi cập nhật cấu hình phí dịch vụ");
     }
   };
 
   const handleActivate = async (id: string) => {
-    if (!confirm("Bạn có chắc chắn muốn kích hoạt cấu hình thuế này? Tax đang active sẽ bị tắt.")) return;
+    if (!confirm("Bạn có chắc chắn muốn kích hoạt cấu hình phí dịch vụ này? ServiceFee đang active sẽ bị tắt.")) return;
 
     try {
       setError(null);
-      const response = await activateTaxSetting(id);
+      const response = await activateServiceFeeSetting(id);
       if (response.success) {
-        loadTaxes();
-        loadCurrentTax();
+        loadServiceFees();
+        loadCurrentServiceFee();
       } else {
-        setError(response.message || "Không thể kích hoạt cấu hình thuế");
+        setError(response.message || "Không thể kích hoạt cấu hình phí dịch vụ");
       }
     } catch (err: any) {
-      setError(err.message || "Lỗi khi kích hoạt cấu hình thuế");
+      setError(err.message || "Lỗi khi kích hoạt cấu hình phí dịch vụ");
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Bạn có chắc chắn muốn xóa cấu hình thuế này?")) return;
+    if (!confirm("Bạn có chắc chắn muốn xóa cấu hình phí dịch vụ này?")) return;
 
     try {
       setError(null);
-      const response = await deleteTaxSetting(id);
+      const response = await deleteServiceFeeSetting(id);
       if (response.success) {
-        loadTaxes();
-        loadCurrentTax();
+        loadServiceFees();
+        loadCurrentServiceFee();
       } else {
-        setError(response.message || "Không thể xóa cấu hình thuế");
+        setError(response.message || "Không thể xóa cấu hình phí dịch vụ");
       }
     } catch (err: any) {
-      setError(err.message || "Lỗi khi xóa cấu hình thuế");
+      setError(err.message || "Lỗi khi xóa cấu hình phí dịch vụ");
     }
   };
 
-  const handleViewHistory = async (tax: TaxSetting) => {
+  const handleViewHistory = async (serviceFee: ServiceFeeSetting) => {
     try {
       setError(null);
-      const response = await getTaxHistory(tax._id);
+      const response = await getServiceFeeHistory(serviceFee._id);
       if (response.success && response.data) {
         setHistory(response.data);
-        setSelectedTax(tax);
+        setSelectedServiceFee(serviceFee);
         setIsHistoryDialogOpen(true);
       } else {
         setError(response.message || "Không thể tải lịch sử");
@@ -188,7 +188,7 @@ export function TaxManagementTable() {
   const handleViewAllHistory = async () => {
     try {
       setError(null);
-      const response = await getAllTaxHistory();
+      const response = await getAllServiceFeeHistory();
       if (response.success && response.data) {
         setAllHistory(response.data);
         setIsAllHistoryDialogOpen(true);
@@ -200,11 +200,11 @@ export function TaxManagementTable() {
     }
   };
 
-  const handleReapplyTax = (event: any) => {
-    // Copy thông tin từ event để tạo tax mới
+  const handleReapplyServiceFee = (event: any) => {
+    // Copy thông tin từ event để tạo serviceFee mới
     const now = new Date().toISOString().split("T")[0];
     setFormData({
-      taxRate: event.taxRate,
+      serviceFeeRate: event.serviceFeeRate,
       description: event.description || "",
       effectiveFrom: now, // Dùng ngày hiện tại làm hiệu lực từ
       effectiveTo: event.effectiveTo ? new Date(event.effectiveTo).toISOString().split("T")[0] : undefined,
@@ -213,16 +213,16 @@ export function TaxManagementTable() {
     setIsCreateDialogOpen(true);
   };
 
-  const openEditDialog = (tax: TaxSetting) => {
-    setSelectedTax(tax);
+  const openEditDialog = (serviceFee: ServiceFeeSetting) => {
+    setSelectedServiceFee(serviceFee);
     setFormData({
-      taxRate: tax.taxRate,
-      description: tax.description || "",
-      effectiveFrom: tax.effectiveFrom
-        ? new Date(tax.effectiveFrom).toISOString().split("T")[0]
+      serviceFeeRate: serviceFee.serviceFeeRate,
+      description: serviceFee.description || "",
+      effectiveFrom: serviceFee.effectiveFrom
+        ? new Date(serviceFee.effectiveFrom).toISOString().split("T")[0]
         : new Date().toISOString().split("T")[0],
-      effectiveTo: tax.effectiveTo
-        ? new Date(tax.effectiveTo).toISOString().split("T")[0]
+      effectiveTo: serviceFee.effectiveTo
+        ? new Date(serviceFee.effectiveTo).toISOString().split("T")[0]
         : undefined,
     });
     setIsEditDialogOpen(true);
@@ -238,54 +238,54 @@ export function TaxManagementTable() {
 
   return (
     <div className="space-y-6">
-      {/* Current Tax Card */}
-      {currentTax && (
+      {/* Current ServiceFee Card */}
+      {currentServiceFee && (
         <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
                 <Percent className="w-5 h-5 text-yellow-500" />
                 <h3 className="text-lg font-semibold text-gray-900">
-                  Thuế hiện tại đang áp dụng
+                  Phí dịch vụ hiện tại đang áp dụng
                 </h3>
               </div>
               <div className="text-3xl font-bold text-gray-900 mb-1">
-                {currentTax.taxRate}%
+                {currentServiceFee.serviceFeeRate}%
               </div>
-              {currentTax.description && (
-                <p className="text-gray-600">{currentTax.description}</p>
+              {currentServiceFee.description && (
+                <p className="text-gray-600">{currentServiceFee.description}</p>
               )}
               <div className="text-sm text-gray-500 mt-2 space-y-1">
                 <p>
                   Có hiệu lực từ:{" "}
-                  {new Date(currentTax.effectiveFrom).toLocaleDateString("vi-VN")}
+                  {new Date(currentServiceFee.effectiveFrom).toLocaleDateString("vi-VN")}
                 </p>
-                {currentTax.effectiveTo ? (
+                {currentServiceFee.effectiveTo ? (
                   <p>
                     Hiệu lực đến:{" "}
-                    {new Date(currentTax.effectiveTo).toLocaleDateString("vi-VN")}
+                    {new Date(currentServiceFee.effectiveTo).toLocaleDateString("vi-VN")}
                   </p>
                 ) : (
                   <p>Hiệu lực đến: Không giới hạn</p>
                 )}
               </div>
-              {/* Cảnh báo nếu đang dùng tax mặc định */}
-              {currentTax.isDefault && (
+              {/* Cảnh báo nếu đang dùng serviceFee mặc định */}
+              {currentServiceFee.isDefault && (
                 <div className="mt-3 bg-orange-50 border border-orange-300 rounded-lg p-3">
                   <div className="flex items-center gap-2 text-orange-800">
                     <AlertCircle className="w-4 h-4" />
                     <p className="text-sm font-medium">
-                      ⚠️ ĐANG SỬ DỤNG THUẾ MẶC ĐỊNH 3%. Hệ thống không có cấu hình thuế active. Vui lòng tạo cấu hình thuế mới ngay!
+                      ⚠️ ĐANG SỬ DỤNG PHÍ DỊCH VỤ MẶC ĐỊNH 3%. Hệ thống không có cấu hình phí dịch vụ active. Vui lòng tạo cấu hình phí dịch vụ mới ngay!
                     </p>
                   </div>
                 </div>
               )}
 
-              {/* Cảnh báo nếu tax sắp hết hạn hoặc đã hết hạn */}
-              {currentTax.effectiveTo && !currentTax.isDefault && (
+              {/* Cảnh báo nếu serviceFee sắp hết hạn hoặc đã hết hạn */}
+              {currentServiceFee.effectiveTo && !currentServiceFee.isDefault && (
                 (() => {
                   const now = new Date();
-                  const effectiveTo = new Date(currentTax.effectiveTo);
+                  const effectiveTo = new Date(currentServiceFee.effectiveTo);
                   const daysRemaining = Math.ceil(
                     (effectiveTo.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
                   );
@@ -296,8 +296,8 @@ export function TaxManagementTable() {
                         <div className="flex items-center gap-2 text-yellow-800">
                           <AlertCircle className="w-4 h-4" />
                           <p className="text-sm font-medium">
-                            ⚠️ Thuế sẽ hết hạn sau {daysRemaining} ngày ({new Date(currentTax.effectiveTo).toLocaleDateString("vi-VN")}). 
-                            <span className="font-bold"> Vui lòng tạo cấu hình thuế mới trước khi hết hạn để tránh dùng thuế mặc định 3%.</span>
+                            ⚠️ Phí dịch vụ sẽ hết hạn sau {daysRemaining} ngày ({new Date(currentServiceFee.effectiveTo).toLocaleDateString("vi-VN")}). 
+                            <span className="font-bold"> Vui lòng tạo cấu hình phí dịch vụ mới trước khi hết hạn để tránh dùng phí dịch vụ mặc định 3%.</span>
                           </p>
                         </div>
                       </div>
@@ -308,8 +308,8 @@ export function TaxManagementTable() {
                         <div className="flex items-center gap-2 text-red-800">
                           <AlertCircle className="w-4 h-4" />
                           <p className="text-sm font-medium">
-                            ❌ Thuế đã hết hạn ({new Date(currentTax.effectiveTo).toLocaleDateString("vi-VN")}). 
-                            <span className="font-bold"> Vui lòng tạo cấu hình thuế mới ngay! Hệ thống hiện đang dùng thuế mặc định 3%.</span>
+                            ❌ Phí dịch vụ đã hết hạn ({new Date(currentServiceFee.effectiveTo).toLocaleDateString("vi-VN")}). 
+                            <span className="font-bold"> Vui lòng tạo cấu hình phí dịch vụ mới ngay! Hệ thống hiện đang dùng phí dịch vụ mặc định 3%.</span>
                           </p>
                         </div>
                       </div>
@@ -320,7 +320,7 @@ export function TaxManagementTable() {
               )}
             </div>
             <div className="flex items-center gap-2 ml-4">
-              {currentTax.isActive ? (
+              {currentServiceFee.isActive ? (
                 <CheckCircle className="w-6 h-6 text-green-500" />
               ) : (
                 <XCircle className="w-6 h-6 text-red-500" />
@@ -340,7 +340,7 @@ export function TaxManagementTable() {
 
       {/* Actions */}
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold text-gray-900">Quản lý cấu hình thuế</h2>
+        <h2 className="text-xl font-bold text-gray-900">Quản lý cấu hình phí dịch vụ</h2>
         <div className="flex gap-2">
           <Button
             onClick={handleViewAllHistory}
@@ -353,7 +353,7 @@ export function TaxManagementTable() {
           <Button
             onClick={() => {
               setFormData({
-                taxRate: 3,
+                serviceFeeRate: 3,
                 description: "",
                 effectiveFrom: new Date().toISOString().split("T")[0],
               });
@@ -362,19 +362,19 @@ export function TaxManagementTable() {
             className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white"
           >
             <Plus className="w-4 h-4 mr-2" />
-            Tạo cấu hình thuế mới
+            Tạo cấu hình phí dịch vụ mới
           </Button>
         </div>
       </div>
 
-      {/* Tax Settings Table */}
+      {/* ServiceFee Settings Table */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                  Thuế suất
+                  Phí dịch vụ suất
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                   Mô tả
@@ -394,34 +394,34 @@ export function TaxManagementTable() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {taxes.length === 0 ? (
+              {serviceFees.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                    Không có cấu hình thuế nào
+                    Không có cấu hình phí dịch vụ nào
                   </td>
                 </tr>
               ) : (
-                taxes.map((tax) => {
+                serviceFees.map((serviceFee) => {
                   const now = new Date();
-                  const effectiveFrom = new Date(tax.effectiveFrom);
-                  const effectiveTo = tax.effectiveTo ? new Date(tax.effectiveTo) : null;
+                  const effectiveFrom = new Date(serviceFee.effectiveFrom);
+                  const effectiveTo = serviceFee.effectiveTo ? new Date(serviceFee.effectiveTo) : null;
                   const isInEffect = effectiveFrom <= now && (!effectiveTo || effectiveTo >= now);
                   const isExpired = effectiveTo && effectiveTo < now;
                   
                   return (
-                    <tr key={tax._id} className="hover:bg-gray-50">
+                    <tr key={serviceFee._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-lg font-semibold text-gray-900">
-                          {tax.taxRate}%
+                          {serviceFee.serviceFeeRate}%
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm text-gray-600">
-                          {tax.description || "Không có mô tả"}
+                          {serviceFee.description || "Không có mô tả"}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {tax.isActive ? (
+                        {serviceFee.isActive ? (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
                             <CheckCircle className="w-3 h-3 mr-1" />
                             Đang áp dụng
@@ -452,7 +452,7 @@ export function TaxManagementTable() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => openEditDialog(tax)}
+                          onClick={() => openEditDialog(serviceFee)}
                           className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                           title="Chỉnh sửa"
                         >
@@ -461,28 +461,28 @@ export function TaxManagementTable() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleViewHistory(tax)}
+                          onClick={() => handleViewHistory(serviceFee)}
                           className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
                           title="Xem lịch sử"
                         >
                           <History className="w-4 h-4" />
                         </Button>
-                        {!tax.isActive && isInEffect && (
+                        {!serviceFee.isActive && isInEffect && (
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleActivate(tax._id)}
+                            onClick={() => handleActivate(serviceFee._id)}
                             className="text-green-600 hover:text-green-700 hover:bg-green-50"
                             title="Kích hoạt"
                           >
                             <CheckCircle className="w-4 h-4" />
                           </Button>
                         )}
-                        {!tax.isActive && (
+                        {!serviceFee.isActive && (
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDelete(tax._id)}
+                            onClick={() => handleDelete(serviceFee._id)}
                             className="text-red-600 hover:text-red-700 hover:bg-red-50"
                             title="Xóa"
                           >
@@ -532,22 +532,22 @@ export function TaxManagementTable() {
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="bg-white border-gray-200 text-gray-900">
           <DialogHeader>
-            <DialogTitle>Tạo cấu hình thuế mới</DialogTitle>
+            <DialogTitle>Tạo cấu hình phí dịch vụ mới</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="taxRate">Thuế suất (%)</Label>
+              <Label htmlFor="serviceFeeRate">Phí dịch vụ suất (%)</Label>
               <Input
-                id="taxRate"
+                id="serviceFeeRate"
                 type="number"
                 min="0"
                 max="100"
                 step="0.1"
-                value={formData.taxRate}
+                value={formData.serviceFeeRate}
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    taxRate: parseFloat(e.target.value) || 0,
+                    serviceFeeRate: parseFloat(e.target.value) || 0,
                   })
                 }
                 className="bg-white border-gray-300 text-gray-900"
@@ -611,22 +611,22 @@ export function TaxManagementTable() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="bg-white border-gray-200 text-gray-900">
           <DialogHeader>
-            <DialogTitle>Cập nhật cấu hình thuế</DialogTitle>
+            <DialogTitle>Cập nhật cấu hình phí dịch vụ</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="editTaxRate">Thuế suất (%)</Label>
+              <Label htmlFor="editServiceFeeRate">Phí dịch vụ suất (%)</Label>
               <Input
-                id="editTaxRate"
+                id="editServiceFeeRate"
                 type="number"
                 min="0"
                 max="100"
                 step="0.1"
-                value={formData.taxRate}
+                value={formData.serviceFeeRate}
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    taxRate: parseFloat(e.target.value) || 0,
+                    serviceFeeRate: parseFloat(e.target.value) || 0,
                   })
                 }
                 className="bg-white border-gray-300 text-gray-900"
@@ -690,17 +690,17 @@ export function TaxManagementTable() {
       <Dialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen}>
         <DialogContent className="bg-white border-gray-200 text-gray-900 max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Lịch sử thay đổi thuế</DialogTitle>
+            <DialogTitle>Lịch sử thay đổi phí dịch vụ</DialogTitle>
           </DialogHeader>
           {history && (
             <div className="space-y-4">
               <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                 <h3 className="font-semibold mb-2 text-gray-900">Cấu hình hiện tại</h3>
                 <p className="text-sm text-gray-600">
-                  Thuế suất: <span className="font-bold text-gray-900">{history.currentTax.taxRate}%</span>
+                  Phí dịch vụ suất: <span className="font-bold text-gray-900">{history.currentServiceFee.serviceFeeRate}%</span>
                 </p>
-                {history.currentTax.description && (
-                  <p className="text-sm text-gray-600">Mô tả: {history.currentTax.description}</p>
+                {history.currentServiceFee.description && (
+                  <p className="text-sm text-gray-600">Mô tả: {history.currentServiceFee.description}</p>
                 )}
               </div>
               {history.history && history.history.length > 0 ? (
@@ -714,7 +714,7 @@ export function TaxManagementTable() {
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <p className="text-sm font-medium text-gray-900">
-                            Thuế suất: {entry.taxRate}%
+                            Phí dịch vụ suất: {entry.serviceFeeRate}%
                           </p>
                           {entry.description && (
                             <p className="text-xs text-gray-600 mt-1">
@@ -751,7 +751,7 @@ export function TaxManagementTable() {
                             onClick={() => {
                               const now = new Date().toISOString().split("T")[0];
                               setFormData({
-                                taxRate: entry.taxRate,
+                                serviceFeeRate: entry.serviceFeeRate,
                                 description: entry.description || "",
                                 effectiveFrom: now,
                                 effectiveTo: entry.effectiveTo ? new Date(entry.effectiveTo).toISOString().split("T")[0] : undefined,
@@ -760,7 +760,7 @@ export function TaxManagementTable() {
                               setIsCreateDialogOpen(true);
                             }}
                             className="text-green-600 border-green-300 hover:bg-green-50"
-                            title="Áp dụng lại thuế này"
+                            title="Áp dụng lại phí dịch vụ này"
                           >
                             <RotateCcw className="w-3 h-3 mr-1" />
                             Áp dụng lại
@@ -782,13 +782,13 @@ export function TaxManagementTable() {
       <Dialog open={isAllHistoryDialogOpen} onOpenChange={setIsAllHistoryDialogOpen}>
         <DialogContent className="bg-white border-gray-200 text-gray-900 max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Tất cả lịch sử thuế</DialogTitle>
+            <DialogTitle>Tất cả lịch sử phí dịch vụ</DialogTitle>
           </DialogHeader>
           {allHistory && (
             <div className="space-y-4">
               <div className="flex justify-between items-center mb-4">
                 <p className="text-sm text-gray-600">
-                  Tổng cộng: {allHistory.totalEvents} sự kiện từ {allHistory.totalTaxes} cấu hình thuế
+                  Tổng cộng: {allHistory.totalEvents} sự kiện từ {allHistory.totalServiceFees} cấu hình phí dịch vụ
                 </p>
               </div>
               {allHistory.timeline && allHistory.timeline.length > 0 ? (
@@ -817,7 +817,7 @@ export function TaxManagementTable() {
                               </span>
                             )}
                             <span className="text-sm font-semibold text-gray-900">
-                              Thuế suất: {event.taxRate}%
+                              Phí dịch vụ suất: {event.serviceFeeRate}%
                             </span>
                           </div>
                           {event.description && (
@@ -853,9 +853,9 @@ export function TaxManagementTable() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleReapplyTax(event)}
+                            onClick={() => handleReapplyServiceFee(event)}
                             className="text-green-600 border-green-300 hover:bg-green-50"
-                            title="Áp dụng lại thuế này"
+                            title="Áp dụng lại phí dịch vụ này"
                           >
                             <RotateCcw className="w-3 h-3 mr-1" />
                             Áp dụng lại

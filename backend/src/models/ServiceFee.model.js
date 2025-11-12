@@ -1,8 +1,8 @@
 const mongoose = require("mongoose");
 
-const taxSchema = new mongoose.Schema(
+const serviceFeeSchema = new mongoose.Schema(
   {
-    taxRate: {
+    serviceFeeRate: {
       type: Number,
       required: true,
       min: 0,
@@ -33,7 +33,7 @@ const taxSchema = new mongoose.Schema(
     },
     history: [
       {
-        taxRate: Number,
+        serviceFeeRate: Number,
         description: String,
         effectiveFrom: Date,
         effectiveTo: Date,
@@ -44,23 +44,23 @@ const taxSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-    collection: "taxes",
+    collection: "serviceFees",
   }
 );
 
-// Chỉ cho phép 1 tax setting active tại một thời điểm
-taxSchema.index({ isActive: 1 });
+// Chỉ cho phép 1 serviceFee setting active tại một thời điểm
+serviceFeeSchema.index({ isActive: 1 });
 
-// Method để lấy tax rate hiện tại (active)
-taxSchema.statics.getCurrentTaxRate = async function () {
-  const tax = await this.findOne({ isActive: true }).sort({ createdAt: -1 });
-  return tax ? tax.taxRate : 3; // Default 3% nếu không có
+// Method để lấy serviceFee rate hiện tại (active)
+serviceFeeSchema.statics.getCurrentServiceFeeRate = async function () {
+  const serviceFee = await this.findOne({ isActive: true }).sort({ createdAt: -1 });
+  return serviceFee ? serviceFee.serviceFeeRate : 3; // Default 3% nếu không có
 };
 
-// Method để lấy tax setting hiện tại
-taxSchema.statics.getCurrentTax = async function () {
+// Method để lấy serviceFee setting hiện tại
+serviceFeeSchema.statics.getCurrentServiceFee = async function () {
   return await this.findOne({ isActive: true }).sort({ createdAt: -1 });
 };
 
-module.exports = mongoose.model("Tax", taxSchema);
+module.exports = mongoose.model("ServiceFee", serviceFeeSchema);
 

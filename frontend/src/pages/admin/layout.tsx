@@ -88,7 +88,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { icon: Users, label: "Người dùng", key: "users", href: "/admin/user-management" },
     { icon: Wallet, label: "Quản lý ví", key: "wallet", href: "/admin/wallet" },
     { icon: Contact, label: "Quản lý hợp đồng", key: "contract", href: "/admin/contract" },
-    { icon: Percent, label: "Quản lý Thuế", key: "tax", href: "/admin/tax-management" },
+    { icon: Percent, label: "Quản lý Phí dịch vụ", key: "serviceFee", href: "/admin/serviceFee-management" },
     { icon: Tag, label: "Mã giảm giá", key: "discounts", href: "/admin/discount-management" },
     { icon: AlertTriangle, label: "Khiếu nại ban tài khoản", key: "complaints", href: "/admin/complaints" },
     { icon: BarChart3, label: "Lịch sử thay đổi", key: "audit", href: "/admin/audit-logs" },

@@ -29,8 +29,7 @@ import {
   ExternalLink,
   MapPin,
 } from "lucide-react";
-import { getCurrentTax } from "@/services/tax/tax.api";
-import { getCurrentTax } from "@/services/tax/tax.api";
+import { getCurrentServiceFee } from "@/services/serviceFee/serviceFee.api";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -152,7 +151,7 @@ export default function Checkout() {
   });
   const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [taxRate, setTaxRate] = useState<number>(3); // Default 3%
+  const [serviceFeeRate, setServiceFeeRate] = useState<number>(3); // Default 3%
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 3; // Hiển thị 3 sản phẩm mỗi trang
   // State cho modal thông báo lỗi
@@ -234,20 +233,20 @@ export default function Checkout() {
 
 
   useEffect(() => {
-    const fetchTaxRate = async () => {
+    const fetchServiceFeeRate = async () => {
       try {
-        const response = await getCurrentTax();
+        const response = await getCurrentServiceFee();
         if (response.success && response.data) {
-          setTaxRate(response.data.taxRate);
+          setServiceFeeRate(response.data.serviceFeeRate);
         }
       } catch (error) {
-        console.error("Error fetching tax rate:", error);
+        console.error("Error fetching serviceFee rate:", error);
 
       }
     };
-    fetchTaxRate();
+    fetchServiceFeeRate();
   }, []);
-  // Note: Using default taxRate; dynamic fetch can be re-enabled when needed
+  // Note: Using default serviceFeeRate; dynamic fetch can be re-enabled when needed
 
   // Apply address to shipping form
   const applyAddressToShipping = (address: UserAddress) => {
@@ -725,13 +724,13 @@ export default function Checkout() {
 
   console.log("Render - rentalTotal:", rentalTotal, "cartItems:", cartItems.length);
 
-  const taxAmount = (rentalTotal * taxRate) / 100;
+  const serviceFeeAmount = (rentalTotal * serviceFeeRate) / 100;
   const depositTotal = cartItems.reduce(
     (sum, item) => sum + item.depositAmount * item.quantity,
     0
   );
   const totalDiscountAmount = publicDiscountAmount + privateDiscountAmount;
-  const grandTotal = Math.max(0, rentalTotal + taxAmount + depositTotal - totalDiscountAmount);
+  const grandTotal = Math.max(0, rentalTotal + serviceFeeAmount + depositTotal - totalDiscountAmount);
 
   // Tính lại discount amount khi cartItems thay đổi (vì rentalTotal và depositTotal phụ thuộc vào cartItems)
   // Sử dụng useMemo để tính totalAmountForDiscount trước, sau đó useEffect sẽ sử dụng giá trị này
@@ -746,8 +745,8 @@ export default function Checkout() {
 
   const discountAmount = appliedDiscount?.amount ?? 0;
   const discountedRental = Math.max(0, rentalTotal - discountAmount);
-  const taxAmount = (discountedRental * taxRate) / 100;
-  const grandTotal = discountedRental + taxAmount + depositTotal;
+  const serviceFeeAmount = (discountedRental * serviceFeeRate) / 100;
+  const grandTotal = discountedRental + serviceFeeAmount + depositTotal;
 
   useEffect(() => {
     if (
@@ -2483,9 +2482,9 @@ export default function Checkout() {
                   </div>
                 )}
                 <div className="flex justify-between items-center py-2 border-b border-white/20">
-                  <span className="text-yellow-200">Phí dịch vụ ({taxRate}%)</span>
+                  <span className="text-yellow-200">Phí dịch vụ ({serviceFeeRate}%)</span>
                   <span className="font-semibold text-yellow-100">
-                    {taxAmount.toLocaleString("vi-VN")}₫
+                    {serviceFeeAmount.toLocaleString("vi-VN")}₫
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-white/20">
