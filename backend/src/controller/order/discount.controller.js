@@ -354,10 +354,21 @@ module.exports = {
           }).select("discountId").lean()
         : Promise.resolve([]);
       
-      const [publicRows, publicTotal, userAssignments] = await Promise.all([
+      // Lấy private discounts từ allowedUsers (discounts từ quy đổi RT Points)
+      const privateDiscountsFromAllowedUsers = req.user?._id
+        ? Discount.find({
+            active: true,
+            isPublic: false,
+            allowedUsers: req.user._id,
+            // Không filter thời gian - frontend sẽ tự filter
+          }).sort({ createdAt: -1 }).lean()
+        : Promise.resolve([]);
+      
+      const [publicRows, publicTotal, userAssignments, privateFromAllowedUsers] = await Promise.all([
         Discount.find(filter).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)).lean(),
         Discount.countDocuments(filter),
         userAssignmentsQuery,
+        privateDiscountsFromAllowedUsers,
       ]);
       
       // Filter assignments properly (double check với date)
@@ -388,9 +399,18 @@ module.exports = {
             .lean()
         : [];
       
+      // Loại bỏ duplicate giữa assigned discounts và private discounts từ allowedUsers
+      const privateFromAllowedUsersIds = new Set(privateFromAllowedUsers.map(d => String(d._id)));
+      const assignedPrivateDiscountsFromAllowed = privateFromAllowedUsers.filter(
+        d => !assignedIdsSet.has(String(d._id))
+      );
+      
       // Phân loại assigned discounts thành public và private
       const assignedPublicDiscounts = allAssignedDiscounts.filter(d => d.isPublic === true);
       const assignedPrivateDiscounts = allAssignedDiscounts.filter(d => d.isPublic === false);
+      
+      // Kết hợp private discounts từ assignments và allowedUsers
+      const allPrivateDiscounts = [...assignedPrivateDiscounts, ...assignedPrivateDiscountsFromAllowed];
       
       // Loại bỏ các discount đã được assign khỏi publicRows để tránh duplicate
       const assignedPublicIdsSet = new Set(assignedPublicDiscounts.map(d => String(d._id)));
@@ -408,15 +428,15 @@ module.exports = {
         isClaimed: true, // Đã được assign
       }));
       
-      // Private rows: chỉ lấy discount riêng tư được assign
-      const privateRowsWithClaimStatus = assignedPrivateDiscounts.map(row => ({
+      // Private rows: discount riêng tư được assign hoặc từ allowedUsers
+      const privateRowsWithClaimStatus = allPrivateDiscounts.map(row => ({
         ...row,
-        isClaimed: true, // Private rows đã được assign nên mặc định là claimed
+        isClaimed: true, // Private rows đã được assign hoặc từ allowedUsers nên mặc định là claimed
       }));
       
-      // Kết hợp: public (không assign) + public (đã assign) + private (đã assign)
+      // Kết hợp: public (không assign) + public (đã assign) + private (đã assign + từ allowedUsers)
       const rows = [...publicRowsWithClaimStatus, ...assignedPublicRowsWithClaimStatus, ...privateRowsWithClaimStatus];
-      const total = publicTotal + assignedPublicDiscounts.length + assignedPrivateDiscounts.length; // approximate
+      const total = publicTotal + assignedPublicDiscounts.length + allPrivateDiscounts.length; // approximate
       return res.json({ status: "success", message: "Thành công", data: rows, pagination: { total, page: Number(page), limit: Number(limit), totalPages: Math.ceil(total / Number(limit)) } });
     } catch (err) {
       return res.status(500).json({ status: "error", message: "Không thể tải danh sách mã", error: err.message });
@@ -532,21 +552,74 @@ module.exports = {
   validateAndCompute: async ({ code, baseAmount, ownerId, itemId, userId }) => {
         const now = new Date();
     const DiscountAssignment = require("../../models/Discount/DiscountAssignment.model");
-    const discount = await Discount.findOne({ code: code?.toUpperCase(), active: true }).lean();
-        if (!discount) return { valid: false, reason: "INVALID_CODE" };
+        const codeUpper = code?.toUpperCase().trim();
+        if (!codeUpper) return { valid: false, reason: "INVALID_CODE" };
+        
+        // Tìm discount với code (case-insensitive search)
+        let discount = await Discount.findOne({ 
+          code: { $regex: new RegExp(`^${codeUpper}$`, 'i') }
+        }).lean();
+        
+        if (!discount) {
+          // Debug: Tìm tất cả discounts của user để xem có gì
+          const userDiscounts = await Discount.find({ 
+            allowedUsers: userId
+          }).select('code isPublic allowedUsers active').lean();
+          
+          console.error("Discount not found for code:", codeUpper, "userId:", userId);
+          console.error("User's available discounts:", userDiscounts.map(d => ({ code: d.code, isPublic: d.isPublic, active: d.active })));
+          
+          return { valid: false, reason: "INVALID_CODE" };
+        }
+        
+        // Kiểm tra active sau khi tìm thấy
+        if (!discount.active) {
+          console.error("Discount found but not active:", {
+            code: discount.code,
+            active: discount.active,
+            isPublic: discount.isPublic
+          });
+          return { valid: false, reason: "INVALID_CODE" };
+        }
         if (discount.startAt && now < new Date(discount.startAt)) return { valid: false, reason: "NOT_STARTED" };
         if (discount.endAt && now > new Date(discount.endAt)) return { valid: false, reason: "EXPIRED" };
-        if (discount.usageLimit > 0 && (discount.usedCount || 0) >= discount.usageLimit) return { valid: false, reason: "USAGE_LIMIT" };
         if (discount.minOrderAmount && baseAmount < discount.minOrderAmount) return { valid: false, reason: "BELOW_MIN_ORDER" };
         if (discount.ownerId && ownerId && String(discount.ownerId) !== String(ownerId)) return { valid: false, reason: "OWNER_NOT_MATCH" };
         if (discount.itemId && itemId && String(discount.itemId) !== String(itemId)) return { valid: false, reason: "ITEM_NOT_MATCH" };
+    
+    // Kiểm tra private discount permissions
     if (!discount.isPublic) {
       if (!userId) return { valid: false, reason: "NOT_ALLOWED_USER" };
+      
+      // Kiểm tra allowedUsers (cho discounts từ quy đổi RT Points)
+      const isInAllowedUsers = discount.allowedUsers && discount.allowedUsers.some(
+        (uid) => String(uid) === String(userId)
+      );
+      
+      // Kiểm tra DiscountAssignment (cho discounts được assign thủ công)
       const assignment = await DiscountAssignment.findOne({ discountId: discount._id, userId, active: true }).lean();
-      if (!assignment) return { valid: false, reason: "NOT_ALLOWED_USER" };
-      if (assignment.effectiveFrom && now < new Date(assignment.effectiveFrom)) return { valid: false, reason: "ASSIGN_NOT_STARTED" };
-      if (assignment.effectiveTo && now > new Date(assignment.effectiveTo)) return { valid: false, reason: "ASSIGN_EXPIRED" };
-      if (assignment.perUserLimit > 0 && (assignment.usedCount || 0) >= assignment.perUserLimit) return { valid: false, reason: "PER_USER_LIMIT" };
+      
+      // User phải có trong allowedUsers HOẶC có DiscountAssignment
+      if (!isInAllowedUsers && !assignment) {
+        return { valid: false, reason: "NOT_ALLOWED_USER" };
+      }
+      
+      // Nếu có assignment, kiểm tra thời gian và giới hạn của assignment
+      if (assignment) {
+        if (assignment.effectiveFrom && now < new Date(assignment.effectiveFrom)) return { valid: false, reason: "ASSIGN_NOT_STARTED" };
+        if (assignment.effectiveTo && now > new Date(assignment.effectiveTo)) return { valid: false, reason: "ASSIGN_EXPIRED" };
+        if (assignment.perUserLimit > 0 && (assignment.usedCount || 0) >= assignment.perUserLimit) return { valid: false, reason: "PER_USER_LIMIT" };
+      } else if (isInAllowedUsers) {
+        // Nếu chỉ có trong allowedUsers mà không có assignment, kiểm tra usageLimit của discount
+        if (discount.usageLimit > 0 && (discount.usedCount || 0) >= discount.usageLimit) {
+          return { valid: false, reason: "USAGE_LIMIT" };
+        }
+      }
+    } else {
+      // Đối với public discounts, kiểm tra usageLimit
+      if (discount.usageLimit > 0 && (discount.usedCount || 0) >= discount.usageLimit) {
+        return { valid: false, reason: "USAGE_LIMIT" };
+      }
     }
 
         const amount = clampDiscountAmount(discount.type, discount.value, baseAmount, discount.maxDiscountAmount || 0);

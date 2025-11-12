@@ -16,7 +16,7 @@ function BambooTreeDisplayComponent({ treeUrl, displayStage, onError, onLoad, cl
       <div className="relative w-[280px] h-[320px] sm:w-[320px] sm:h-[360px] md:w-[360px] md:h-[400px] overflow-visible wind">
         <img
           src={treeUrl}
-          alt={`Tree stage ${displayStage}`}
+          alt={`Cây cấp độ ${displayStage}`}
           className="w-full h-full object-contain sway-soft mix-blend-multiply"
           style={{ ['--swayDur' as unknown as string]: swayDuration as unknown as string, objectPosition: 'left bottom' }}
           onError={onError}
