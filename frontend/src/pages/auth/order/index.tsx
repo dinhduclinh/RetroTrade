@@ -107,6 +107,9 @@ type ApiError = {
     data?: {
       message?: string;
       error?: string;
+      balance?: number;
+      required?: number;
+      shortage?: number;
     };
   };
   message?: string;
@@ -803,22 +806,7 @@ export default function Checkout() {
 
   // ham submit mơi 
 
-  const handleSubmit = async () => {
-    if (
-      !shipping.fullName ||
-      !shipping.street ||
-      !shipping.province ||
-      !shipping.phone
-    ) {
-      toast.error("Vui lòng điền đầy đủ thông tin địa chỉ");
-      return;
-    }
-
-    if (selectedCartItems.length === 0) {
-      toast.error("Vui lòng chọn ít nhất một sản phẩm để đặt thuê");
-      return;
-    }
-
+  const processPayment = async () => {
     setIsSubmitting(true);
     try {
       const itemsToProcess = selectedCartItems;
@@ -873,6 +861,19 @@ export default function Checkout() {
         console.log(" Order data:", result?.data);
 
         try {
+          // Kiểm tra số dư ví trước khi thanh toán
+          const expectedPaymentAmount = grandTotal; // Số tiền hiển thị trên UI (đã trừ discount)
+          
+          console.log("Bắt đầu thanh toán:", {
+            orderId,
+            expectedAmount: expectedPaymentAmount,
+            grandTotal,
+            rentalTotal,
+            serviceFeeAmount,
+            depositTotal,
+            totalDiscountAmount
+          });
+
           const paymentResult = await payOrderWithWallet(orderId, userId);
 
           if (paymentResult && paymentResult.success === false) {
@@ -888,7 +889,7 @@ export default function Checkout() {
             continue;
           }
 
-          console.log(" Thanh toán thành công cho order:", orderId);
+          console.log("Thanh toán thành công cho order:", orderId, paymentResult);
         } catch (paymentError: unknown) {
           let errorMessage = "Thanh toán thất bại";
 
@@ -909,22 +910,30 @@ export default function Checkout() {
                 errorData.error?.includes("Ví người dùng không đủ tiền");
 
               console.log(
-                " Is insufficient balance?",
+                "Is insufficient balance?",
                 isInsufficientBalance,
                 "error:",
-                errorData.error
+                errorData.error,
+                "errorData:",
+                errorData
               );
 
               if (isInsufficientBalance) {
-                errorMessage = "Số dư ví không đủ. Vui lòng nạp tiền vào ví.";
+                // Hiển thị thông tin chi tiết về số dư và số tiền cần
+                const balance = errorData.balance || 0;
+                const required = errorData.required || grandTotal;
+                const shortage = errorData.shortage || (required - balance);
+                
+                const detailedMessage = `Số dư ví của bạn: ${balance.toLocaleString("vi-VN")}₫\n\nCần thanh toán: ${required.toLocaleString("vi-VN")}₫\n\nThiếu: ${shortage.toLocaleString("vi-VN")}₫\n\nVui lòng nạp thêm tiền vào ví để tiếp tục thanh toán.`;
 
-                console.log(" Đang mở modal với message:", errorMessage);
                 setErrorModalTitle("Ví không đủ tiền");
-                setErrorModalMessage(errorMessage);
+                setErrorModalMessage(detailedMessage);
                 setIsErrorModalOpen(true);
-                console.log(" Modal state đã được set:", {
-                  title: "Ví không đủ tiền",
-                  message: errorMessage,
+                console.log("Đã mở modal lỗi ví không đủ tiền:", {
+                  balance,
+                  required,
+                  shortage,
+                  message: detailedMessage
                 });
               } else {
                 toast.error(`${errorMessage} - Sản phẩm: ${item.title}`, {
@@ -1011,6 +1020,45 @@ export default function Checkout() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = () => {
+    if (
+      !shipping.fullName ||
+      !shipping.street ||
+      !shipping.province ||
+      !shipping.phone
+    ) {
+      toast.error("Vui lòng điền đầy đủ thông tin địa chỉ");
+      return;
+    }
+
+    if (selectedCartItems.length === 0) {
+      toast.error("Vui lòng chọn ít nhất một sản phẩm để đặt thuê");
+      return;
+    }
+
+    // Hiển thị popup xác nhận thanh toán
+    const paymentDetails = [
+      `• Tiền thuê: ${rentalTotal.toLocaleString("vi-VN")}₫`,
+      `• Phí dịch vụ (${serviceFeeRate}%): ${serviceFeeAmount.toLocaleString("vi-VN")}₫`,
+      `• Tiền cọc: ${depositTotal.toLocaleString("vi-VN")}₫`,
+    ];
+    
+    if (totalDiscountAmount > 0) {
+      paymentDetails.push(`• Giảm giá: -${totalDiscountAmount.toLocaleString("vi-VN")}₫`);
+    }
+    
+    paymentDetails.push(`\n💰 Tổng cộng: ${grandTotal.toLocaleString("vi-VN")}₫`);
+    
+    const message = `Bạn có chắc chắn muốn thanh toán ${selectedCartItems.length} sản phẩm?\n\n${paymentDetails.join("\n")}\n\n⚠️ Sau khi xác nhận, tiền sẽ được trừ từ ví của bạn.`;
+    
+    setConfirmPopup({
+      isOpen: true,
+      title: "Xác nhận thanh toán",
+      message: message,
+      onConfirm: processPayment,
+    });
   };
 
 
@@ -1974,9 +2022,9 @@ export default function Checkout() {
               </h3>
 
               {/* Message */}
-              <p className="text-base mb-6 leading-relaxed text-gray-700">
+              <div className="text-base mb-6 leading-relaxed text-gray-700 whitespace-pre-line text-left bg-gray-50 p-4 rounded-lg border border-gray-200">
                 {confirmPopup.message}
-              </p>
+              </div>
 
               {/* Buttons */}
               <div className="flex gap-3">
@@ -2025,19 +2073,25 @@ export default function Checkout() {
       )}
 
       {/* Modal thông báo lỗi ví không đủ tiền */}
-      <PopupModal
-        isOpen={isErrorModalOpen}
-        onClose={() => setIsErrorModalOpen(false)}
-        type="error"
-        title={errorModalTitle}
-        message={errorModalMessage}
-        buttonText="Đã hiểu"
-        secondaryButtonText="Đến ví"
-        onSecondaryButtonClick={() => {
-          setIsErrorModalOpen(false);
-          router.push("/wallet");
-        }}
-      />
+      {isErrorModalOpen && (
+        <PopupModal
+          isOpen={isErrorModalOpen}
+          onClose={() => {
+            console.log("Đóng modal lỗi ví không đủ tiền");
+            setIsErrorModalOpen(false);
+          }}
+          type="error"
+          title={errorModalTitle || "Ví không đủ tiền"}
+          message={errorModalMessage || "Số dư ví của bạn không đủ để thanh toán đơn hàng này. Vui lòng nạp thêm tiền vào ví."}
+          buttonText="Đã hiểu"
+          secondaryButtonText="Đến ví"
+          onSecondaryButtonClick={() => {
+            console.log("Chuyển đến trang ví");
+            setIsErrorModalOpen(false);
+            router.push("/wallet");
+          }}
+        />
+      )}
     </>
   );
 }

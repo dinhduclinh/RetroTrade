@@ -135,7 +135,7 @@ export const payOrderWithWallet = async (orderId: string, userId?: string) => {
       orderId,
       userId,
     };
-    const res = await instance.post("/wallet/pay-order", payload);
+    const res = await instance.post("/wallet/order/payment", payload);
     return await parseFetchResponse(res);
   } catch (error) {
     console.error("[wallet.api] payOrderWithWallet error:", error);
