@@ -227,3 +227,66 @@ export const getPublicStoreByUserGuid = async (
     return { data: { owner: null, items: [], total: 0 } } as any;
   }
 };
+
+// product.api.ts
+
+export const getComparableProducts = async (
+  productId: string,
+  categoryId: string,
+  limit: number = 5
+): Promise<any> => {
+  try {
+    const query = new URLSearchParams();
+    if (limit) query.set("limit", limit.toString());
+
+    const url = `/products/compare/${productId}/${categoryId}${query.toString() ? `?${query.toString()}` : ""}`;
+    console.log('Fetching comparable products from:', url);
+    
+    const res = await instance.get(url);
+
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      throw new Error(error.message || "Không thể lấy sản phẩm so sánh");
+    }
+
+    const data = await res.json();
+    console.log('Comparable products response:', data);
+    return data;
+  } catch (error: any) {
+    console.error("Error fetching comparable products:", error);
+    throw new Error(error.message || "Có lỗi xảy ra khi tải sản phẩm so sánh");
+  }
+};
+
+export const getRatingsByItem = async (itemId: string) => {
+  try {
+    const res = await fetch(`/api/v1/products/rating/item/${itemId}`);
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`HTTP ${res.status}: ${text}`);
+    }
+
+    const data = await res.json(); 
+    return { data: Array.isArray(data) ? data : [] };
+  } catch (error: any) {
+    console.error(" Error fetching ratings:", error?.message || error);
+    return { data: [] };
+  }
+};
+
+
+
+export const createRating = async (formData: FormData) => {
+  try {
+    const res = await instance.post("/products/rating", formData, {
+      headers: {},
+    });
+
+    const data = await res.json();
+    return data;
+  } catch (error) {
+    console.error("Error creating rating:", error);
+    throw error;
+  }
+};

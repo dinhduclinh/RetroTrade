@@ -73,7 +73,8 @@ const parseFetchResponse = async (res: any) => {
 };
 
 
-
+// role user
+// API lấy thông tin ví của người dùng hiện tại
 export const getMyWallet = async () => {
   try {
     const res = await instance.get("/wallet/my-wallet");
@@ -83,7 +84,7 @@ export const getMyWallet = async () => {
     throw err;
   }
 };
-
+// API nạp tiền vào ví nười dùng 
 export const depositToWallet = async (amount: number, note?: string) => {
   try {
     const res = await instance.post("/wallet/deposit", { amount, note });
@@ -94,7 +95,7 @@ export const depositToWallet = async (amount: number, note?: string) => {
     throw error;
   }
 };
-
+// API lấy tất cả tài khoản ngân hàng của người dùng
 export const getAllBankAccounts = async () => {
   try {
     const res = await instance.get("/wallet/my-banks"); // Đúng route đã khai báo backend
@@ -138,6 +139,42 @@ export const withdrawFromWallet = async (amount: number, note: string, bankAccou
     throw error;
   }
 };
+// API thanh toán đơn hàng sử dụng ví của người dùng 
+export const payOrderWithWallet = async (orderId: string) => {
+
+  try {
+    // Gọi POST, chỉ truyền orderId thôi - instance đã tự thêm headers
+    const res = await instance.post("/wallet/order/payment", { orderId });
+    return await parseFetchResponse(res);
+  } catch (error) {
+    console.error("[wallet.api] payOrderWithWallet error:", error);
+    throw error;
+  }
+};
+
+// API lấy 3 giao dịch gần nhất của ví người dùng
+export const getRecentWalletTransactions = async () => {
+  try {
+    const res = await instance.get("/wallet/transactions/recent");
+    return await parseFetchResponse(res);
+  } catch (error) {
+    console.error("[wallet.api] getRecentWalletTransactions error:", error);
+    throw error;
+  }
+};
+// API lấy tất cả giao dịch ví của người dùng
+export const getUserWalletTransactions  = async () => {
+  try {
+    const res = await instance.get("/wallet/user/transactions");
+    return await parseFetchResponse(res);
+  } catch (error) {
+    console.error("[wallet.api] getAllWalletTransactions error:", error);
+    throw error;
+  }
+};
+
+
+
 
 // role admin 
 // API admin lấy danh sách yêu cầu rút tiền, có thể truyền status để filter
@@ -192,5 +229,18 @@ export const getAllWalletTransactions = async () => {
     throw error;
   }
 };
+
+// API admin lấy thông tin tổng quan về ví
+export const getAdminWallet = async () => {
+  try {
+    const res = await instance.get("/wallet/admin/wallet");
+    return await parseFetchResponse(res);
+  } catch (err) {
+    console.error("[wallet.api] getAdminWallet error:", err);
+    throw err;
+  }
+};
+
+
 
 

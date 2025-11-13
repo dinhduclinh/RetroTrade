@@ -84,6 +84,11 @@ export const updateUserAvatar = async (payload: UpdateAvatarRequest): Promise<Ap
     return await parseResponse(response);
 };
 
+export const verifyPassword = async (password: string): Promise<ApiResponse<null>> => {
+    const response = await api.post("/user/profile/verify-password", { password });
+    return await parseResponse(response);
+};
+
 export const changePassword = async (payload: ChangePasswordRequest): Promise<ApiResponse<null>> => {
     const response = await api.put("/user/profile/change-password", payload);
     return await parseResponse(response);
@@ -144,6 +149,19 @@ export const banUser = async (id: string, reason: string): Promise<ApiResponse<U
 // Unban user (restore) - admin only
 export const unbanUser = async (id: string): Promise<ApiResponse<UserProfile>> => {
     const response = await api.post(`/user/${id}/unban`);
+    return await parseResponse(response);
+};
+
+// Update ID card information
+export interface UpdateIdCardInfoRequest {
+    idNumber: string;
+    fullName: string;
+    dateOfBirth: string;
+    address: string;
+}
+
+export const updateIdCardInfo = async (payload: UpdateIdCardInfoRequest): Promise<ApiResponse<UserProfile>> => {
+    const response = await api.put("/user/profile/id-card-info", payload);
     return await parseResponse(response);
 };
 

@@ -1,5 +1,6 @@
 const Wallet = require("../../models/Wallet.model");
 const WalletTransaction = require("../../models/WalletTransaction.model");
+const User = require("../../models/User.model");
 // view danh sách yêu cầu rút tiền
 const getWithdrawalRequests = async (req, res) => {
     try {
@@ -146,6 +147,44 @@ const getAllWalletTransactions = async (req, res) => {
     return res.status(500).json({ message: "Lỗi server", error: error.message });
   }
 };
+// view ví admin and tao nếu chưa có ví
+const getAdminWallet = async (req, res) => {
+  try {
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ 
+        message: "Chỉ admin được truy cập" 
+      });
+    }
+
+    // Lấy ví admin đầu tiên (ví chung của tất cả admin)
+    const adminUser = await User.findOne({ role: 'admin' });
+    if (!adminUser) {
+      return res.status(404).json({ 
+        message: "Không tìm thấy admin" 
+      });
+    }
+
+    let wallet = await Wallet.findOne({ userId: adminUser._id });
+    
+    // Nếu chưa có ví thì tạo
+    if (!wallet) {
+      wallet = await Wallet.create({ 
+        userId: adminUser._id, 
+        currency: "VND", 
+        balance: 0 
+      });
+    }
+
+    return res.status(200).json(wallet);
+  } catch (error) {
+    console.error("Error fetching admin wallet:", error);
+    return res
+      .status(500)
+      .json({ message: "Lỗi server", error: error.message });
+  }
+};
+
+
 
 
 
@@ -154,4 +193,5 @@ module.exports = {
     reviewWithdrawalRequest,
     completeWithdrawal,
     getAllWalletTransactions,
+    getAdminWallet,
 };

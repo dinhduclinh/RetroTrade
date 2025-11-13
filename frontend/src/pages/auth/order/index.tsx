@@ -40,7 +40,11 @@ import {
   type CreateAddressRequest,
 } from "@/services/auth/userAddress.api";
 import { AddressSelector } from "@/components/ui/auth/address/address-selector";
-import { validateDiscount, listAvailableDiscounts, type Discount } from "@/services/products/discount/discount.api";
+import {
+  validateDiscount,
+  listAvailableDiscounts,
+  type Discount,
+} from "@/services/products/discount/discount.api";
 
 const calculateRentalDays = (item: CartItem): number => {
   if (!item.rentalStartDate || !item.rentalEndDate) return 0;
@@ -116,18 +120,30 @@ export default function Checkout() {
   const [taxRate, setTaxRate] = useState<number>(3); // Default 3%
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 3; // Hiển thị 3 sản phẩm mỗi trang
-  const [editingItems, setEditingItems] = useState<Record<string, {
-    quantity: number;
-    rentalStartDate: string;
-    rentalEndDate: string;
-  }>>({});
-  const [itemErrors, setItemErrors] = useState<Record<string, {
-    quantity?: string;
-    rentalStartDate?: string;
-    rentalEndDate?: string;
-  }>>({});
-  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
-  
+  const [editingItems, setEditingItems] = useState<
+    Record<
+      string,
+      {
+        quantity: number;
+        rentalStartDate: string;
+        rentalEndDate: string;
+      }
+    >
+  >({});
+  const [itemErrors, setItemErrors] = useState<
+    Record<
+      string,
+      {
+        quantity?: string;
+        rentalStartDate?: string;
+        rentalEndDate?: string;
+      }
+    >
+  >({});
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(
+    null
+  );
+
   // Address management state
   const [userAddresses, setUserAddresses] = useState<UserAddress[]>([]);
   const [isEditingAddress, setIsEditingAddress] = useState(false);
@@ -151,7 +167,7 @@ export default function Checkout() {
     message: "",
     onConfirm: () => {},
   });
-  
+
   // Discount state
   const [discountCode, setDiscountCode] = useState("");
   const [publicDiscount, setPublicDiscount] = useState<Discount | null>(null);
@@ -164,7 +180,6 @@ export default function Checkout() {
   const [loadingDiscounts, setLoadingDiscounts] = useState(false);
   const [showDiscountList, setShowDiscountList] = useState(false);
 
-
   useEffect(() => {
     const itemsStr = sessionStorage.getItem("checkoutItems");
     if (!itemsStr) {
@@ -174,17 +189,15 @@ export default function Checkout() {
     const items: CartItem[] = JSON.parse(itemsStr);
     const invalid = items.find((i) => !i.rentalStartDate || !i.rentalEndDate);
     if (invalid) {
-        toast.error(`Sản phẩm "${invalid.title}" chưa có ngày thuê hợp lệ.`);
+      toast.error(`Sản phẩm "${invalid.title}" chưa có ngày thuê hợp lệ.`);
       router.push("/auth/cartitem");
       return;
     }
     setCartItems(items);
   }, [router]);
 
-
-
   const applyAddressToShipping = (address: UserAddress) => {
-    setShipping(prev => ({
+    setShipping((prev) => ({
       ...prev,
       street: address.Address,
       ward: address.District,
@@ -198,7 +211,7 @@ export default function Checkout() {
         // Get fullName from token
         const decoded = decodeToken(accessToken);
         if (decoded?.fullName) {
-          setShipping(prev => ({
+          setShipping((prev) => ({
             ...prev,
             fullName: decoded.fullName || "",
           }));
@@ -207,8 +220,9 @@ export default function Checkout() {
         // Get phone from user profile
         const profileResponse = await getUserProfile();
         if (profileResponse?.user?.phone || profileResponse?.data?.phone) {
-          const phone = profileResponse.user?.phone || profileResponse.data?.phone || "";
-          setShipping(prev => ({
+          const phone =
+            profileResponse.user?.phone || profileResponse.data?.phone || "";
+          setShipping((prev) => ({
             ...prev,
             phone: phone,
           }));
@@ -218,9 +232,11 @@ export default function Checkout() {
         const addressesResponse = await getUserAddresses();
         if (addressesResponse?.data && Array.isArray(addressesResponse.data)) {
           setUserAddresses(addressesResponse.data);
-          
+
           // Auto-select default address if available
-          const defaultAddress = addressesResponse.data.find(addr => addr.IsDefault);
+          const defaultAddress = addressesResponse.data.find(
+            (addr) => addr.IsDefault
+          );
           if (defaultAddress) {
             setSelectedAddressId(defaultAddress._id);
             applyAddressToShipping(defaultAddress);
@@ -240,7 +256,7 @@ export default function Checkout() {
   useEffect(() => {
     const loadAvailableDiscounts = async () => {
       if (!accessToken) return;
-      
+
       setLoadingDiscounts(true);
       try {
         const response = await listAvailableDiscounts(1, 50);
@@ -263,25 +279,24 @@ export default function Checkout() {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-      if (!target.closest('.discount-input-container')) {
+      if (!target.closest(".discount-input-container")) {
         setShowDiscountList(false);
       }
     };
 
     if (showDiscountList) {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [showDiscountList]);
-
 
   // Handle address selection
   const handleAddressSelect = (addressId: string) => {
     setSelectedAddressId(addressId);
-    const address = userAddresses.find(addr => addr._id === addressId);
+    const address = userAddresses.find((addr) => addr._id === addressId);
     if (address) {
       applyAddressToShipping(address);
     }
@@ -308,22 +323,32 @@ export default function Checkout() {
         const addressesResponse = await getUserAddresses();
         if (addressesResponse?.data && Array.isArray(addressesResponse.data)) {
           setUserAddresses(addressesResponse.data);
-          
+
           // Select the newly created address
-          const newAddressData = addressesResponse.data.find(addr => addr._id === (response.data as UserAddress)._id);
+          const newAddressData = addressesResponse.data.find(
+            (addr) => addr._id === (response.data as UserAddress)._id
+          );
           if (newAddressData) {
             setSelectedAddressId(newAddressData._id);
             applyAddressToShipping(newAddressData);
           }
         } else {
           // Fallback: use the response data
-          const updatedAddresses = [...userAddresses, response.data as UserAddress];
+          const updatedAddresses = [
+            ...userAddresses,
+            response.data as UserAddress,
+          ];
           setUserAddresses(updatedAddresses);
           setSelectedAddressId(response.data._id);
           applyAddressToShipping(response.data as UserAddress);
         }
-        
-        setNewAddress({ Address: "", City: "", District: "", IsDefault: false });
+
+        setNewAddress({
+          Address: "",
+          City: "",
+          District: "",
+          IsDefault: false,
+        });
         setIsEditingAddress(false);
         toast.success("Tạo địa chỉ thành công");
       } else {
@@ -339,13 +364,21 @@ export default function Checkout() {
 
   // Handle update address
   const handleUpdateAddress = async (addressId: string) => {
-    const address = userAddresses.find(addr => addr._id === addressId);
+    const address = userAddresses.find((addr) => addr._id === addressId);
     if (!address) return;
 
     // Check if trying to unset default and this is the only default address
-    const defaultAddresses = userAddresses.filter(addr => addr.IsDefault && addr._id !== addressId);
-    if (address.IsDefault && !newAddress.IsDefault && defaultAddresses.length === 0) {
-      toast.error("Phải có ít nhất một địa chỉ mặc định. Vui lòng chọn một địa chỉ khác làm mặc định trước.");
+    const defaultAddresses = userAddresses.filter(
+      (addr) => addr.IsDefault && addr._id !== addressId
+    );
+    if (
+      address.IsDefault &&
+      !newAddress.IsDefault &&
+      defaultAddresses.length === 0
+    ) {
+      toast.error(
+        "Phải có ít nhất một địa chỉ mặc định. Vui lòng chọn một địa chỉ khác làm mặc định trước."
+      );
       return;
     }
 
@@ -364,16 +397,20 @@ export default function Checkout() {
         const addressesResponse = await getUserAddresses();
         if (addressesResponse?.data && Array.isArray(addressesResponse.data)) {
           setUserAddresses(addressesResponse.data);
-          
+
           // Select the updated address if it was selected before
-          const updatedAddress = addressesResponse.data.find(addr => addr._id === addressId);
+          const updatedAddress = addressesResponse.data.find(
+            (addr) => addr._id === addressId
+          );
           if (selectedAddressId === addressId && updatedAddress) {
             applyAddressToShipping(updatedAddress);
           }
-          
+
           // If we set a new default, select it
           if (updateData.IsDefault) {
-            const newDefault = addressesResponse.data.find(addr => addr.IsDefault);
+            const newDefault = addressesResponse.data.find(
+              (addr) => addr.IsDefault
+            );
             if (newDefault) {
               setSelectedAddressId(newDefault._id);
               applyAddressToShipping(newDefault);
@@ -381,17 +418,25 @@ export default function Checkout() {
           }
         } else {
           // Fallback: use the response data
-          const updatedAddresses = userAddresses.map(addr =>
-            addr._id === addressId ? (response.data as UserAddress) : 
-            updateData.IsDefault ? { ...addr, IsDefault: false } : addr
+          const updatedAddresses = userAddresses.map((addr) =>
+            addr._id === addressId
+              ? (response.data as UserAddress)
+              : updateData.IsDefault
+              ? { ...addr, IsDefault: false }
+              : addr
           );
           setUserAddresses(updatedAddresses);
           if (selectedAddressId === addressId) {
             applyAddressToShipping(response.data as UserAddress);
           }
         }
-        
-        setNewAddress({ Address: "", City: "", District: "", IsDefault: false });
+
+        setNewAddress({
+          Address: "",
+          City: "",
+          District: "",
+          IsDefault: false,
+        });
         setIsEditingAddress(false);
         setEditingAddressId(null);
         toast.success("Cập nhật địa chỉ thành công");
@@ -408,13 +453,16 @@ export default function Checkout() {
 
   // Handle delete address
   const handleDeleteAddress = (addressId: string) => {
-    const address = userAddresses.find(addr => addr._id === addressId);
+    const address = userAddresses.find((addr) => addr._id === addressId);
     if (!address) return;
 
-    
-    const otherAddresses = userAddresses.filter(addr => addr._id !== addressId);
+    const otherAddresses = userAddresses.filter(
+      (addr) => addr._id !== addressId
+    );
     if (address.IsDefault && otherAddresses.length > 0) {
-      toast.error("Không thể xóa địa chỉ mặc định. Vui lòng chọn một địa chỉ khác làm mặc định trước khi xóa.");
+      toast.error(
+        "Không thể xóa địa chỉ mặc định. Vui lòng chọn một địa chỉ khác làm mặc định trước khi xóa."
+      );
       return;
     }
 
@@ -428,9 +476,11 @@ export default function Checkout() {
           const response = await deleteUserAddress(addressId);
           if (response?.code === 200 || response?.code === 201) {
             toast.success("Xóa địa chỉ thành công");
-            const updatedAddresses = userAddresses.filter(addr => addr._id !== addressId);
+            const updatedAddresses = userAddresses.filter(
+              (addr) => addr._id !== addressId
+            );
             setUserAddresses(updatedAddresses);
-            
+
             // If we deleted the default and there are other addresses, set the first one as default
             if (address.IsDefault && updatedAddresses.length > 0) {
               try {
@@ -439,9 +489,14 @@ export default function Checkout() {
                 });
                 // Reload addresses to get updated default
                 const addressesResponse = await getUserAddresses();
-                if (addressesResponse?.data && Array.isArray(addressesResponse.data)) {
+                if (
+                  addressesResponse?.data &&
+                  Array.isArray(addressesResponse.data)
+                ) {
                   setUserAddresses(addressesResponse.data);
-                  const defaultAddr = addressesResponse.data.find(addr => addr.IsDefault);
+                  const defaultAddr = addressesResponse.data.find(
+                    (addr) => addr.IsDefault
+                  );
                   if (defaultAddr) {
                     setSelectedAddressId(defaultAddr._id);
                     applyAddressToShipping(defaultAddr);
@@ -451,15 +506,17 @@ export default function Checkout() {
                 console.error("Error setting new default:", error);
               }
             }
-            
+
             if (selectedAddressId === addressId) {
               // Select another address or clear
               if (updatedAddresses.length > 0) {
-                const defaultAddr = updatedAddresses.find(addr => addr.IsDefault) || updatedAddresses[0];
+                const defaultAddr =
+                  updatedAddresses.find((addr) => addr.IsDefault) ||
+                  updatedAddresses[0];
                 handleAddressSelect(defaultAddr._id);
               } else {
                 setSelectedAddressId(null);
-                setShipping(prev => ({
+                setShipping((prev) => ({
                   ...prev,
                   street: "",
                   ward: "",
@@ -482,7 +539,7 @@ export default function Checkout() {
 
   // Start editing address
   const startEditingAddress = (addressId: string) => {
-    const address = userAddresses.find(addr => addr._id === addressId);
+    const address = userAddresses.find((addr) => addr._id === addressId);
     if (address) {
       setEditingAddressId(addressId);
       setNewAddress({
@@ -493,7 +550,6 @@ export default function Checkout() {
       });
     }
   };
-
 
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -507,47 +563,49 @@ export default function Checkout() {
         try {
           const { latitude, longitude } = position.coords;
           console.log("Getting location for:", latitude, longitude);
-          
+
           // Use Nominatim (OpenStreetMap) for reverse geocoding (free, no API key needed)
           // Add language=vi for Vietnamese results
           const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&accept-language=vi`,
             {
-              method: 'GET',
+              method: "GET",
               headers: {
-                'User-Agent': 'RetroTrade/1.0', // Required by Nominatim
-                'Accept': 'application/json',
-              }
+                "User-Agent": "RetroTrade/1.0", // Required by Nominatim
+                Accept: "application/json",
+              },
             }
           );
-          
+
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
-          
+
           const data = await response.json();
           console.log("Reverse geocoding response:", data);
-          
+
           if (data && data.address) {
             const addr = data.address;
-            
-           
+
             const street = addr.road || addr.street || addr.pedestrian || "";
             const houseNumber = addr.house_number || "";
-            const fullStreet = houseNumber && street ? `${houseNumber} ${street}`.trim() : (street || houseNumber);
-            
-    
+            const fullStreet =
+              houseNumber && street
+                ? `${houseNumber} ${street}`.trim()
+                : street || houseNumber;
+
             const ward = addr.ward || addr.suburb || addr.neighbourhood || "";
-            const district = addr.district || addr.county || addr.city_district || "";
+            const district =
+              addr.district || addr.county || addr.city_district || "";
             const city = addr.city || addr.town || addr.municipality || "";
             const province = addr.state || addr.province || "";
-            
+
             // Build full address
             const finalWard = ward || district || "";
             const finalCity = city || province || "";
-            
+
             // Update shipping address form
-            setShipping(prev => ({
+            setShipping((prev) => ({
               ...prev,
               street: fullStreet || prev.street,
               ward: finalWard || prev.ward,
@@ -556,7 +614,7 @@ export default function Checkout() {
 
             // Update new address form if editing
             if (isEditingAddress || editingAddressId) {
-              setNewAddress(prev => ({
+              setNewAddress((prev) => ({
                 ...prev,
                 Address: fullStreet || prev.Address,
                 District: finalWard || prev.District,
@@ -569,18 +627,23 @@ export default function Checkout() {
             console.warn("No address data in response:", data);
             // Fallback: show display_name if available
             if (data.display_name) {
-              setShipping(prev => ({
+              setShipping((prev) => ({
                 ...prev,
-                street: data.display_name.split(',')[0] || prev.street,
+                street: data.display_name.split(",")[0] || prev.street,
               }));
-              toast.success("Đã lấy một phần địa chỉ. Vui lòng kiểm tra và chỉnh sửa thêm.");
+              toast.success(
+                "Đã lấy một phần địa chỉ. Vui lòng kiểm tra và chỉnh sửa thêm."
+              );
             } else {
               throw new Error("Không thể lấy địa chỉ từ tọa độ");
             }
           }
         } catch (error) {
           console.error("Error getting address from coordinates:", error);
-          const errorMessage = error instanceof Error ? error.message : "Có lỗi xảy ra khi lấy địa chỉ";
+          const errorMessage =
+            error instanceof Error
+              ? error.message
+              : "Có lỗi xảy ra khi lấy địa chỉ";
           toast.error(`${errorMessage}. Vui lòng thử lại hoặc nhập thủ công.`);
         } finally {
           setLocationLoading(false);
@@ -591,7 +654,8 @@ export default function Checkout() {
         let message = "Không thể lấy vị trí hiện tại.";
         switch (error.code) {
           case error.PERMISSION_DENIED:
-            message = "Bạn cần cấp quyền truy cập vị trí để sử dụng tính năng này.";
+            message =
+              "Bạn cần cấp quyền truy cập vị trí để sử dụng tính năng này.";
             break;
           case error.POSITION_UNAVAILABLE:
             message = "Thông tin vị trí không khả dụng.";
@@ -606,24 +670,28 @@ export default function Checkout() {
       {
         enableHighAccuracy: true,
         timeout: 10000,
-        maximumAge: 0
+        maximumAge: 0,
       }
     );
   };
-
 
   // Pagination calculations
   const totalPages = Math.ceil(cartItems.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentItems = cartItems.slice(startIndex, endIndex);
- 
+
   const rentalTotal = cartItems.reduce((sum, item) => {
     const days = calculateRentalDays(item);
     return sum + item.basePrice * item.quantity * days;
   }, 0);
-  
-  console.log("Render - rentalTotal:", rentalTotal, "cartItems:", cartItems.length);
+
+  console.log(
+    "Render - rentalTotal:",
+    rentalTotal,
+    "cartItems:",
+    cartItems.length
+  );
 
   const taxAmount = (rentalTotal * taxRate) / 100;
   const depositTotal = cartItems.reduce(
@@ -631,7 +699,10 @@ export default function Checkout() {
     0
   );
   const totalDiscountAmount = publicDiscountAmount + privateDiscountAmount;
-  const grandTotal = Math.max(0, rentalTotal + taxAmount + depositTotal - totalDiscountAmount);
+  const grandTotal = Math.max(
+    0,
+    rentalTotal + taxAmount + depositTotal - totalDiscountAmount
+  );
 
   // Tính lại discount amount khi cartItems thay đổi (vì rentalTotal và depositTotal phụ thuộc vào cartItems)
   // Sử dụng useMemo để tính totalAmountForDiscount trước, sau đó useEffect sẽ sử dụng giá trị này
@@ -640,15 +711,28 @@ export default function Checkout() {
       const days = calculateRentalDays(item);
       return sum + item.basePrice * item.quantity * days;
     }, 0);
-    const deposit = cartItems.reduce((sum, item) => sum + item.depositAmount * item.quantity, 0);
+    const deposit = cartItems.reduce(
+      (sum, item) => sum + item.depositAmount * item.quantity,
+      0
+    );
     return rental + deposit;
   }, [cartItems]);
 
   useEffect(() => {
     const recalculateDiscounts = async () => {
-      if (!accessToken || cartItems.length === 0 || totalAmountForDiscountMemo <= 0) return;
+      if (
+        !accessToken ||
+        cartItems.length === 0 ||
+        totalAmountForDiscountMemo <= 0
+      )
+        return;
 
-      console.log("Recalculating discounts - totalAmountForDiscountMemo:", totalAmountForDiscountMemo, "cartItems:", cartItems.length);
+      console.log(
+        "Recalculating discounts - totalAmountForDiscountMemo:",
+        totalAmountForDiscountMemo,
+        "cartItems:",
+        cartItems.length
+      );
 
       // Tính lại public discount amount (dựa trên tổng tiền thuê + tiền cọc)
       if (publicDiscount) {
@@ -660,7 +744,14 @@ export default function Checkout() {
           if (response.status === "success" && response.data) {
             const newAmount = response.data.amount || 0;
             setPublicDiscountAmount(newAmount);
-            console.log("Recalculated public discount amount:", newAmount, "for totalAmount:", totalAmountForDiscountMemo, "discount:", publicDiscount);
+            console.log(
+              "Recalculated public discount amount:",
+              newAmount,
+              "for totalAmount:",
+              totalAmountForDiscountMemo,
+              "discount:",
+              publicDiscount
+            );
           }
         } catch (e) {
           console.error("Error recalculating public discount:", e);
@@ -672,7 +763,10 @@ export default function Checkout() {
         try {
           // Sử dụng publicDiscountAmount hiện tại từ state (sẽ được update nếu public discount được recalculate trước)
           const currentPublicAmount = publicDiscountAmount;
-          const baseAmountAfterPublic = Math.max(0, totalAmountForDiscountMemo - currentPublicAmount);
+          const baseAmountAfterPublic = Math.max(
+            0,
+            totalAmountForDiscountMemo - currentPublicAmount
+          );
           const response = await validateDiscount({
             code: privateDiscount.code.toUpperCase(),
             baseAmount: baseAmountAfterPublic,
@@ -692,12 +786,17 @@ export default function Checkout() {
       recalculateDiscounts();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalAmountForDiscountMemo, publicDiscount, privateDiscount, accessToken]);
+  }, [
+    totalAmountForDiscountMemo,
+    publicDiscount,
+    privateDiscount,
+    accessToken,
+  ]);
 
   const goToPage = (page: number) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
@@ -723,7 +822,7 @@ export default function Checkout() {
       if (response.status === "success" && response.data) {
         const discount = response.data.discount;
         let amount = response.data.amount || 0;
-        
+
         console.log("Applying discount:", {
           code: discount.code,
           isPublic: discount.isPublic,
@@ -735,17 +834,20 @@ export default function Checkout() {
           rentalTotal: rentalTotal,
           depositTotal: depositTotal,
           totalAmountForDiscount: rentalTotal + depositTotal,
-          expectedAmount: discount.type === "percent" 
-            ? ((rentalTotal + depositTotal) * discount.value) / 100 
-            : discount.value,
-          discount: discount
+          expectedAmount:
+            discount.type === "percent"
+              ? ((rentalTotal + depositTotal) * discount.value) / 100
+              : discount.value,
+          discount: discount,
         });
-        
+
         // Kiểm tra loại discount (public hay private)
         if (discount.isPublic) {
           // Mã công khai - chỉ cho phép 1 mã công khai
           if (publicDiscount) {
-            setDiscountError("Bạn đã áp dụng mã công khai. Chỉ được áp dụng 1 mã công khai.");
+            setDiscountError(
+              "Bạn đã áp dụng mã công khai. Chỉ được áp dụng 1 mã công khai."
+            );
             setDiscountLoading(false);
             return;
           }
@@ -758,28 +860,36 @@ export default function Checkout() {
           setPublicDiscount(discount);
           setPublicDiscountAmount(amount);
           console.log("Set public discount amount:", amount);
-          
+
           // Nếu đã có mã private, tính lại mã private với baseAmount mới
           if (privateDiscount) {
-            const baseAmountAfterPublic = Math.max(0, baseAmountForDiscount - amount);
+            const baseAmountAfterPublic = Math.max(
+              0,
+              baseAmountForDiscount - amount
+            );
             try {
               const revalidatePrivateResponse = await validateDiscount({
                 code: privateDiscount.code.toUpperCase(),
                 baseAmount: baseAmountAfterPublic,
               });
-              if (revalidatePrivateResponse.status === "success" && revalidatePrivateResponse.data) {
+              if (
+                revalidatePrivateResponse.status === "success" &&
+                revalidatePrivateResponse.data
+              ) {
                 setPrivateDiscountAmount(revalidatePrivateResponse.data.amount);
               }
             } catch (e) {
               console.error("Error revalidating private discount:", e);
             }
           }
-          
+
           toast.success("Áp dụng mã giảm giá công khai thành công!");
         } else {
           // Mã riêng tư - chỉ cho phép 1 mã riêng tư
           if (privateDiscount) {
-            setDiscountError("Bạn đã áp dụng mã riêng tư. Chỉ được áp dụng 1 mã riêng tư.");
+            setDiscountError(
+              "Bạn đã áp dụng mã riêng tư. Chỉ được áp dụng 1 mã riêng tư."
+            );
             setDiscountLoading(false);
             return;
           }
@@ -790,14 +900,20 @@ export default function Checkout() {
             return;
           }
           // Tính lại discount amount dựa trên baseAmount sau khi đã trừ mã công khai
-          const baseAmountAfterPublic = Math.max(0, baseAmountForDiscount - publicDiscountAmount);
+          const baseAmountAfterPublic = Math.max(
+            0,
+            baseAmountForDiscount - publicDiscountAmount
+          );
           // Validate lại với baseAmount mới
           try {
             const revalidateResponse = await validateDiscount({
               code: discount.code.toUpperCase(),
               baseAmount: baseAmountAfterPublic,
             });
-            if (revalidateResponse.status === "success" && revalidateResponse.data) {
+            if (
+              revalidateResponse.status === "success" &&
+              revalidateResponse.data
+            ) {
               amount = revalidateResponse.data.amount;
             }
           } catch (e) {
@@ -807,7 +923,7 @@ export default function Checkout() {
           setPrivateDiscountAmount(amount);
           toast.success("Áp dụng mã giảm giá riêng tư thành công!");
         }
-        
+
         setDiscountCode("");
         setShowDiscountList(false);
       } else {
@@ -861,17 +977,39 @@ export default function Checkout() {
   };
 
   // Validate item changes
-  const validateItem = (itemId: string, data: {
-    quantity: number;
-    rentalStartDate: string;
-    rentalEndDate: string;
-  }, item: CartItem): { isValid: boolean; errors: { quantity?: string; rentalStartDate?: string; rentalEndDate?: string } } => {
-    const errors: { quantity?: string; rentalStartDate?: string; rentalEndDate?: string } = {};
+  const validateItem = (
+    itemId: string,
+    data: {
+      quantity: number;
+      rentalStartDate: string;
+      rentalEndDate: string;
+    },
+    item: CartItem
+  ): {
+    isValid: boolean;
+    errors: {
+      quantity?: string;
+      rentalStartDate?: string;
+      rentalEndDate?: string;
+    };
+  } => {
+    const errors: {
+      quantity?: string;
+      rentalStartDate?: string;
+      rentalEndDate?: string;
+    } = {};
 
     // Validate quantity
-    if (!data.quantity || data.quantity < 1 || !Number.isInteger(data.quantity)) {
+    if (
+      !data.quantity ||
+      data.quantity < 1 ||
+      !Number.isInteger(data.quantity)
+    ) {
       errors.quantity = "Số lượng phải là số nguyên dương";
-    } else if (item.availableQuantity !== undefined && data.quantity > item.availableQuantity) {
+    } else if (
+      item.availableQuantity !== undefined &&
+      data.quantity > item.availableQuantity
+    ) {
       errors.quantity = `Số lượng không được vượt quá ${item.availableQuantity} sản phẩm có sẵn`;
     }
 
@@ -899,7 +1037,7 @@ export default function Checkout() {
 
     return {
       isValid: Object.keys(errors).length === 0,
-      errors
+      errors,
     };
   };
 
@@ -911,7 +1049,7 @@ export default function Checkout() {
         quantity: item.quantity,
         rentalStartDate: formatDateTimeLocal(item.rentalStartDate || ""),
         rentalEndDate: formatDateTimeLocal(item.rentalEndDate || ""),
-      }
+      },
     });
     setItemErrors({ ...itemErrors, [item._id]: {} });
   };
@@ -927,22 +1065,26 @@ export default function Checkout() {
   };
 
   // Update editing field
-  const updateEditingField = (itemId: string, field: string, value: string | number) => {
+  const updateEditingField = (
+    itemId: string,
+    field: string,
+    value: string | number
+  ) => {
     setEditingItems({
       ...editingItems,
       [itemId]: {
         ...editingItems[itemId],
-        [field]: value
-      }
+        [field]: value,
+      },
     });
     // Clear error for this field when user starts typing
-    if (itemErrors[itemId]?.[field as keyof typeof itemErrors[string]]) {
+    if (itemErrors[itemId]?.[field as keyof (typeof itemErrors)[string]]) {
       setItemErrors({
         ...itemErrors,
         [itemId]: {
           ...itemErrors[itemId],
-          [field]: undefined
-        }
+          [field]: undefined,
+        },
       });
     }
   };
@@ -953,17 +1095,17 @@ export default function Checkout() {
     if (!editingData) return;
 
     const validation = validateItem(item._id, editingData, item);
-    
+
     if (!validation.isValid) {
       setItemErrors({
         ...itemErrors,
-        [item._id]: validation.errors
+        [item._id]: validation.errors,
       });
       return;
     }
 
     // Update cartItems
-    const updatedItems = cartItems.map(cartItem => {
+    const updatedItems = cartItems.map((cartItem) => {
       if (cartItem._id === item._id) {
         return {
           ...cartItem,
@@ -978,94 +1120,103 @@ export default function Checkout() {
     // Update sessionStorage
     sessionStorage.setItem("checkoutItems", JSON.stringify(updatedItems));
     setCartItems(updatedItems);
-    
+
     // Clear editing state
     cancelEditing(item._id);
   };
 
-const handleSubmit = async () => {
-  if (
-    !shipping.fullName ||
-    !shipping.street ||
-    !shipping.province ||
-    !shipping.phone
-  ) {
+  const handleSubmit = async () => {
+    if (
+      !shipping.fullName ||
+      !shipping.street ||
+      !shipping.province ||
+      !shipping.phone
+    ) {
       toast.error("Vui lòng điền đầy đủ thông tin địa chỉ");
-    return;
-  }
+      return;
+    }
 
-  setIsSubmitting(true);
-  try {
-    let successCount = 0;
-    const failedItems: string[] = [];
+    setIsSubmitting(true);
+    try {
+      let successCount = 0;
+      const failedItems: string[] = [];
 
-    for (const item of cartItems) {
-      console.log("Tạo đơn hàng:", item.title);
+      for (const item of cartItems) {
+        console.log("Tạo đơn hàng:", item.title);
 
-      const result = await dispatch(
-        createOrderAction({
-          itemId: item.itemId,
-          quantity: item.quantity,
-          startAt: item.rentalStartDate,
-          endAt: item.rentalEndDate,
-          shippingAddress: shipping,
-          paymentMethod: "Wallet",
-          note,
-          publicDiscountCode: publicDiscount?.code || null,
-          privateDiscountCode: privateDiscount?.code || null,
-        })
-      );
+        const result = await dispatch(
+          createOrderAction({
+            itemId: item.itemId,
+            quantity: item.quantity,
+            startAt: item.rentalStartDate,
+            endAt: item.rentalEndDate,
+            shippingAddress: shipping,
+            paymentMethod: "Wallet",
+            note,
+            publicDiscountCode: publicDiscount?.code || null,
+            privateDiscountCode: privateDiscount?.code || null,
+          })
+        );
 
-      if (!result?.success) {
-        const errorMessage = result?.error || "Không thể tạo đơn hàng";
-        toast.error(`Không thể tạo đơn cho sản phẩm: ${item.title}. ${errorMessage}`);
-        failedItems.push(item.title);
-        console.error(`Order failed for ${item.title}:`, result?.error);
-        continue; // Continue processing other items instead of throwing
-      }
-
-      // Only remove from cart if order was successful
-      if (!item._id?.startsWith("temp-")) {
-        try {
-          await dispatch(removeItemFromCartAction(item._id));
-        } catch (cartError) {
-          console.error(`Error removing item from cart: ${item.title}`, cartError);
-          // Don't fail the entire process if cart removal fails
+        if (!result?.success) {
+          const errorMessage = result?.error || "Không thể tạo đơn hàng";
+          toast.error(
+            `Không thể tạo đơn cho sản phẩm: ${item.title}. ${errorMessage}`
+          );
+          failedItems.push(item.title);
+          console.error(`Order failed for ${item.title}:`, result?.error);
+          continue; // Continue processing other items instead of throwing
         }
+
+        // Only remove from cart if order was successful
+        if (!item._id?.startsWith("temp-")) {
+          try {
+            await dispatch(removeItemFromCartAction(item._id));
+          } catch (cartError) {
+            console.error(
+              `Error removing item from cart: ${item.title}`,
+              cartError
+            );
+            // Don't fail the entire process if cart removal fails
+          }
+        }
+
+        successCount++;
       }
 
-      successCount++;
-    }
-
-    // Show appropriate message based on results
-    if (failedItems.length === 0) {
-      toast.success("Tạo tất cả đơn hàng thành công!");
-      sessionStorage.removeItem("checkoutItems");
-      router.push("/auth/order");
-    } else if (successCount > 0) {
-      toast.warning(
-        `Đã tạo thành công ${successCount} đơn hàng. ${failedItems.length} đơn hàng thất bại: ${failedItems.join(", ")}`
-      );
-      // Keep only failed items in sessionStorage for retry
-      const remainingItems = cartItems.filter(
-        (item) => failedItems.includes(item.title)
-      );
-      if (remainingItems.length > 0) {
-        sessionStorage.setItem("checkoutItems", JSON.stringify(remainingItems));
-      } else {
+      // Show appropriate message based on results
+      if (failedItems.length === 0) {
+        toast.success("Tạo tất cả đơn hàng thành công!");
         sessionStorage.removeItem("checkoutItems");
+        router.push("/auth/order");
+      } else if (successCount > 0) {
+        toast.warning(
+          `Đã tạo thành công ${successCount} đơn hàng. ${
+            failedItems.length
+          } đơn hàng thất bại: ${failedItems.join(", ")}`
+        );
+        // Keep only failed items in sessionStorage for retry
+        const remainingItems = cartItems.filter((item) =>
+          failedItems.includes(item.title)
+        );
+        if (remainingItems.length > 0) {
+          sessionStorage.setItem(
+            "checkoutItems",
+            JSON.stringify(remainingItems)
+          );
+        } else {
+          sessionStorage.removeItem("checkoutItems");
+        }
+      } else {
+        toast.error("Không thể tạo bất kỳ đơn hàng nào. Vui lòng thử lại.");
       }
-    } else {
-      toast.error("Không thể tạo bất kỳ đơn hàng nào. Vui lòng thử lại.");
-    }
-  } catch (err) {
-    console.error("Checkout error:", err);
+    } catch (err) {
+      console.error("Checkout error:", err);
       toast.error("Có lỗi xảy ra khi tạo đơn hàng, vui lòng thử lại.");
-  } finally {
-    setIsSubmitting(false);
-  }
-};
-
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (!cartItems.length) {
     return (
@@ -1147,20 +1298,24 @@ const handleSubmit = async () => {
                 {currentItems.map((item) => {
                   // Use editing data if available, otherwise use original data
                   const editingData = editingItems[item._id];
-                  const displayItem: CartItem = editingData ? {
-                    ...item,
-                    quantity: editingData.quantity,
-                    rentalStartDate: editingData.rentalStartDate,
-                    rentalEndDate: editingData.rentalEndDate,
-                  } : item;
+                  const displayItem: CartItem = editingData
+                    ? {
+                        ...item,
+                        quantity: editingData.quantity,
+                        rentalStartDate: editingData.rentalStartDate,
+                        rentalEndDate: editingData.rentalEndDate,
+                      }
+                    : item;
 
                   const days = calculateRentalDays(displayItem);
                   const durationText = getRentalDurationText(
                     days,
                     displayItem.priceUnit
                   );
-                  const itemTotal = displayItem.basePrice * displayItem.quantity * days;
-                  const itemDeposit = displayItem.depositAmount * displayItem.quantity;
+                  const itemTotal =
+                    displayItem.basePrice * displayItem.quantity * days;
+                  const itemDeposit =
+                    displayItem.depositAmount * displayItem.quantity;
 
                   return (
                     <div
@@ -1184,11 +1339,11 @@ const handleSubmit = async () => {
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <h3 className="text-xl font-bold text-gray-800 line-clamp-2 mb-2 group-hover:text-emerald-700 transition-colors">
-                          {item.title}
-                        </h3>
+                              {item.title}
+                            </h3>
                             <p className="text-sm text-gray-500 line-clamp-2">
-                          {item.shortDescription}
-                        </p>
+                              {item.shortDescription}
+                            </p>
                           </div>
                           {!editingItems[item._id] ? (
                             <button
@@ -1223,23 +1378,27 @@ const handleSubmit = async () => {
                             <div className="flex flex-wrap gap-2">
                               <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-lg text-sm font-semibold border border-blue-200">
                                 <Package className="w-3.5 h-3.5" />
-                            {item.quantity} cái
-                          </span>
+                                {item.quantity} cái
+                              </span>
                               <span className="inline-flex items-center gap-1.5 bg-purple-50 text-purple-700 px-3 py-1.5 rounded-lg text-sm font-semibold border border-purple-200">
                                 <Calendar className="w-3.5 h-3.5" />
-                            {durationText}
-                          </span>
-                        </div>
+                                {durationText}
+                              </span>
+                            </div>
                             <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
                               <Calendar className="w-4 h-4 text-emerald-600" />
                               <span className="font-medium">
-                          {format(
-                            new Date(item.rentalStartDate!),
+                                {format(
+                                  new Date(item.rentalStartDate!),
                                   "dd/MM/yyyy HH:mm"
-                          )} →{" "}
-                                {format(new Date(item.rentalEndDate!), "dd/MM/yyyy HH:mm")}
+                                )}{" "}
+                                →{" "}
+                                {format(
+                                  new Date(item.rentalEndDate!),
+                                  "dd/MM/yyyy HH:mm"
+                                )}
                               </span>
-                        </div>
+                            </div>
                             {/* View Product Detail Button */}
                             {item.itemId && (
                               <div className="pt-2">
@@ -1259,7 +1418,7 @@ const handleSubmit = async () => {
                         ) : (
                           <div className="space-y-3 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
                             {/* Quantity Input */}
-                          <div>
+                            <div>
                               <label className="block text-sm font-semibold text-gray-700 mb-2">
                                 Số lượng <span className="text-red-500">*</span>
                               </label>
@@ -1268,7 +1427,13 @@ const handleSubmit = async () => {
                                 min="1"
                                 max={item.availableQuantity}
                                 value={editingItems[item._id].quantity}
-                                onChange={(e) => updateEditingField(item._id, "quantity", parseInt(e.target.value) || 1)}
+                                onChange={(e) =>
+                                  updateEditingField(
+                                    item._id,
+                                    "quantity",
+                                    parseInt(e.target.value) || 1
+                                  )
+                                }
                                 className={`w-full px-3 py-2 text-base border-2 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition ${
                                   itemErrors[item._id]?.quantity
                                     ? "border-red-300 bg-red-50"
@@ -1276,23 +1441,33 @@ const handleSubmit = async () => {
                                 }`}
                               />
                               <p className="mt-1 text-xs text-gray-500">
-                                Số lượng có sẵn: {item.availableQuantity} sản phẩm
+                                Số lượng có sẵn: {item.availableQuantity} sản
+                                phẩm
                               </p>
                               {itemErrors[item._id]?.quantity && (
-                                <p className="mt-1 text-xs text-red-600">{itemErrors[item._id].quantity}</p>
+                                <p className="mt-1 text-xs text-red-600">
+                                  {itemErrors[item._id].quantity}
+                                </p>
                               )}
-                          </div>
+                            </div>
 
                             {/* Date Inputs */}
                             <div className="grid grid-cols-2 gap-3">
-                            <div>
+                              <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                  Ngày bắt đầu <span className="text-red-500">*</span>
+                                  Ngày bắt đầu{" "}
+                                  <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                   type="datetime-local"
                                   value={editingItems[item._id].rentalStartDate}
-                                  onChange={(e) => updateEditingField(item._id, "rentalStartDate", e.target.value)}
+                                  onChange={(e) =>
+                                    updateEditingField(
+                                      item._id,
+                                      "rentalStartDate",
+                                      e.target.value
+                                    )
+                                  }
                                   min={getMinDateTime()}
                                   className={`w-full px-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition ${
                                     itemErrors[item._id]?.rentalStartDate
@@ -1301,18 +1476,30 @@ const handleSubmit = async () => {
                                   }`}
                                 />
                                 {itemErrors[item._id]?.rentalStartDate && (
-                                  <p className="mt-1 text-xs text-red-600">{itemErrors[item._id].rentalStartDate}</p>
+                                  <p className="mt-1 text-xs text-red-600">
+                                    {itemErrors[item._id].rentalStartDate}
+                                  </p>
                                 )}
-                            </div>
-                            <div>
+                              </div>
+                              <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                  Ngày kết thúc <span className="text-red-500">*</span>
+                                  Ngày kết thúc{" "}
+                                  <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                   type="datetime-local"
                                   value={editingItems[item._id].rentalEndDate}
-                                  onChange={(e) => updateEditingField(item._id, "rentalEndDate", e.target.value)}
-                                  min={editingItems[item._id].rentalStartDate || getMinDateTime()}
+                                  onChange={(e) =>
+                                    updateEditingField(
+                                      item._id,
+                                      "rentalEndDate",
+                                      e.target.value
+                                    )
+                                  }
+                                  min={
+                                    editingItems[item._id].rentalStartDate ||
+                                    getMinDateTime()
+                                  }
                                   className={`w-full px-3 py-2 text-sm border-2 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition ${
                                     itemErrors[item._id]?.rentalEndDate
                                       ? "border-red-300 bg-red-50"
@@ -1320,21 +1507,27 @@ const handleSubmit = async () => {
                                   }`}
                                 />
                                 {itemErrors[item._id]?.rentalEndDate && (
-                                  <p className="mt-1 text-xs text-red-600">{itemErrors[item._id].rentalEndDate}</p>
+                                  <p className="mt-1 text-xs text-red-600">
+                                    {itemErrors[item._id].rentalEndDate}
+                                  </p>
                                 )}
+                              </div>
                             </div>
                           </div>
-                        </div>
                         )}
                         <div className="flex flex-col gap-3 pt-4 border-t border-gray-200 bg-gradient-to-r from-emerald-50/50 to-blue-50/50 -mx-6 px-6 pb-2 rounded-b-xl">
                           <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium text-gray-700">Giá thuê:</span>
+                            <span className="text-sm font-medium text-gray-700">
+                              Giá thuê:
+                            </span>
                             <p className="text-2xl font-bold text-emerald-600">
                               {itemTotal.toLocaleString("vi-VN")}₫
                             </p>
                           </div>
                           <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium text-gray-700">Tiền cọc:</span>
+                            <span className="text-sm font-medium text-gray-700">
+                              Tiền cọc:
+                            </span>
                             <p className="text-xl font-bold text-amber-600">
                               {itemDeposit.toLocaleString("vi-VN")}₫
                             </p>
@@ -1352,10 +1545,11 @@ const handleSubmit = async () => {
                   <button
                     onClick={() => goToPage(currentPage - 1)}
                     disabled={currentPage === 1}
-                    className={`flex items-center gap-1 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${currentPage === 1
+                    className={`flex items-center gap-1 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
+                      currentPage === 1
                         ? "text-gray-400 border-gray-200 cursor-not-allowed bg-gray-50"
                         : "text-gray-700 border-gray-300 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
-                      }`}
+                    }`}
                   >
                     <ChevronLeft className="w-4 h-4" />
                     Trước
@@ -1377,10 +1571,11 @@ const handleSubmit = async () => {
                       <button
                         key={pageNum}
                         onClick={() => goToPage(pageNum)}
-                        className={`w-10 h-10 flex items-center justify-center rounded-lg border text-sm font-medium transition-all ${currentPage === pageNum
+                        className={`w-10 h-10 flex items-center justify-center rounded-lg border text-sm font-medium transition-all ${
+                          currentPage === pageNum
                             ? "bg-emerald-600 text-white border-emerald-600 shadow-md"
                             : "border-gray-300 text-gray-700 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
-                          }`}
+                        }`}
                       >
                         {pageNum}
                       </button>
@@ -1390,10 +1585,11 @@ const handleSubmit = async () => {
                   <button
                     onClick={() => goToPage(currentPage + 1)}
                     disabled={currentPage === totalPages}
-                    className={`flex items-center gap-1 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${currentPage === totalPages
+                    className={`flex items-center gap-1 px-4 py-2 rounded-lg border text-sm font-medium transition-all ${
+                      currentPage === totalPages
                         ? "text-gray-400 border-gray-200 cursor-not-allowed bg-gray-50"
                         : "text-gray-700 border-gray-300 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
-                      }`}
+                    }`}
                   >
                     Sau
                     <ChevronRight className="w-4 h-4" />
@@ -1404,7 +1600,8 @@ const handleSubmit = async () => {
               {/* Pagination Info */}
               {cartItems.length > itemsPerPage && (
                 <div className="mt-3 text-center text-sm text-gray-600">
-                  Trang {currentPage} / {totalPages} ({cartItems.length} sản phẩm)
+                  Trang {currentPage} / {totalPages} ({cartItems.length} sản
+                  phẩm)
                 </div>
               )}
             </div>
@@ -1421,69 +1618,76 @@ const handleSubmit = async () => {
                   <label className="text-sm font-semibold text-gray-700">
                     Họ và tên <span className="text-red-500">*</span>
                   </label>
-                <input
+                  <input
                     placeholder="Nhập họ và tên"
                     className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
-                  value={shipping.fullName}
-                  onChange={(e) =>
-                    setShipping({ ...shipping, fullName: e.target.value })
-                  }
-                />
+                    value={shipping.fullName}
+                    onChange={(e) =>
+                      setShipping({ ...shipping, fullName: e.target.value })
+                    }
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-gray-700">
                     Số điện thoại <span className="text-red-500">*</span>
                   </label>
-                <input
+                  <input
                     placeholder="Nhập số điện thoại"
                     className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
-                  value={shipping.phone}
-                  onChange={(e) =>
-                    setShipping({ ...shipping, phone: e.target.value })
-                  }
-                />
+                    value={shipping.phone}
+                    onChange={(e) =>
+                      setShipping({ ...shipping, phone: e.target.value })
+                    }
+                  />
                 </div>
               </div>
 
               {/* Address selector */}
-                <div className="mt-6">
+              <div className="mt-6">
                 <AddressSelector
                   selectedAddressId={selectedAddressId}
                   onSelect={(addr) => {
                     setSelectedAddressId(addr._id);
                     applyAddressToShipping(addr);
                   }}
-                            />
-                          </div>
-                          
+                />
+              </div>
 
               {/* No Address Message */}
-              {userAddresses.length === 0 && !isEditingAddress && !editingAddressId && (
-                <div className="mt-6 p-4 bg-amber-50 border-2 border-amber-200 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-amber-800 mb-2">
-                        Vui lòng nhập địa chỉ
-                      </p>
-                      <p className="text-xs text-amber-700 mb-3">
-                        Bạn chưa có địa chỉ đã lưu. Vui lòng thêm địa chỉ mới hoặc nhập địa chỉ bên dưới.
-                      </p>
-                      <button
-                        onClick={() => {
-                          setIsEditingAddress(true);
-                          setEditingAddressId(null);
-                          setNewAddress({ Address: "", City: "", District: "", IsDefault: false });
-                        }}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-semibold"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Thêm địa chỉ mới
-                      </button>
+              {userAddresses.length === 0 &&
+                !isEditingAddress &&
+                !editingAddressId && (
+                  <div className="mt-6 p-4 bg-amber-50 border-2 border-amber-200 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-amber-800 mb-2">
+                          Vui lòng nhập địa chỉ
+                        </p>
+                        <p className="text-xs text-amber-700 mb-3">
+                          Bạn chưa có địa chỉ đã lưu. Vui lòng thêm địa chỉ mới
+                          hoặc nhập địa chỉ bên dưới.
+                        </p>
+                        <button
+                          onClick={() => {
+                            setIsEditingAddress(true);
+                            setEditingAddressId(null);
+                            setNewAddress({
+                              Address: "",
+                              City: "",
+                              District: "",
+                              IsDefault: false,
+                            });
+                          }}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-semibold"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Thêm địa chỉ mới
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {/* Add/Edit Address Form - After name and phone */}
               {(isEditingAddress || editingAddressId) && (
@@ -1496,7 +1700,12 @@ const handleSubmit = async () => {
                       onClick={() => {
                         setIsEditingAddress(false);
                         setEditingAddressId(null);
-                        setNewAddress({ Address: "", City: "", District: "", IsDefault: false });
+                        setNewAddress({
+                          Address: "",
+                          City: "",
+                          District: "",
+                          IsDefault: false,
+                        });
                       }}
                       className="p-1 text-gray-500 hover:text-gray-700 transition-colors"
                       title="Đóng"
@@ -1508,7 +1717,8 @@ const handleSubmit = async () => {
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <label className="block text-sm font-semibold text-gray-700">
-                          Địa chỉ (số nhà, đường...) <span className="text-red-500">*</span>
+                          Địa chỉ (số nhà, đường...){" "}
+                          <span className="text-red-500">*</span>
                         </label>
                         <button
                           onClick={getCurrentLocation}
@@ -1529,11 +1739,16 @@ const handleSubmit = async () => {
                           )}
                         </button>
                       </div>
-                <input
+                      <input
                         type="text"
                         placeholder="Nhập địa chỉ chi tiết"
                         value={newAddress.Address}
-                        onChange={(e) => setNewAddress({ ...newAddress, Address: e.target.value })}
+                        onChange={(e) =>
+                          setNewAddress({
+                            ...newAddress,
+                            Address: e.target.value,
+                          })
+                        }
                         className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
                       />
                     </div>
@@ -1546,7 +1761,12 @@ const handleSubmit = async () => {
                           type="text"
                           placeholder="Nhập phường/xã"
                           value={newAddress.District}
-                          onChange={(e) => setNewAddress({ ...newAddress, District: e.target.value })}
+                          onChange={(e) =>
+                            setNewAddress({
+                              ...newAddress,
+                              District: e.target.value,
+                            })
+                          }
                           className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
                         />
                       </div>
@@ -1558,7 +1778,12 @@ const handleSubmit = async () => {
                           type="text"
                           placeholder="Nhập tỉnh/thành phố"
                           value={newAddress.City}
-                          onChange={(e) => setNewAddress({ ...newAddress, City: e.target.value })}
+                          onChange={(e) =>
+                            setNewAddress({
+                              ...newAddress,
+                              City: e.target.value,
+                            })
+                          }
                           className="w-full px-3 py-2 text-sm border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition"
                         />
                       </div>
@@ -1567,12 +1792,20 @@ const handleSubmit = async () => {
                     {editingAddressId && (
                       <div className="flex items-center gap-2">
                         {(() => {
-                          const address = userAddresses.find(addr => addr._id === editingAddressId);
-                          const defaultAddresses = userAddresses.filter(addr => addr.IsDefault && addr._id !== editingAddressId);
-                          const isOnlyDefault = address?.IsDefault && defaultAddresses.length === 0;
+                          const address = userAddresses.find(
+                            (addr) => addr._id === editingAddressId
+                          );
+                          const defaultAddresses = userAddresses.filter(
+                            (addr) =>
+                              addr.IsDefault && addr._id !== editingAddressId
+                          );
+                          const isOnlyDefault =
+                            address?.IsDefault && defaultAddresses.length === 0;
                           const isDisabled = isOnlyDefault;
-                          const isChecked = isOnlyDefault ? true : newAddress.IsDefault;
-                          
+                          const isChecked = isOnlyDefault
+                            ? true
+                            : newAddress.IsDefault;
+
                           return (
                             <>
                               <input
@@ -1582,16 +1815,23 @@ const handleSubmit = async () => {
                                 disabled={isDisabled}
                                 onChange={(e) => {
                                   if (!isDisabled) {
-                                    setNewAddress({ ...newAddress, IsDefault: e.target.checked });
+                                    setNewAddress({
+                                      ...newAddress,
+                                      IsDefault: e.target.checked,
+                                    });
                                   }
                                 }}
                                 className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
                               />
-                              <label htmlFor="isDefault" className="text-sm text-gray-700 cursor-pointer">
+                              <label
+                                htmlFor="isDefault"
+                                className="text-sm text-gray-700 cursor-pointer"
+                              >
                                 Đặt làm địa chỉ mặc định
                                 {isOnlyDefault && (
                                   <span className="text-xs text-gray-500 ml-1">
-                                    (bắt buộc - đây là địa chỉ mặc định duy nhất)
+                                    (bắt buộc - đây là địa chỉ mặc định duy
+                                    nhất)
                                   </span>
                                 )}
                               </label>
@@ -1622,13 +1862,22 @@ const handleSubmit = async () => {
                         disabled={addressLoading}
                         className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {addressLoading ? "Đang xử lý..." : editingAddressId ? "Cập nhật" : "Thêm mới"}
+                        {addressLoading
+                          ? "Đang xử lý..."
+                          : editingAddressId
+                          ? "Cập nhật"
+                          : "Thêm mới"}
                       </button>
                       <button
                         onClick={() => {
                           setIsEditingAddress(false);
                           setEditingAddressId(null);
-                          setNewAddress({ Address: "", City: "", District: "", IsDefault: false });
+                          setNewAddress({
+                            Address: "",
+                            City: "",
+                            District: "",
+                            IsDefault: false,
+                          });
                         }}
                         className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors text-sm font-semibold"
                       >
@@ -1639,50 +1888,49 @@ const handleSubmit = async () => {
                 </div>
               )}
 
-
-             
               {!isEditingAddress && !editingAddressId && !selectedAddressId && (
                 <div className="mt-6 space-y-4">
-                <div className="space-y-2 sm:col-span-2">
-                  <label className="text-sm font-semibold text-gray-700">
-                    Địa chỉ (số nhà, đường...) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    placeholder="Nhập địa chỉ chi tiết"
-                    className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
-                  value={shipping.street}
-                  onChange={(e) =>
-                    setShipping({ ...shipping, street: e.target.value })
-                  }
-                />
+                  <div className="space-y-2 sm:col-span-2">
+                    <label className="text-sm font-semibold text-gray-700">
+                      Địa chỉ (số nhà, đường...){" "}
+                      <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      placeholder="Nhập địa chỉ chi tiết"
+                      className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
+                      value={shipping.street}
+                      onChange={(e) =>
+                        setShipping({ ...shipping, street: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-gray-700">
+                      Phường/Xã
+                    </label>
+                    <input
+                      placeholder="Nhập phường/xã"
+                      className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
+                      value={shipping.ward}
+                      onChange={(e) =>
+                        setShipping({ ...shipping, ward: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-gray-700">
+                      Tỉnh/Thành phố <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      placeholder="Nhập tỉnh/thành phố"
+                      className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
+                      value={shipping.province}
+                      onChange={(e) =>
+                        setShipping({ ...shipping, province: e.target.value })
+                      }
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-gray-700">
-                    Phường/Xã
-                  </label>
-                <input
-                    placeholder="Nhập phường/xã"
-                    className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
-                  value={shipping.ward}
-                  onChange={(e) =>
-                    setShipping({ ...shipping, ward: e.target.value })
-                  }
-                />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-gray-700">
-                    Tỉnh/Thành phố <span className="text-red-500">*</span>
-                  </label>
-                <input
-                    placeholder="Nhập tỉnh/thành phố"
-                    className="w-full px-4 py-3 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition shadow-sm hover:border-gray-300"
-                  value={shipping.province}
-                  onChange={(e) =>
-                    setShipping({ ...shipping, province: e.target.value })
-                  }
-                />
-              </div>
-              </div>
               )}
               <div className="mt-6">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -1707,13 +1955,19 @@ const handleSubmit = async () => {
                 </div>
                 <span>Tóm tắt thanh toán</span>
               </h2>
-              
+
               {/* Discount Code Section */}
-              <div className="mb-4 bg-white/10 rounded-lg p-3 backdrop-blur-sm border border-white/20 relative" style={{ zIndex: showDiscountList ? 50 : 1, overflow: showDiscountList ? 'visible' : 'visible' }}>
+              <div
+                className="mb-4 bg-white/10 rounded-lg p-3 backdrop-blur-sm border border-white/20 relative"
+                style={{
+                  zIndex: showDiscountList ? 50 : 1,
+                  overflow: showDiscountList ? "visible" : "visible",
+                }}
+              >
                 <label className="block text-xs font-semibold text-white mb-1.5">
                   Mã giảm giá (Tối đa: 1 công khai + 1 riêng tư)
                 </label>
-                {(publicDiscount || privateDiscount) ? (
+                {publicDiscount || privateDiscount ? (
                   <div className="space-y-1.5">
                     {/* Public Discount */}
                     {publicDiscount && (
@@ -1721,13 +1975,19 @@ const handleSubmit = async () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
                             <CheckCircle2 className="w-3.5 h-3.5 text-blue-300 flex-shrink-0" />
-                            <span className="font-semibold text-white text-sm truncate">{publicDiscount.code}</span>
-                            <span className="text-[9px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded">Công khai</span>
+                            <span className="font-semibold text-white text-sm truncate">
+                              {publicDiscount.code}
+                            </span>
+                            <span className="text-[9px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded">
+                              Công khai
+                            </span>
                           </div>
                           <p className="text-[10px] text-blue-100 mt-0.5">
-                            {publicDiscount.type === "percent" 
-                              ? `Giảm ${publicDiscount.value}%` 
-                              : `Giảm ${publicDiscount.value.toLocaleString("vi-VN")}₫`}
+                            {publicDiscount.type === "percent"
+                              ? `Giảm ${publicDiscount.value}%`
+                              : `Giảm ${publicDiscount.value.toLocaleString(
+                                  "vi-VN"
+                                )}₫`}
                           </p>
                         </div>
                         <button
@@ -1745,13 +2005,19 @@ const handleSubmit = async () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
                             <CheckCircle2 className="w-3.5 h-3.5 text-purple-300 flex-shrink-0" />
-                            <span className="font-semibold text-white text-sm truncate">{privateDiscount.code}</span>
-                            <span className="text-[9px] bg-purple-100 text-purple-700 px-1 py-0.5 rounded">Riêng tư</span>
+                            <span className="font-semibold text-white text-sm truncate">
+                              {privateDiscount.code}
+                            </span>
+                            <span className="text-[9px] bg-purple-100 text-purple-700 px-1 py-0.5 rounded">
+                              Riêng tư
+                            </span>
                           </div>
                           <p className="text-[10px] text-purple-100 mt-0.5">
-                            {privateDiscount.type === "percent" 
-                              ? `Giảm ${privateDiscount.value}%` 
-                              : `Giảm ${privateDiscount.value.toLocaleString("vi-VN")}₫`}
+                            {privateDiscount.type === "percent"
+                              ? `Giảm ${privateDiscount.value}%`
+                              : `Giảm ${privateDiscount.value.toLocaleString(
+                                  "vi-VN"
+                                )}₫`}
                           </p>
                         </div>
                         <button
@@ -1767,10 +2033,19 @@ const handleSubmit = async () => {
                     {(!publicDiscount || !privateDiscount) && (
                       <div className="space-y-1.5">
                         <div className="flex gap-1.5">
-                          <div className="flex-1 relative discount-input-container min-w-0" style={{ zIndex: showDiscountList ? 100 : 1 }}>
+                          <div
+                            className="flex-1 relative discount-input-container min-w-0"
+                            style={{ zIndex: showDiscountList ? 100 : 1 }}
+                          >
                             <input
                               type="text"
-                              placeholder={publicDiscount ? "Nhập mã riêng tư" : privateDiscount ? "Nhập mã công khai" : "Nhập mã giảm giá"}
+                              placeholder={
+                                publicDiscount
+                                  ? "Nhập mã riêng tư"
+                                  : privateDiscount
+                                  ? "Nhập mã công khai"
+                                  : "Nhập mã giảm giá"
+                              }
                               value={discountCode}
                               onChange={(e) => {
                                 setDiscountCode(e.target.value.toUpperCase());
@@ -1785,59 +2060,84 @@ const handleSubmit = async () => {
                               className="w-full px-2.5 py-1.5 text-xs bg-white/20 border border-white/30 rounded-lg text-white placeholder:text-white/60 focus:outline-none focus:ring-1 focus:ring-white/50 focus:border-white/50"
                             />
                             {/* Available Discounts Dropdown */}
-                            {showDiscountList && availableDiscounts.length > 0 && (
-                              <div className="absolute top-full left-0 right-0 z-[10000] w-full mt-1 bg-white rounded-lg shadow-2xl border-2 border-emerald-200 max-h-48 overflow-y-auto" style={{ zIndex: 10000, position: 'absolute' }}>
-                                <div className="p-1.5 border-b border-gray-200">
-                                  <p className="text-[10px] font-semibold text-gray-600">Mã giảm giá có sẵn</p>
-                                </div>
-                                {loadingDiscounts ? (
-                                  <div className="p-3 text-center text-gray-500 text-xs">Đang tải...</div>
-                                ) : (
-                                  <div className="divide-y divide-gray-100">
-                                    {availableDiscounts.map((discount) => (
-                                      <button
-                                        key={discount._id}
-                                        onClick={() => handleSelectDiscount(discount)}
-                                        className="w-full p-2 text-left hover:bg-emerald-50 transition-colors"
-                                      >
-                                        <div className="flex items-center justify-between gap-2">
-                                          <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-1.5 flex-wrap">
-                                              <span className="font-semibold text-emerald-600 text-xs">{discount.code}</span>
-                                              {discount.type === "percent" ? (
-                                                <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">
-                                                  -{discount.value}%
+                            {showDiscountList &&
+                              availableDiscounts.length > 0 && (
+                                <div
+                                  className="absolute top-full left-0 right-0 z-[10000] w-full mt-1 bg-white rounded-lg shadow-2xl border-2 border-emerald-200 max-h-48 overflow-y-auto"
+                                  style={{
+                                    zIndex: 10000,
+                                    position: "absolute",
+                                  }}
+                                >
+                                  <div className="p-1.5 border-b border-gray-200">
+                                    <p className="text-[10px] font-semibold text-gray-600">
+                                      Mã giảm giá có sẵn
+                                    </p>
+                                  </div>
+                                  {loadingDiscounts ? (
+                                    <div className="p-3 text-center text-gray-500 text-xs">
+                                      Đang tải...
+                                    </div>
+                                  ) : (
+                                    <div className="divide-y divide-gray-100">
+                                      {availableDiscounts.map((discount) => (
+                                        <button
+                                          key={discount._id}
+                                          onClick={() =>
+                                            handleSelectDiscount(discount)
+                                          }
+                                          className="w-full p-2 text-left hover:bg-emerald-50 transition-colors"
+                                        >
+                                          <div className="flex items-center justify-between gap-2">
+                                            <div className="flex-1 min-w-0">
+                                              <div className="flex items-center gap-1.5 flex-wrap">
+                                                <span className="font-semibold text-emerald-600 text-xs">
+                                                  {discount.code}
                                                 </span>
-                                              ) : (
-                                                <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">
-                                                  -{discount.value.toLocaleString("vi-VN")}₫
-                                                </span>
-                                              )}
-                                              {discount.isPublic && discount.isClaimed && (
-                                                <span className="text-[9px] bg-green-100 text-green-700 px-1 py-0.5 rounded">
-                                                  Đã lấy
-                                                </span>
-                                              )}
-                                              {discount.isPublic && !discount.isClaimed && (
-                                                <span className="text-[9px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded">
-                                                  Công khai
-                                                </span>
+                                                {discount.type === "percent" ? (
+                                                  <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">
+                                                    -{discount.value}%
+                                                  </span>
+                                                ) : (
+                                                  <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">
+                                                    -
+                                                    {discount.value.toLocaleString(
+                                                      "vi-VN"
+                                                    )}
+                                                    ₫
+                                                  </span>
+                                                )}
+                                                {discount.isPublic &&
+                                                  discount.isClaimed && (
+                                                    <span className="text-[9px] bg-green-100 text-green-700 px-1 py-0.5 rounded">
+                                                      Đã lấy
+                                                    </span>
+                                                  )}
+                                                {discount.isPublic &&
+                                                  !discount.isClaimed && (
+                                                    <span className="text-[9px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded">
+                                                      Công khai
+                                                    </span>
+                                                  )}
+                                              </div>
+                                              {discount.minOrderAmount && (
+                                                <p className="text-[10px] text-gray-500 mt-0.5">
+                                                  Đơn tối thiểu:{" "}
+                                                  {discount.minOrderAmount.toLocaleString(
+                                                    "vi-VN"
+                                                  )}
+                                                  ₫
+                                                </p>
                                               )}
                                             </div>
-                                            {discount.minOrderAmount && (
-                                              <p className="text-[10px] text-gray-500 mt-0.5">
-                                                Đơn tối thiểu: {discount.minOrderAmount.toLocaleString("vi-VN")}₫
-                                              </p>
-                                            )}
+                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
                                           </div>
-                                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
-                                        </div>
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            )}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                           </div>
                           <button
                             onClick={() => handleApplyDiscount()}
@@ -1853,14 +2153,19 @@ const handleSubmit = async () => {
                         </div>
                         {availableDiscounts.length > 0 && (
                           <button
-                            onClick={() => setShowDiscountList(!showDiscountList)}
+                            onClick={() =>
+                              setShowDiscountList(!showDiscountList)
+                            }
                             className="text-[10px] text-white/80 hover:text-white transition-colors underline"
                           >
-                            {showDiscountList ? "Ẩn" : "Xem"} mã giảm giá có sẵn ({availableDiscounts.length})
+                            {showDiscountList ? "Ẩn" : "Xem"} mã giảm giá có sẵn
+                            ({availableDiscounts.length})
                           </button>
                         )}
                         {discountError && (
-                          <p className="text-[10px] text-red-200">{discountError}</p>
+                          <p className="text-[10px] text-red-200">
+                            {discountError}
+                          </p>
                         )}
                       </div>
                     )}
@@ -1868,7 +2173,10 @@ const handleSubmit = async () => {
                 ) : (
                   <div className="space-y-1.5">
                     <div className="flex gap-1.5">
-                      <div className="flex-1 relative discount-input-container min-w-0" style={{ zIndex: showDiscountList ? 100 : 1 }}>
+                      <div
+                        className="flex-1 relative discount-input-container min-w-0"
+                        style={{ zIndex: showDiscountList ? 100 : 1 }}
+                      >
                         <input
                           type="text"
                           placeholder="Nhập mã giảm giá"
@@ -1887,47 +2195,68 @@ const handleSubmit = async () => {
                         />
                         {/* Available Discounts Dropdown */}
                         {showDiscountList && availableDiscounts.length > 0 && (
-                          <div className="absolute top-full left-0 right-0 z-[10000] w-full mt-1 bg-white rounded-lg shadow-2xl border-2 border-emerald-200 max-h-48 overflow-y-auto" style={{ zIndex: 10000, position: 'absolute' }}>
+                          <div
+                            className="absolute top-full left-0 right-0 z-[10000] w-full mt-1 bg-white rounded-lg shadow-2xl border-2 border-emerald-200 max-h-48 overflow-y-auto"
+                            style={{ zIndex: 10000, position: "absolute" }}
+                          >
                             <div className="p-1.5 border-b border-gray-200">
-                              <p className="text-[10px] font-semibold text-gray-600">Mã giảm giá có sẵn</p>
+                              <p className="text-[10px] font-semibold text-gray-600">
+                                Mã giảm giá có sẵn
+                              </p>
                             </div>
                             {loadingDiscounts ? (
-                              <div className="p-3 text-center text-gray-500 text-xs">Đang tải...</div>
+                              <div className="p-3 text-center text-gray-500 text-xs">
+                                Đang tải...
+                              </div>
                             ) : (
                               <div className="divide-y divide-gray-100">
                                 {availableDiscounts.map((discount) => (
                                   <button
                                     key={discount._id}
-                                    onClick={() => handleSelectDiscount(discount)}
+                                    onClick={() =>
+                                      handleSelectDiscount(discount)
+                                    }
                                     className="w-full p-2 text-left hover:bg-emerald-50 transition-colors"
                                   >
                                     <div className="flex items-center justify-between gap-2">
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-1.5 flex-wrap">
-                                          <span className="font-semibold text-emerald-600 text-xs">{discount.code}</span>
+                                          <span className="font-semibold text-emerald-600 text-xs">
+                                            {discount.code}
+                                          </span>
                                           {discount.type === "percent" ? (
                                             <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">
                                               -{discount.value}%
                                             </span>
                                           ) : (
                                             <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">
-                                              -{discount.value.toLocaleString("vi-VN")}₫
+                                              -
+                                              {discount.value.toLocaleString(
+                                                "vi-VN"
+                                              )}
+                                              ₫
                                             </span>
                                           )}
-                                          {discount.isPublic && discount.isClaimed && (
-                                            <span className="text-[9px] bg-green-100 text-green-700 px-1 py-0.5 rounded">
-                                              Đã lấy
-                                            </span>
-                                          )}
-                                          {discount.isPublic && !discount.isClaimed && (
-                                            <span className="text-[9px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded">
-                                              Công khai
-                                            </span>
-                                          )}
+                                          {discount.isPublic &&
+                                            discount.isClaimed && (
+                                              <span className="text-[9px] bg-green-100 text-green-700 px-1 py-0.5 rounded">
+                                                Đã lấy
+                                              </span>
+                                            )}
+                                          {discount.isPublic &&
+                                            !discount.isClaimed && (
+                                              <span className="text-[9px] bg-blue-100 text-blue-700 px-1 py-0.5 rounded">
+                                                Công khai
+                                              </span>
+                                            )}
                                         </div>
                                         {discount.minOrderAmount && (
                                           <p className="text-[10px] text-gray-500 mt-0.5">
-                                            Đơn tối thiểu: {discount.minOrderAmount.toLocaleString("vi-VN")}₫
+                                            Đơn tối thiểu:{" "}
+                                            {discount.minOrderAmount.toLocaleString(
+                                              "vi-VN"
+                                            )}
+                                            ₫
                                           </p>
                                         )}
                                       </div>
@@ -1957,17 +2286,23 @@ const handleSubmit = async () => {
                         onClick={() => setShowDiscountList(!showDiscountList)}
                         className="text-[10px] text-white/80 hover:text-white transition-colors underline"
                       >
-                        {showDiscountList ? "Ẩn" : "Xem"} mã giảm giá có sẵn ({availableDiscounts.length})
+                        {showDiscountList ? "Ẩn" : "Xem"} mã giảm giá có sẵn (
+                        {availableDiscounts.length})
                       </button>
                     )}
                     {discountError && (
-                      <p className="text-[10px] text-red-200">{discountError}</p>
+                      <p className="text-[10px] text-red-200">
+                        {discountError}
+                      </p>
                     )}
                   </div>
                 )}
               </div>
 
-              <div className="space-y-3 text-base bg-white/10 rounded-xl p-4 backdrop-blur-sm relative" style={{ zIndex: 1 }}>
+              <div
+                className="space-y-3 text-base bg-white/10 rounded-xl p-4 backdrop-blur-sm relative"
+                style={{ zIndex: 1 }}
+              >
                 <div className="flex justify-between items-center py-2 border-b border-white/20">
                   <span className="text-emerald-50">Tiền thuê</span>
                   <span className="font-semibold text-white">
@@ -1975,7 +2310,9 @@ const handleSubmit = async () => {
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-white/20">
-                  <span className="text-yellow-200">Phí dịch vụ ({taxRate}%)</span>
+                  <span className="text-yellow-200">
+                    Phí dịch vụ ({taxRate}%)
+                  </span>
                   <span className="font-semibold text-yellow-100">
                     {taxAmount.toLocaleString("vi-VN")}₫
                   </span>
@@ -2027,10 +2364,12 @@ const handleSubmit = async () => {
               </div>
               <div className="mt-6 bg-white/20 rounded-xl p-4 backdrop-blur-sm border border-white/30">
                 <div className="flex justify-between items-center">
-                  <span className="text-lg font-semibold text-white">Tổng cộng</span>
+                  <span className="text-lg font-semibold text-white">
+                    Tổng cộng
+                  </span>
                   <span className="text-3xl font-bold text-yellow-200">
-                      {grandTotal.toLocaleString("vi-VN")}₫
-                    </span>
+                    {grandTotal.toLocaleString("vi-VN")}₫
+                  </span>
                 </div>
               </div>
               <button
@@ -2058,8 +2397,6 @@ const handleSubmit = async () => {
           </div>
         </div>
       </div>
-
-    
     </div>
   );
 }

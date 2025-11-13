@@ -79,14 +79,34 @@ export function AccountVerification({ className }: AccountVerificationProps) {
     try {
       setIsLoading(true);
       if (verificationResult) {
-        const { isMatch, similarityPercentage } = verificationResult.data;
-        setResult({
-          success: isMatch,
-          message: isMatch ? 'Xác minh khuôn mặt thành công' : 'Khuôn mặt không khớp',
-          details: isMatch
-            ? `Độ tương đồng ${similarityPercentage}%.`
-            : `Độ tương đồng: ${similarityPercentage}%. Vui lòng thử lại với ảnh rõ nét.`
-        });
+        const { isMatch, similarityPercentage, extractedIdCardInfo } = verificationResult.data;
+        
+        // If ID card info was saved (even if face verification failed), consider it a success
+        const hasIdCardInfo = extractedIdCardInfo && 
+          extractedIdCardInfo.idNumber && 
+          extractedIdCardInfo.fullName && 
+          extractedIdCardInfo.dateOfBirth && 
+          extractedIdCardInfo.address;
+        
+        if (isMatch) {
+          setResult({
+            success: true,
+            message: 'Xác minh khuôn mặt thành công',
+            details: `Độ tương đồng ${similarityPercentage}%. Thông tin căn cước công dân đã được lưu.`
+          });
+        } else if (hasIdCardInfo) {
+          setResult({
+            success: true,
+            message: 'Thông tin căn cước công dân đã được lưu',
+            details: 'Xác minh khuôn mặt không thành công, nhưng thông tin căn cước công dân đã được lưu. Bạn có thể thử xác minh lại sau.'
+          });
+        } else {
+          setResult({
+            success: false,
+            message: 'Xác minh thất bại',
+            details: `Độ tương đồng: ${similarityPercentage}%. Vui lòng thử lại với ảnh rõ nét.`
+          });
+        }
       } else {
         setResult({ success: false, message: 'Không có kết quả xác minh', details: 'Vui lòng thử lại.' });
       }

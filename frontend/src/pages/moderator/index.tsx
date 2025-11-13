@@ -10,6 +10,7 @@ import { ModeratorSidebar } from "@/components/ui/moderator/moderator-sidebar";
 import { ModeratorHeader } from "@/components/ui/moderator/moderator-header";
 import { ModeratorStats } from "@/components/ui/moderator/moderator-stats";
 import { VerificationQueue } from "@/components/ui/moderator/verify/verification-queue";
+import { VerificationRequestManagement } from "@/components/ui/moderator/verification/verification-request-management";
 import { OwnerRequestManagement } from "@/components/ui/moderator/ownerRequest/owner-request-management";
 import { BlogManagementTable } from "@/components/ui/moderator/blog/blog-management-table";
 import { CommentManagementTable } from "@/components/ui/moderator/blog/comment-management-table";
@@ -56,7 +57,13 @@ export default function ModeratorDashboard() {
   const searchParams = useSearchParams();
   const { accessToken } = useSelector((state: RootState) => state.auth);
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "requests" | "verification" | "blog" | "productManagement" | "messages"| "dispute"
+    | "dashboard"
+    | "requests"
+    | "verification"
+    | "blog"
+    | "productManagement"
+    | "messages"
+    | "dispute"
   >("dashboard");
   const [activeBlogTab, setActiveBlogTab] = useState<
     "posts" | "categories" | "comments" | "tags"
@@ -78,13 +85,13 @@ export default function ModeratorDashboard() {
       | "dispute"
   ) => {
     console.log("Moderator handleTabChange called with:", tab);
-    
+
     // Navigate to messages page (separate route)
     if (tab === "messages") {
       router.push("/moderator/messages");
       return;
     }
-    
+
     // For other tabs, update state and URL query parameter
     setActiveTab(tab);
     const newUrl = `/moderator?tab=${tab}`;
@@ -141,7 +148,7 @@ export default function ModeratorDashboard() {
         "blog",
         "productManagement",
         "messages",
-        "dispute"
+        "dispute",
       ].includes(tab)
     ) {
       console.log("Setting activeTab from URL query parameter:", tab);
@@ -156,7 +163,8 @@ export default function ModeratorDashboard() {
         | "requests"
         | "verification"
         | "blog"
-        | "productManagement";
+        | "productManagement"
+        | "dispute";
       setActiveTab(validTab);
     }
   }, [searchParams, router]);

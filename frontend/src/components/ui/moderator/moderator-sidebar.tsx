@@ -12,6 +12,7 @@ import {
   Package,
   MessageCircle,
   CircleAlert,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/common/button";
 import { useState, useEffect } from "react";
@@ -135,6 +136,13 @@ export function ModeratorSidebar({
       description: "Xác thực danh tính người dùng",
     },
     {
+      id: "disputes" as const,
+      label: "Xử lý khiếu nại",
+      icon: AlertTriangle,
+      path: "/moderator/dispute-management",
+      description: "Xử lý tranh chấp và khiếu nại",
+    },
+    {
       id: "productManagement" as const,
       label: "Quản lý sản phẩm",
       icon: Package,
@@ -148,13 +156,7 @@ export function ModeratorSidebar({
       description: "Quản lý bài viết và nội dung",
       hasSubmenu: true,
     },
-    {
-      id: "dispute" as const,
-      label: "Xử lý tranh chấp",
-      icon: CircleAlert,
-      description: "Xử lý tranh chấp",
-     
-    },
+  
   ];
 
   const productSubmenuItems: {

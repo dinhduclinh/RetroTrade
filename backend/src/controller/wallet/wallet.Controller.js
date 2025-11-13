@@ -28,6 +28,14 @@ const getMyWallet = async (req, res) => {
         .json({ message: "Chưa đăng nhập hoặc token không hợp lệ" });
 
     const userId = req.user._id;
+    const userRole = req.user.role;
+
+    // Chỉ user thường mới có ví ngoài, admin không
+    if (userRole === 'admin') {
+      return res.status(403).json({
+        message: "Admin không được truy cập endpoint này"
+      });
+    }
     let wallet = await Wallet.findOne({ userId });
     if (!wallet)
       wallet = await Wallet.create({ userId, currency: "VND", balance: 0 });
@@ -47,7 +55,8 @@ const depositToWallet = async (req, res) => {
     if (!userId) return res.status(401).json({ message: "Chưa đăng nhập hoặc token không hợp lệ" });
 
     const { amount, note } = req.body;
-    if (!amount || isNaN(amount) || amount <= 0 || !Number.isInteger(Number(amount))) {
+    const MAX_AMOUNT = 10000000; // ví dụ 10 triệu
+    if (!amount || isNaN(amount) || amount <= 0 || !Number.isInteger(Number(amount)) || Number(amount) > MAX_AMOUNT) {
       return res.status(400).json({ message: "Số tiền không hợp lệ!" });
     }
 
@@ -67,7 +76,7 @@ const depositToWallet = async (req, res) => {
     const tx = await WalletTransaction.create({
       walletId: wallet._id,
       orderCode,
-      typeId: "deposit",
+      typeId: "deposit",// nap tien 
       amount: Number(amount),
       balanceAfter: null,
       note,
@@ -165,7 +174,7 @@ const handlePayOSWebhook = async (req, res) => {
     await wallet.save();
 
     transaction.balanceAfter = wallet.balance;
-    transaction.note = (transaction.note || "") + " | Paid";
+    transaction.note = (transaction.note || "") + "Nạp Tiền";
     await transaction.save();
 
     console.log("Nạp tiền thành công:", transaction.orderCode, "wallet:", wallet._id, "newBalance:", wallet.balance);
@@ -212,10 +221,10 @@ const withdrawFromWallet = async (req, res) => {
     const tx = await WalletTransaction.create({
       walletId: wallet._id,
       orderCode,
-      typeId: "withdraw",
-      amount: Number(amount),
+      typeId: "withdraw",// rút tiền
+      amount: -Number(amount),
       balanceAfter: null, // Chưa trừ tiền, chờ admin duyệt
-      note,
+      note: "Rút tiền",
       bankAccountId,
       status: "pending", // Chờ admin duyệt
       createdAt: new Date(),
@@ -230,6 +239,69 @@ const withdrawFromWallet = async (req, res) => {
     return res.status(500).json({ message: "Lỗi tạo yêu cầu rút tiền", error: error.message });
   }
 };
+// Lấy 3 giao dịch gần nhất của ví người dùng
+const getRecentWalletTransactions = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    if (!userId) return res.status(401).json({ message: "Chưa đăng nhập" });
+
+    const wallet = await Wallet.findOne({ userId });
+    if (!wallet) return res.status(404).json({ message: "Không tìm thấy ví" });
+
+    let transactions = await WalletTransaction.find({ walletId: wallet._id })
+      .sort({ createdAt: -1 })
+      .populate({
+        path: 'orderId',
+        select: 'itemSnapshot.title', // lấy tên sản phẩm cho USER_PAYMENT
+      })
+      .lean();
+
+
+    transactions = transactions.filter(tx => {
+      if (tx.typeId === "deposit") {
+        return tx.balanceAfter !== null;
+      }
+      return true; // Cho withdraw, USER_PAYMENT, các loại khác hiện hết
+    });
+
+    transactions = transactions.slice(0, 3);
+
+    res.json({ message: "OK", transactions });
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi lấy lịch sử giao dịch", error: error.message });
+  }
+};
+
+const getWalletTransactions = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    if (!userId) return res.status(401).json({ message: "Chưa đăng nhập" });
+
+    const wallet = await Wallet.findOne({ userId });
+    if (!wallet) return res.status(404).json({ message: "Không tìm thấy ví" });
+
+    let transactions = await WalletTransaction.find({ walletId: wallet._id })
+      .sort({ createdAt: -1 })
+      .populate({
+        path: 'orderId',
+        select: 'itemSnapshot.title', // lấy tên sản phẩm cho USER_PAYMENT
+      })
+      .lean();
+
+
+    transactions = transactions.filter(tx => {
+      if (tx.typeId === "deposit") {
+        return tx.balanceAfter !== null;
+      }
+      return true; // withdraw, USER_PAYMENT... luôn giữ lại
+    });
+
+    res.json({ message: "OK", transactions });
+  } catch (error) {
+    res.status(500).json({ message: "Lỗi lấy lịch sử giao dịch", error: error.message });
+  }
+};
+
 
 
 module.exports = {
@@ -237,5 +309,9 @@ module.exports = {
   depositToWallet,
   handlePayOSWebhook,
   withdrawFromWallet,
+  getRecentWalletTransactions,
+  getWalletTransactions
+
+
 
 };

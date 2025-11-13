@@ -1,8 +1,10 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/common/card";
 import { Button } from "@/components/ui/common/button";
 import { Wallet, RotateCcw, CreditCard } from "lucide-react";
 import Link from "next/link";
+import { getAdminWallet } from "@/services/wallet/wallet.api";
+
 
 export default function WalletDashboard() {
   const cardItems = [
@@ -31,6 +33,25 @@ export default function WalletDashboard() {
       buttonColor: "bg-purple-600 hover:bg-purple-700",
     },
   ];
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchAdminWallet();
+  }, []);
+
+  const fetchAdminWallet = async () => {
+    try {
+      setLoading(true);
+      const data = await getAdminWallet();
+      setWalletBalance(data?.balance || 0);
+    } catch (err) {
+      console.error("Lỗi lấy ví admin:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   return (
     <div className="space-y-8">
@@ -39,6 +60,20 @@ export default function WalletDashboard() {
         <Wallet className="w-7 h-7 text-blue-600" />
         <h1 className="text-2xl font-bold text-gray-900">Quản lý ví</h1>
       </div>
+      <Card className="bg-gradient-to-r from-indigo-500 to-purple-600 border-0 shadow-lg">
+        <CardContent className="p-8">
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-indigo-100 text-sm mb-2">Số dư ví quản lý</p>
+              <h2 className="text-4xl font-bold text-white">
+                {loading ? "..." : walletBalance.toLocaleString("vi-VN")} VNĐ
+              </h2>
+            </div>
+            <Wallet className="w-12 h-12 text-white opacity-20" />
+          </div>
+        </CardContent>
+      </Card>
+
 
       {/* Grid 3 card */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">

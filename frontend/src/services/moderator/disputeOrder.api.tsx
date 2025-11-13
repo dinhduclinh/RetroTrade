@@ -10,12 +10,14 @@ export interface Dispute {
   description?: string;
   evidence?: string[];
   type: "dispute";
-  status: "Pending" | "Reviewed" | "Resolved" | "Rejected";
+  status: "Pending" | "In Progress" | "Reviewed" | "Resolved" | "Rejected";
   resolution?: {
     decision: string;
     notes?: string;
     refundAmount: number;
   };
+  assignedBy?: { _id: string; fullName: string; email: string };
+  assignedAt?: string;
   handledBy?: { _id: string; fullName: string };
   handledAt?: string;
   createdAt: string;

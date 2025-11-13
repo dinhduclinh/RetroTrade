@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store/redux_store';
-import { getUserProfile, changePassword } from '@/services/auth/user.api';
+import { getUserProfile, changePassword, verifyPassword } from '@/services/auth/user.api';
 import { validatePassword } from '@/lib/validation-password';
 import { toast } from 'sonner';
 import type { UserProfile, ProfileApiResponse } from '@iService';
@@ -21,6 +21,8 @@ import { AddressSelector } from '@/components/ui/auth/address/address-selector';
 import { AccountVerification } from '@/components/ui/auth/profile/account-verification';
 import { SignatureManagement } from '@/components/ui/auth/signature/signature-management';
 import { LoyaltyManagement } from '@/components/ui/auth/profile/loyalty-management';
+import { UserDisputes } from '@/components/ui/auth/profile/user-disputes';
+import { UserDetails } from '@/components/ui/auth/profile/user-details';
 import { ownerRequestApi } from '@/services/auth/ownerRequest.api';
 import dynamic from 'next/dynamic';
 
@@ -138,20 +140,60 @@ export default function ProfilePage() {
       setOwnerSubmitting(false);
     }
   };
-  type MenuKey = 'orders' | 'wallet' | 'discounts' | 'messages' | 'settings' | 'security' | 'addresses' | 'ownership' | 'changePassword' | 'signature' | 'loyalty';
+  type MenuKey = 'orders' | 'wallet' | 'discounts' | 'messages' | 'settings' | 'security' | 'addresses' | 'ownership' | 'disputes' | 'changePassword' | 'signature' | 'loyalty' | 'details';
   const [activeMenu, setActiveMenu] = useState<MenuKey>('settings');
+
+  // Reset password verification when switching away from changePassword menu
+  useEffect(() => {
+    if (activeMenu !== 'changePassword') {
+      setIsPasswordVerified(false);
+      setVerificationPassword('');
+      setVerificationError('');
+    }
+  }, [activeMenu]);
   // Verification renders inline; no toggle button
 
   // Inline change password state
+  const [isPasswordVerified, setIsPasswordVerified] = useState(false);
+  const [verificationPassword, setVerificationPassword] = useState('');
+  const [showVerificationPassword, setShowVerificationPassword] = useState(false);
+  const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
+  const [verificationError, setVerificationError] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
-  const [pwErrors, setPwErrors] = useState<{ currentPassword?: string; newPassword?: string; confirmPassword?: string }>({});
-  const [showPw, setShowPw] = useState<{ current: boolean; new: boolean; confirm: boolean }>({ current: false, new: false, confirm: false });
+  const [pwForm, setPwForm] = useState({ newPassword: '', confirmPassword: '' });
+  const [pwErrors, setPwErrors] = useState<{ newPassword?: string; confirmPassword?: string }>({});
+  const [showPw, setShowPw] = useState<{ new: boolean; confirm: boolean }>({ new: false, confirm: false });
+
+  const handleVerifyPasswordForChange = async () => {
+    if (!verificationPassword.trim()) {
+      setVerificationError('Vui lòng nhập mật khẩu');
+      return;
+    }
+
+    try {
+      setIsVerifyingPassword(true);
+      setVerificationError('');
+      const result = await verifyPassword(verificationPassword);
+      
+      if (result.code === 200) {
+        setIsPasswordVerified(true);
+        toast.success('Xác thực thành công');
+      } else {
+        setVerificationError(result.message || 'Mật khẩu không đúng');
+        toast.error(result.message || 'Mật khẩu không đúng');
+      }
+    } catch (err) {
+      console.error('Error verifying password:', err);
+      setVerificationError('Có lỗi xảy ra khi xác thực mật khẩu');
+      toast.error('Có lỗi xảy ra khi xác thực mật khẩu');
+    } finally {
+      setIsVerifyingPassword(false);
+    }
+  };
 
   const submitInlineChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     const errors: typeof pwErrors = {};
-    if (!pwForm.currentPassword.trim()) errors.currentPassword = 'Vui lòng nhập mật khẩu hiện tại';
     const v = validatePassword(pwForm.newPassword);
     if (!v.isValid) errors.newPassword = v.message;
     if (!pwForm.confirmPassword.trim()) errors.confirmPassword = 'Vui lòng nhập lại mật khẩu mới';
@@ -160,11 +202,15 @@ export default function ProfilePage() {
     if (Object.keys(errors).length) return;
     setIsChangingPassword(true);
     try {
-      const res = await changePassword({ currentPassword: pwForm.currentPassword, newPassword: pwForm.newPassword });
+      // Sử dụng mật khẩu đã xác thực ở bước đầu làm currentPassword
+      const res = await changePassword({ currentPassword: verificationPassword, newPassword: pwForm.newPassword });
       if (res.code === 200) {
         toast.success(res.message || 'Đổi mật khẩu thành công');
-        setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        setPwForm({ newPassword: '', confirmPassword: '' });
         setPwErrors({});
+        // Reset verification state after successful password change
+        setIsPasswordVerified(false);
+        setVerificationPassword('');
       } else {
         toast.error(res.message || 'Đổi mật khẩu thất bại');
       }
@@ -294,6 +340,12 @@ export default function ProfilePage() {
                 </div>
               )}
 
+              {activeMenu === 'details' && (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                  <UserDetails userProfile={normalizedUserProfile} />
+                </div>
+              )}
+
               {activeMenu === 'security' && (
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 pt-6 scroll-mt-24">
                   <div className="mb-4 flex items-center gap-3">
@@ -306,54 +358,113 @@ export default function ProfilePage() {
               {activeMenu === 'changePassword' && (
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-4">
                   <h2 className="text-lg font-semibold text-gray-900">Đổi mật khẩu</h2>
-                  <form onSubmit={submitInlineChangePassword} className="space-y-4 max-w-lg">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu hiện tại</label>
-                      <div className="relative">
-                        <input
-                          type={showPw.current ? 'text' : 'password'}
-                          value={pwForm.currentPassword}
-                          onChange={(e) => { setPwForm({ ...pwForm, currentPassword: e.target.value }); if (pwErrors.currentPassword) setPwErrors({ ...pwErrors, currentPassword: undefined }); }}
-                          className={`w-full px-3 py-2 border rounded-md ${pwErrors.currentPassword ? 'border-red-500' : 'border-gray-300'}`}
-                          placeholder="Nhập mật khẩu hiện tại"
-                        />
-                        <button type="button" onClick={() => setShowPw({ ...showPw, current: !showPw.current })} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">{showPw.current ? 'Ẩn' : 'Hiện'}</button>
+                  
+                  {!isPasswordVerified ? (
+                    <div className="flex justify-center">
+                      <div className="w-full max-w-md space-y-4">
+                        <div className="flex items-center justify-center mb-4">
+                          <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center">
+                            <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                          </div>
+                        </div>
+                        <h3 className="text-lg font-semibold text-gray-900 text-center mb-2">
+                          Xác thực mật khẩu
+                        </h3>
+                        <p className="text-sm text-gray-600 text-center mb-6">
+                          Để bảo vệ tài khoản, vui lòng nhập mật khẩu hiện tại của bạn để tiếp tục đổi mật khẩu
+                        </p>
+                        
+                        <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Mật khẩu hiện tại <span className="text-red-500">*</span>
+                          </label>
+                          <div className="relative">
+                            <input
+                              type={showVerificationPassword ? 'text' : 'password'}
+                              value={verificationPassword}
+                              onChange={(e) => {
+                                setVerificationPassword(e.target.value);
+                                setVerificationError('');
+                              }}
+                              placeholder="Nhập mật khẩu hiện tại"
+                              className={`w-full px-3 py-2 border rounded-md pr-10 ${verificationError ? 'border-red-500' : 'border-gray-300'}`}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleVerifyPasswordForChange();
+                                }
+                              }}
+                            />
+                            <button 
+                              type="button" 
+                              onClick={() => setShowVerificationPassword(!showVerificationPassword)} 
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm hover:text-gray-700"
+                            >
+                              {showVerificationPassword ? 'Ẩn' : 'Hiện'}
+                            </button>
+                          </div>
+                          {verificationError && <p className="text-sm text-red-600 mt-1">{verificationError}</p>}
+                        </div>
+                        
+                        <button
+                          onClick={handleVerifyPasswordForChange}
+                          disabled={isVerifyingPassword || !verificationPassword.trim()}
+                          className="w-full px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-sm disabled:opacity-60"
+                        >
+                          {isVerifyingPassword ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                              <span>Đang xác thực...</span>
+                            </div>
+                          ) : (
+                            'Xác thực'
+                          )}
+                        </button>
+                        </div>
                       </div>
-                      {pwErrors.currentPassword && <p className="text-sm text-red-600 mt-1">{pwErrors.currentPassword}</p>}
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu mới</label>
-                      <div className="relative">
-                        <input
-                          type={showPw.new ? 'text' : 'password'}
-                          value={pwForm.newPassword}
-                          onChange={(e) => { setPwForm({ ...pwForm, newPassword: e.target.value }); if (pwErrors.newPassword) setPwErrors({ ...pwErrors, newPassword: undefined }); }}
-                          className={`w-full px-3 py-2 border rounded-md ${pwErrors.newPassword ? 'border-red-500' : 'border-gray-300'}`}
-                          placeholder="Nhập mật khẩu mới"
-                        />
-                        <button type="button" onClick={() => setShowPw({ ...showPw, new: !showPw.new })} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">{showPw.new ? 'Ẩn' : 'Hiện'}</button>
+                  ) : (
+                    <form onSubmit={submitInlineChangePassword} className="space-y-4 max-w-lg">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu mới <span className="text-red-500">*</span></label>
+                        <div className="relative">
+                          <input
+                            type={showPw.new ? 'text' : 'password'}
+                            value={pwForm.newPassword}
+                            onChange={(e) => { setPwForm({ ...pwForm, newPassword: e.target.value }); if (pwErrors.newPassword) setPwErrors({ ...pwErrors, newPassword: undefined }); }}
+                            className={`w-full px-3 py-2 border rounded-md ${pwErrors.newPassword ? 'border-red-500' : 'border-gray-300'}`}
+                            placeholder="Nhập mật khẩu mới"
+                          />
+                          <button type="button" onClick={() => setShowPw({ ...showPw, new: !showPw.new })} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">{showPw.new ? 'Ẩn' : 'Hiện'}</button>
+                        </div>
+                        {pwErrors.newPassword && <p className="text-sm text-red-600 mt-1">{pwErrors.newPassword}</p>}
                       </div>
-                      {pwErrors.newPassword && <p className="text-sm text-red-600 mt-1">{pwErrors.newPassword}</p>}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Nhập lại mật khẩu mới</label>
-                      <div className="relative">
-                        <input
-                          type={showPw.confirm ? 'text' : 'password'}
-                          value={pwForm.confirmPassword}
-                          onChange={(e) => { setPwForm({ ...pwForm, confirmPassword: e.target.value }); if (pwErrors.confirmPassword) setPwErrors({ ...pwErrors, confirmPassword: undefined }); }}
-                          className={`w-full px-3 py-2 border rounded-md ${pwErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'}`}
-                          placeholder="Nhập lại mật khẩu mới"
-                        />
-                        <button type="button" onClick={() => setShowPw({ ...showPw, confirm: !showPw.confirm })} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">{showPw.confirm ? 'Ẩn' : 'Hiện'}</button>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Nhập lại mật khẩu mới <span className="text-red-500">*</span></label>
+                        <div className="relative">
+                          <input
+                            type={showPw.confirm ? 'text' : 'password'}
+                            value={pwForm.confirmPassword}
+                            onChange={(e) => { setPwForm({ ...pwForm, confirmPassword: e.target.value }); if (pwErrors.confirmPassword) setPwErrors({ ...pwErrors, confirmPassword: undefined }); }}
+                            className={`w-full px-3 py-2 border rounded-md ${pwErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'}`}
+                            placeholder="Nhập lại mật khẩu mới"
+                          />
+                          <button type="button" onClick={() => setShowPw({ ...showPw, confirm: !showPw.confirm })} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">{showPw.confirm ? 'Ẩn' : 'Hiện'}</button>
+                        </div>
+                        {pwErrors.confirmPassword && <p className="text-sm text-red-600 mt-1">{pwErrors.confirmPassword}</p>}
                       </div>
-                      {pwErrors.confirmPassword && <p className="text-sm text-red-600 mt-1">{pwErrors.confirmPassword}</p>}
-                    </div>
-                    <div className="flex gap-2">
-                      <button type="submit" disabled={isChangingPassword} className="px-4 py-2 rounded-md bg-gray-900 hover:bg-black text-white text-sm disabled:opacity-60">{isChangingPassword ? 'Đang đổi...' : 'Đổi mật khẩu'}</button>
-                      <button type="button" onClick={() => setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' })} className="px-4 py-2 rounded-md border text-sm">Làm mới</button>
-                    </div>
-                  </form>
+                      <div className="flex gap-2">
+                        <button type="submit" disabled={isChangingPassword} className="px-4 py-2 rounded-md bg-gray-900 hover:bg-black text-white text-sm disabled:opacity-60">{isChangingPassword ? 'Đang đổi...' : 'Đổi mật khẩu'}</button>
+                        <button type="button" onClick={() => {
+                          setPwForm({ newPassword: '', confirmPassword: '' });
+                          setIsPasswordVerified(false);
+                          setVerificationPassword('');
+                        }} className="px-4 py-2 rounded-md border text-sm">Làm mới</button>
+                      </div>
+                    </form>
+                  )}
                 </div>
               )}
 
@@ -406,6 +517,12 @@ export default function ProfilePage() {
                       )}
                     </>
                   )}
+                </div>
+              )}
+
+              {activeMenu === 'disputes' && (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                  <UserDisputes />
                 </div>
               )}
 

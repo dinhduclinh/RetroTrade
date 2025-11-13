@@ -224,7 +224,7 @@ module.exports = {
         { session }
       );
 
-      const newOrder = orderDoc[0];
+      
 
       const publicDiscountData = discountInfo?._publicDiscountData;
       const privateDiscountData = discountInfo?._privateDiscountData;
@@ -306,10 +306,17 @@ module.exports = {
       await session.commitTransaction();
       session.endSession();
 
+      const newOrder = orderDoc[0];
+
+      // Đảm bảo orderId là string
+      const orderIdString = newOrder._id.toString();
+
+      console.log(" Order created successfully - ID:", orderIdString, "Guid:", newOrder.orderGuid);
+
       return res.status(201).json({
         message: "Tạo đơn hàng thành công",
         data: {
-          orderId: newOrder._id,
+          orderId: orderIdString, // Trả về string thay vì ObjectId
           orderGuid: newOrder.orderGuid,
           totalAmount,
           finalAmount: finalOrderAmount,
@@ -751,7 +758,10 @@ module.exports = {
       if (!order || order.isDeleted)
         return res.status(404).json({ message: "Order not found" });
 
+      // Allow moderator and admin to view any order
+      const isModeratorOrAdmin = req.user.role === "moderator" || req.user.role === "admin";
       if (
+        !isModeratorOrAdmin &&
         ![order.renterId._id.toString(), order.ownerId._id.toString()].includes(
           userId.toString()
         )

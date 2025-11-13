@@ -39,13 +39,20 @@ const reportSchema = new Schema({
   },
   status: {
     type: String,
-    enum: ["Pending", "Reviewed", "Resolved", "Rejected"],
+    enum: ["Pending", "In Progress", "Reviewed", "Resolved", "Rejected"],
     default: "Pending",
   },
   resolution: {
     decision: { type: String },
     notes: { type: String },
     refundAmount: { type: Number, default: 0 },
+  },
+  assignedBy: {
+    type: Types.ObjectId,
+    ref: "User",
+  },
+  assignedAt: {
+    type: Date,
   },
   handledBy: {
     type: Types.ObjectId,

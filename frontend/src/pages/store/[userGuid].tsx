@@ -3,10 +3,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { MapPin, Star, ShieldCheck, Truck, BadgeCheck, Clock3, ChevronLeft, ChevronRight, Search, Filter, X, Loader2 } from "lucide-react";
-import { getPublicStoreByUserGuid } from "@/services/products/product.api";
+import { motion, AnimatePresence } from "framer-motion";
+import { useAppSelector, useAppDispatch } from "@/store/hooks";
+import type { RootState } from "@/store/redux_store";
+import { MapPin, Star, Bookmark, ShieldCheck, Truck, BadgeCheck, Clock3, ChevronLeft, ChevronRight, Search, Filter, X, Loader2, ChevronDown, ChevronUp, Eye } from "lucide-react";
+import { getFavorites, getPublicStoreByUserGuid } from "@/services/products/product.api";
+import { toast } from "sonner";
 
 interface Product {
+  DepositAmount: number;
+  IsHighlighted: any;
+  FavoriteCount: number;
+  RentCount: number;
+  ViewCount: number;
+  Quantity: number;
   _id: string;
   Title: string;
   ShortDescription?: string;
@@ -68,11 +78,20 @@ export default function OwnerStorePage() {
     sortBy: "newest",
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [favoriteLoading, setFavoriteLoading] = useState<Set<string>>(new Set());
+  const isAuthenticated = useAppSelector((state: RootState) => !!state.auth.accessToken);
+  const accessToken = useAppSelector((state: RootState) => state.auth.accessToken);
+  const dispatch = useAppDispatch();
 
   const totalPages = useMemo(() => Math.ceil((total || 0) / LIMIT), [total]);
   const hasActiveFilters = useMemo(() => 
     searchQuery || filters.minPrice || filters.maxPrice || filters.category !== ""
   , [searchQuery, filters]);
+
+  const availableCategories = useMemo(() => {
+    return Array.from(new Set(items.map((it) => it.Category?.name).filter(Boolean)));
+  }, [items]);
 
   // Build query params
   const buildQueryParams = useCallback(() => {
@@ -113,7 +132,136 @@ export default function OwnerStorePage() {
     }
   }, [router.isReady, router.query.page]);
 
-  // Fetch store data
+  // Fetch user's favorites on component mount
+  useEffect(() => {
+    // Import API functions
+    const loadFavorites = async () => {
+      const { getFavorites } = await import('@/services/products/product.api');
+      return getFavorites;
+    };
+    const fetchFavorites = async () => {
+      if (!isAuthenticated) return;
+      
+      try {
+        const res = await getFavorites();
+        
+        if (res.ok) {
+          const data = await res.json();
+          // Normalize IDs to string to satisfy Set<string> typing
+          const favoriteIdsArray = (data?.data || []).map((fav: any) => {
+            const id = fav?.productId?._id ?? fav?.productId;
+            return id == null ? null : String(id);
+          }).filter((id: string | null): id is string => id !== null);
+          const favoriteIds = new Set<string>(favoriteIdsArray);
+          setFavorites(favoriteIds);
+        } else if (res.status === 401 || res.status === 403) {
+          // Handle unauthorized
+          router.push('/auth/login');
+          toast.error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
+        }
+      } catch (error) {
+        console.error('Error fetching favorites:', error);
+        toast.error('Không thể tải danh sách yêu thích');
+      }
+    };
+
+    fetchFavorites();
+  }, [isAuthenticated, router]);
+
+  // Toggle favorite status
+  const toggleFavorite = useCallback(async (productId: string, currentFavoriteCount: number) => {
+    if (!isAuthenticated) {
+      router.push('/auth/login');
+      toast.error('Vui lòng đăng nhập để thêm vào yêu thích');
+      return;
+    }
+
+    if (favoriteLoading.has(productId)) return;
+    
+    const isFavorite = favorites.has(productId);
+    
+    // Optimistic update
+    setFavoriteLoading(prev => new Set(prev).add(productId));
+    
+    // Update local state
+    setFavorites(prev => {
+      const newSet = new Set(prev);
+      if (isFavorite) {
+        newSet.delete(productId);
+      } else {
+        newSet.add(productId);
+      }
+      return newSet;
+    });
+
+    // Update the item's favorite count
+    setItems(prev => 
+      prev.map(item => 
+        item._id === productId 
+          ? { 
+              ...item, 
+              FavoriteCount: isFavorite 
+                ? Math.max(0, (item.FavoriteCount || 1) - 1)
+                : (item.FavoriteCount || 0) + 1
+            } 
+          : item
+      )
+    );
+
+    try {
+      // Dynamically import the required API functions
+      const { addToFavorites, removeFromFavorites } = await import('@/services/products/product.api');
+      
+      if (isFavorite) {
+        await removeFromFavorites(productId);
+      } else {
+        await addToFavorites(productId);
+      }
+
+      // Success - state already updated optimistically
+      toast.success(isFavorite ? 'Đã xóa khỏi yêu thích!' : 'Đã thêm vào yêu thích!');
+    } catch (error: any) {
+      console.error('Error toggling favorite:', error);
+      
+      // Revert optimistic update
+      setFavorites(prev => {
+        const newSet = new Set(prev);
+        if (isFavorite) {
+          newSet.add(productId);
+        } else {
+          newSet.delete(productId);
+        }
+        return newSet;
+      });
+      
+      setItems(prev => 
+        prev.map(item => 
+          item._id === productId 
+            ? { 
+                ...item, 
+                FavoriteCount: isFavorite 
+                  ? (item.FavoriteCount || 0) + 1
+                  : Math.max(0, (item.FavoriteCount || 1) - 1)
+              } 
+            : item
+        )
+      );
+      
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        router.push('/auth/login');
+        toast.error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
+      } else {
+        toast.error(error.message || 'Có lỗi xảy ra, vui lòng thử lại');
+      }
+    } finally {
+      setFavoriteLoading(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(productId);
+        return newSet;
+      });
+    }
+  }, [favorites, favoriteLoading, isAuthenticated, router]);
+
   const fetchStoreData = useCallback(async () => {
     if (!userGuid) {
       setError("Không có userGuid");
@@ -137,7 +285,7 @@ export default function OwnerStorePage() {
     try {
       setLoading(true);
       setError(null);
-      const queryParams = buildQueryParams();
+      const queryParams = { ...buildQueryParams(), page: currentPage };
       const res = await getPublicStoreByUserGuid(String(userGuid), queryParams);
       const { owner: fetchedOwner, items: fetchedItems, total: fetchedTotal } = res?.data || res || { owner: null, items: [], total: 0 };
       setOwner(fetchedOwner);
@@ -149,7 +297,7 @@ export default function OwnerStorePage() {
     } finally {
       setLoading(false);
     }
-  }, [userGuid, buildQueryParams]);
+  }, [userGuid, currentPage, buildQueryParams, updateUrl, router]);
 
   // Handle page change with smooth scroll and URL update
   const handlePageChange = (newPage: number) => {
@@ -257,8 +405,7 @@ export default function OwnerStorePage() {
               <div className="flex items-center gap-4 mb-4 text-sm text-gray-600 flex-wrap">
                 <div className="flex items-center gap-1">
                   <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                  <span className="font-semibold text-gray-900">5.0</span>
-                  <span className="text-gray-400">(giả lập)</span>
+                  <span className="font-semibold text-gray-900">{ownerInfo.reputationScore?.toFixed(1) ?? 5.0}</span>
                 </div>
                 <div className="hidden md:block w-px h-4 bg-gray-300" />
                 <div className="flex items-center gap-1">
@@ -282,7 +429,7 @@ export default function OwnerStorePage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center p-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100">
                   <div className="text-gray-600 text-sm">Sản phẩm</div>
-                  <div className="text-2xl font-bold text-gray-900">{items.length}</div>
+                  <div className="text-2xl font-bold text-gray-900">{total}</div>
                 </div>
                 <div className="text-center p-4 rounded-xl bg-gradient-to-r from-green-50 to-emerald-50 border border-green-100">
                   <div className="text-gray-600 text-sm">Còn hàng</div>
@@ -293,12 +440,12 @@ export default function OwnerStorePage() {
                 <div className="text-center p-4 rounded-xl bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-100">
                   <div className="text-gray-600 text-sm">Danh mục</div>
                   <div className="text-2xl font-bold text-gray-900">{
-                    new Set(items.map((it) => it.Category?.name).filter(Boolean)).size
+                    availableCategories.length
                   }</div>
                 </div>
                 <div className="text-center p-4 rounded-xl bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-100">
                   <div className="text-gray-600 text-sm">Đánh giá</div>
-                  <div className="text-2xl font-bold text-gray-900">5.0</div>
+                  <div className="text-2xl font-bold text-gray-900">{ownerInfo.reputationScore?.toFixed(1) ?? 5.0}</div>
                 </div>
               </div>
             </div>
@@ -306,51 +453,84 @@ export default function OwnerStorePage() {
         </div>
 
         {/* Search and Filter Bar */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg mb-6">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="bg-white/90 backdrop-blur-sm rounded-3xl p-6 shadow-lg mb-6 border border-white/20 hover:shadow-xl transition-all duration-300"
+        >
           <div className="flex flex-col md:flex-row gap-4 mb-6">
             {/* Search Input */}
-            <div className="relative flex-1">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-gray-400" />
+            <motion.div 
+              className="relative flex-1 group"
+              whileHover={{ scale: 1.01 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 10 }}
+            >
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <Search className="h-5 w-5 text-indigo-400 group-hover:text-indigo-500 transition-colors" />
               </div>
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Tìm kiếm sản phẩm..."
+                onKeyDown={(e) => e.key === 'Enter' && fetchStoreData()}
+                className="block w-full pl-12 pr-10 py-3 border-2 border-indigo-100 rounded-xl bg-white/50 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent text-gray-700 placeholder-gray-400 transition-all duration-200"
+                placeholder="Nhập tên sản phẩm..."
               />
-            </div>
+              {searchQuery && (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  onClick={() => setSearchQuery('')}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-indigo-600 transition-colors"
+                  aria-label="Xóa tìm kiếm"
+                >
+                  <X className="h-5 w-5" />
+                </motion.button>
+              )}
+            </motion.div>
             
             {/* Filter Button */}
-            <button
+            <motion.button
               onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center justify-center gap-2 px-4 py-2 border rounded-lg transition-colors ${
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
+              className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl transition-all duration-200 ${
                 hasActiveFilters 
-                  ? 'bg-blue-50 border-blue-200 text-blue-700' 
-                  : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                  ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-200' 
+                  : 'bg-white border-2 border-indigo-100 text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50'
               }`}
             >
               <Filter className="w-5 h-5" />
-              <span>Bộ lọc</span>
+              <span className="font-medium">Bộ lọc</span>
               {hasActiveFilters && (
-                <span className="ml-1 w-5 h-5 flex items-center justify-center bg-blue-600 text-white text-xs font-medium rounded-full">
+                <motion.span 
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="ml-1 w-6 h-6 flex items-center justify-center bg-white text-indigo-600 text-xs font-bold rounded-full"
+                >
                   {[searchQuery, filters.minPrice, filters.maxPrice, filters.category].filter(Boolean).length}
-                </span>
+                </motion.span>
               )}
-            </button>
+            </motion.button>
             
             {/* Sort Dropdown */}
-            <select
-              value={filters.sortBy}
-              onChange={(e) => handleFilterChange('sortBy', e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="newest">Mới nhất</option>
-              <option value="price_asc">Giá tăng dần</option>
-              <option value="price_desc">Giá giảm dần</option>
-              <option value="popular">Phổ biến</option>
-            </select>
+            <motion.div className="relative" whileHover={{ scale: 1.02 }}>
+              <select
+                value={filters.sortBy}
+                onChange={(e) => handleFilterChange('sortBy', e.target.value)}
+                className="w-full h-full pl-4 pr-10 py-3 border-2 border-indigo-100 rounded-xl bg-white/50 text-indigo-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent appearance-none cursor-pointer"
+              >
+                <option value="newest">Mới nhất</option>
+                <option value="price_asc">Giá tăng dần</option>
+                <option value="price_desc">Giá giảm dần</option>
+                <option value="popular">Phổ biến</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <ChevronDown className="h-5 w-5 text-indigo-400" />
+              </div>
+            </motion.div>
           </div>
 
           {/* Filter Panel */}
@@ -402,30 +582,30 @@ export default function OwnerStorePage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">Tất cả danh mục</option>
-                    {/* Add your categories here */}
+                    {availableCategories.map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                    {/* Fallback categories if no items */}
+                    {availableCategories.length === 0 && [
+                      "Điện tử",
+                      "Thời trang",
+                      "Nội thất",
+                      "Thể thao",
+                      "Sách"
+                    ].map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
                   </select>
                 </div>
               </div>
             </div>
           )}
-        </div>
+        </motion.div>
 
         {/* Product grid */}
         <div className="bg-white rounded-3xl p-6 shadow-lg mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-2 sm:mb-0">Sản phẩm đang cho thuê</h2>
-            {/* <div className="text-sm text-gray-500">
-              {loading ? (
-                <div className="flex items-center">
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  <span>Đang tải...</span>
-                </div>
-              ) : total > 0 ? (
-                <span>Hiển thị {items.length} trên tổng số {total} sản phẩm</span>
-              ) : (
-                <span>Không có sản phẩm nào</span>
-              )}
-            </div> */}
           </div>
 
           {items.length === 0 ? (
@@ -436,39 +616,136 @@ export default function OwnerStorePage() {
               <p>Chưa có sản phẩm nào.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {items.map((it) => {
-                const thumb = it.Images?.[0]?.Url;
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {items.map((it, index) => {
+                const thumb = it.Images?.[0]?.Url || '/placeholder.jpg';
                 const href = `/products/details?id=${it._id}`;
+                const availableQuantity = it.AvailableQuantity || 0;
+                const quantity = it.Quantity || 1;
+                const viewCount = it.ViewCount || 0;
+                const rentCount = it.RentCount || 0;
+                const favoriteCount = it.FavoriteCount || 0;
+                
                 return (
-                  <Link key={it._id} href={href} className="block group">
-                    <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden hover:shadow-xl hover:-translate-y-2 transition-all duration-300 cursor-pointer">
-                      <div className="relative w-full aspect-video bg-gray-50 group-hover:bg-gray-100 transition-colors">
-                        {thumb ? (
-                          <img src={thumb} alt={it.Title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400">No image</div>
-                        )}
-                      </div>
-                      <div className="p-4">
-                        <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 mb-2 group-hover:text-blue-600 transition-colors">
-                          {it.Title}
-                        </h3>
-                        <div className="flex items-baseline justify-between mb-2">
-                          <div className="text-lg font-bold text-blue-600">
-                            {formatPrice(it.BasePrice, it.Currency)}
-                          </div>
-                          <span className="text-xs text-gray-500">/{it.PriceUnit?.UnitName || "ngày"}</span>
+                  <div
+                    key={it._id}
+                    onClick={() => router.push(href)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === 'Enter' && router.push(href)}
+                    className="group h-full flex flex-col cursor-pointer bg-white rounded-xl shadow-sm hover:shadow-lg hover:-translate-y-1 active:scale-[0.98] transition-all duration-300 overflow-hidden"
+                    style={{
+                      transitionDelay: `${index * 50}ms`,
+                    }}
+                  >
+                    <div className="relative h-48 bg-gray-200 overflow-hidden">
+                      <img
+                        src={thumb}
+                        alt={it.Title}
+                        className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-105"
+                      />
+                      {availableQuantity === 0 && (
+                        <div className="absolute top-3 right-3 bg-red-600 text-white px-2 py-1 rounded-full text-xs font-semibold">
+                          Hết hàng
                         </div>
-                        {(it.City || it.District) && (
-                          <div className="flex items-center gap-1 text-xs text-gray-600">
-                            <MapPin className="w-3 h-3" />
-                            <span>{it.District || ""}{it.City ? `${it.District ? ", " : ""}${it.City}` : ""}</span>
+                      )}
+                      {it.IsHighlighted && (
+                        <div className="absolute top-3 left-3 bg-yellow-500 text-white px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1">
+                          <Star className="w-3 h-3" />
+                          <span>Nổi bật</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4 flex-1 flex flex-col">
+                      <h3 className="font-bold text-gray-900 text-base mb-2 line-clamp-2 min-h-[3.5rem]">
+                        {it.Title}
+                      </h3>
+                      <div className="flex items-center justify-between mb-3 text-xs text-gray-500 min-h-[2rem]">
+                        <div className="flex items-center gap-2">
+                          {it.Category && (
+                            <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded">
+                              {it.Category.name}
+                            </span>
+                          )}
+                        </div>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavorite(it._id, it.FavoriteCount || 0);
+                          }}
+                          className="flex items-center gap-1 group relative"
+                          disabled={favoriteLoading.has(it._id)}
+                          title={favorites.has(it._id) ? 'Xóa khỏi yêu thích' : 'Thêm vào yêu thích'}
+                        >
+                          {favoriteLoading.has(it._id) ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                          ) : (
+                            <Bookmark 
+                              size={16} 
+                              className={`transition-colors ${
+                                favorites.has(it._id) 
+                                  ? 'text-yellow-500 fill-yellow-500' 
+                                  : 'text-gray-400 hover:text-yellow-500'
+                              }`} 
+                            />
+                          )}
+                          <span 
+                            className={`text-sm ${
+                              favorites.has(it._id) 
+                                ? 'text-yellow-600 font-medium' 
+                                : 'text-gray-500'
+                            }`}
+                          >
+                            {it.FavoriteCount || 0}
+                          </span>
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-1 text-sm text-gray-600 mb-3 min-h-[1.5rem]">
+                        <MapPin size={14} className="text-gray-400" />
+                        <span className="truncate">
+                          {it.District || ''}{it.City ? `, ${it.City}` : ''}
+                        </span>
+                      </div>
+                      <div className="bg-blue-50 rounded-lg p-3 mb-3 min-h-[4.5rem]">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs text-gray-600 mb-1">
+                              Giá thuê
+                            </p>
+                            <p className="text-lg font-bold text-blue-600">
+                              {formatPrice(it.BasePrice, it.Currency)}
+                              <span className="text-sm font-normal text-gray-600">
+                                /{it.PriceUnit?.UnitName || "ngày"}
+                              </span>
+                            </p>
                           </div>
-                        )}
+                          <div className="text-right">
+                            <p className="text-xs text-gray-600 mb-1">
+                              Đặt cọc
+                            </p>
+                            <p className="text-sm font-semibold text-gray-700">
+                              {formatPrice(it.DepositAmount || 0, it.Currency)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-gray-600 mb-2">
+                        <div className="flex items-center gap-1">
+                          <Eye size={14} className="text-gray-400" />
+                          <span>{viewCount} lượt xem</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Truck size={14} className="text-gray-400" />
+                          <span>{rentCount} lượt thuê</span>
+                        </div>
+                        <div>
+                          <span className="font-semibold">
+                            {availableQuantity}/{quantity}
+                          </span> sản phẩm
+                        </div>
                       </div>
                     </div>
-                  </Link>
+                  </div>
                 );
               })}
             </div>
@@ -566,7 +843,7 @@ export default function OwnerStorePage() {
           {/* Overall Rating */}
           <div className="flex items-center justify-between mb-8 p-6 bg-gray-50 rounded-xl">
             <div className="text-center">
-              <div className="text-5xl font-bold text-gray-900 mb-1">5.0</div>
+              <div className="text-5xl font-bold text-gray-900 mb-1">{ownerInfo.reputationScore?.toFixed(1) ?? 5.0}</div>
               <div className="flex justify-center mb-2">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <Star key={star} className="w-6 h-6 text-yellow-500 fill-yellow-500" />
