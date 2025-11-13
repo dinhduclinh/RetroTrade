@@ -1,9 +1,9 @@
 export type BackgroundType = 'village' | 'zen' | 'modern';
 
 export const BACKGROUND_OPTIONS: Array<{ value: BackgroundType; label: string }> = [
-  { value: 'village', label: 'Village' },
-  { value: 'zen', label: 'Zen' },
-  { value: 'modern', label: 'Modern' },
+  { value: 'village', label: 'Làng quê' },
+  { value: 'zen', label: 'Thiền định' },
+  { value: 'modern', label: 'Hiện đại' },
 ];
 
 export const BACKGROUND_MAP: Record<BackgroundType, string> = {

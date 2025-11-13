@@ -90,35 +90,70 @@ export default function MyDiscountsPage() {
     }
   };
 
-  // Filter available public discounts
+  // Filter available public discounts (only active and within time window) - for featured section
   const availablePublicDiscounts = useMemo(() => {
     const now = new Date();
     return items.filter((d) => {
       const start = new Date(d.startAt);
       const end = new Date(d.endAt);
-      return d.isPublic && d.active && start <= now && end >= now;
+      const isPublic = d.isPublic === true || Boolean(d.isPublic);
+      return isPublic && d.active && start <= now && end >= now;
     });
   }, [items]);
 
+  // Filter private discounts (from RT Points conversion) - for user's own discounts
+  const myPrivateDiscounts = useMemo(() => {
+    return items.filter((d) => {
+      const isPublic = d.isPublic === true || Boolean(d.isPublic);
+      return !isPublic && d.active; // Private discounts that are active
+    });
+  }, [items]);
+
+  // Filter all public + active discounts (regardless of time) - for main list
+  const allPublicActiveDiscounts = useMemo(() => {
+    return items.filter((d) => {
+      const isPublic = d.isPublic === true || Boolean(d.isPublic);
+      return isPublic && d.active;
+    });
+  }, [items]);
+
+  // Combine public and private discounts for main list
+  const allAvailableDiscounts = useMemo(() => {
+    return [...allPublicActiveDiscounts, ...myPrivateDiscounts];
+  }, [allPublicActiveDiscounts, myPrivateDiscounts]);
+
   const filteredItems = useMemo(() => {
     const now = new Date();
-    let list = items.filter((d) => d.isPublic === true);
 
+    // Start with ALL available discounts (public + private)
+    let list = allAvailableDiscounts;
+
+    // Apply tab filters
     if (tab === "active") {
-      list = list.filter((d) => new Date(d.startAt) <= now && new Date(d.endAt) >= now && d.active);
-    } else if (tab === "expiring") {
+      // Only show discounts that are currently usable (within time window)
       list = list.filter((d) => {
+        const start = new Date(d.startAt);
+        const end = new Date(d.endAt);
+        return start <= now && end >= now;
+      });
+    } else if (tab === "expiring") {
+      // Only show discounts that are expiring soon (within 7 days) and currently active
+      list = list.filter((d) => {
+        const start = new Date(d.startAt);
         const end = new Date(d.endAt);
         const diffDays = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        return d.active && diffDays > 0 && diffDays <= 7;
+        return start <= now && end >= now && diffDays > 0 && diffDays <= 7;
       });
     }
+    // "all" tab shows all available discounts regardless of time
 
+    // Apply type filter
     if (typeFilter !== "all") {
       list = list.filter((d) => d.type === typeFilter);
     }
+
     return list;
-  }, [items, tab, typeFilter]);
+  }, [allAvailableDiscounts, tab, typeFilter]);
 
   const tabs = [
     { key: "all" as const, label: "Tất cả", icon: Tag },
@@ -150,6 +185,109 @@ export default function MyDiscountsPage() {
                 <AlertCircle className="w-5 h-5 flex-shrink-0" />
                 <span className="text-sm font-medium">{error}</span>
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* My Private Discounts Section */}
+        {!loading && myPrivateDiscounts.length > 0 && (
+          <Card className="mb-8 border-0 shadow-xl bg-gradient-to-br from-purple-50 via-pink-50/50 to-purple-50/50">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-purple-100 rounded-xl">
+                    <Gift className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                      Discount của tôi
+                    </CardTitle>
+                    <p className="text-sm text-gray-600 mt-0.5">
+                      Các mã giảm giá riêng tư từ quy đổi RT Points
+                    </p>
+                  </div>
+                </div>
+                <Badge variant="secondary" className="bg-purple-100 text-purple-700 border-purple-200">
+                  {myPrivateDiscounts.length} mã
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {myPrivateDiscounts.slice(0, 6).map((d) => {
+                  const now = new Date();
+                  const start = new Date(d.startAt);
+                  const end = new Date(d.endAt);
+                  const isActiveWindow = start <= now && end >= now && d.active;
+
+                  return (
+                    <Card
+                      key={d._id}
+                      className={cn(
+                        "group hover:shadow-lg transition-all duration-300 cursor-pointer border-2",
+                        isActiveWindow
+                          ? "border-purple-300 hover:border-purple-400 bg-white"
+                          : "border-gray-200 bg-gray-50/50 opacity-75"
+                      )}
+                      onClick={() => {
+                        if (isActiveWindow) {
+                          handleCopy(d.code);
+                          router.push("/products");
+                        }
+                      }}
+                    >
+                      <CardContent className="p-5">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-lg font-bold text-purple-600">{d.code}</span>
+                              <Badge
+                                variant="secondary"
+                                className={cn(
+                                  "text-xs font-semibold",
+                                  d.type === "percent"
+                                    ? "bg-orange-100 text-orange-700 border-orange-200"
+                                    : "bg-blue-100 text-blue-700 border-blue-200"
+                                )}
+                              >
+                                {d.type === "percent" ? `-${d.value}%` : `-${d.value.toLocaleString("vi-VN")}₫`}
+                              </Badge>
+                            </div>
+                            {d.minOrderAmount && (
+                              <p className="text-xs text-gray-500">
+                                Đơn tối thiểu: {d.minOrderAmount.toLocaleString("vi-VN")}₫
+                              </p>
+                            )}
+                            <p className="text-xs text-purple-600 mt-1">
+                              Hết hạn: {new Date(d.endAt).toLocaleDateString("vi-VN")}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          disabled={!isActiveWindow}
+                          className={cn(
+                            "w-full",
+                            isActiveWindow
+                              ? "bg-purple-600 hover:bg-purple-700 text-white"
+                              : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                          )}
+                          size="sm"
+                        >
+                          <Copy className="w-4 h-4 mr-2" />
+                          Sao chép và sử dụng
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+              {myPrivateDiscounts.length > 6 && (
+                <div className="mt-4 text-center">
+                  <p className="text-sm text-gray-600">
+                    Và <span className="font-semibold text-purple-600">{myPrivateDiscounts.length - 6}</span> mã giảm giá khác trong danh sách bên dưới
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -331,6 +469,8 @@ export default function MyDiscountsPage() {
                   const start = new Date(d.startAt);
                   const end = new Date(d.endAt);
                   const isActiveWindow = start <= now && end >= now && d.active;
+                  const isUpcoming = start > now;
+                  const isExpired = end < now;
                   const diffDays = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
                   const isExpiring = isActiveWindow && diffDays > 0 && diffDays <= 7;
                   const usageBadge = d.usageLimit ? `${d.usedCount || 0}/${d.usageLimit}` : "∞";
@@ -340,7 +480,11 @@ export default function MyDiscountsPage() {
                       key={d._id}
                       className={cn(
                         "group hover:shadow-lg transition-all duration-300 overflow-hidden",
-                        isActiveWindow ? "border-2 border-emerald-200" : "border border-gray-200 opacity-75"
+                        isActiveWindow 
+                          ? "border-2 border-emerald-200" 
+                          : isUpcoming 
+                          ? "border-2 border-blue-200 opacity-90" 
+                          : "border border-gray-200 opacity-75"
                       )}
                     >
                       <div className="flex">
@@ -374,15 +518,39 @@ export default function MyDiscountsPage() {
                               <div className="flex items-center gap-2 mb-2 flex-wrap">
                                 <Tag className="w-4 h-4 text-gray-500 flex-shrink-0" />
                                 <span className="font-bold text-gray-900 text-lg">{d.code}</span>
+                                {isUpcoming && (
+                                  <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200 text-[10px]">
+                                    <Calendar className="w-3 h-3 mr-1" />
+                                    Sắp tới
+                                  </Badge>
+                                )}
+                                {isExpired && (
+                                  <Badge variant="secondary" className="bg-gray-100 text-gray-800 border-gray-200 text-[10px]">
+                                    <X className="w-3 h-3 mr-1" />
+                                    Đã hết hạn
+                                  </Badge>
+                                )}
+                                {isActiveWindow && !isExpiring && (
+                                  <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px]">
+                                    <CheckCircle className="w-3 h-3 mr-1" />
+                                    Đang hiệu lực
+                                  </Badge>
+                                )}
                                 {isExpiring && (
                                   <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-200 text-[10px]">
                                     <Clock className="w-3 h-3 mr-1" />
                                     Sắp hết hạn
                                   </Badge>
                                 )}
-                                <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px]">
-                                  Công khai
-                                </Badge>
+                                {d.isPublic ? (
+                                  <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px]">
+                                    Công khai
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary" className="bg-purple-100 text-purple-800 border-purple-200 text-[10px]">
+                                    Riêng tư
+                                  </Badge>
+                                )}
                               </div>
                               <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
                                 <Calendar className="w-3.5 h-3.5" />

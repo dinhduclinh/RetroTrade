@@ -184,7 +184,7 @@ export function AuditLogsTable() {
               <option value="all">Tất cả bảng</option>
               <option value="User">User</option>
               <option value="Items">Items</option>
-              <option value="Tax">Tax</option>
+              <option value="ServiceFee">ServiceFee</option>
               <option value="UserSignatures">UserSignatures</option>
             </select>
           </div>

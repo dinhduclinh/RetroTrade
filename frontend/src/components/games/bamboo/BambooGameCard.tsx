@@ -23,7 +23,11 @@ export function BambooGameCard({ compact = false }: BambooGameCardProps) {
     pending,
     onWater,
     onFertilize,
+    onReset,
     onChangeBackground,
+    isResetDialogOpen,
+    setIsResetDialogOpen,
+    handleConfirmReset,
     refresh,
     treeUrl,
     handleImageError,
@@ -52,7 +56,7 @@ export function BambooGameCard({ compact = false }: BambooGameCardProps) {
   if (loading) {
     return (
       <Card className="border border-emerald-200 shadow-sm">
-        <CardContent className="p-10 text-center text-slate-600">Loading bamboo tree...</CardContent>
+        <CardContent className="p-10 text-center text-slate-600">Đang tải cây trồng...</CardContent>
       </Card>
     );
   }
@@ -86,7 +90,6 @@ export function BambooGameCard({ compact = false }: BambooGameCardProps) {
       >
         <div className="relative z-10 bg-gradient-to-br from-white/35 via-white/25 to-white/15">
           <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <CardTitle className="text-xl font-semibold text-slate-800">Bamboo Life</CardTitle>
             <BambooBackgroundSelector value={background} onChange={onChangeBackground} disabled={pending} />
           </CardHeader>
           <CardContent className="pt-0">
@@ -106,6 +109,10 @@ export function BambooGameCard({ compact = false }: BambooGameCardProps) {
                 pending={pending}
                 onWater={onWater}
                 onFertilize={onFertilize}
+                onReset={onReset}
+                isResetDialogOpen={isResetDialogOpen}
+                setIsResetDialogOpen={setIsResetDialogOpen}
+                handleConfirmReset={handleConfirmReset}
               />
             </div>
           </CardContent>

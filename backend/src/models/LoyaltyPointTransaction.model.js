@@ -16,6 +16,7 @@ const loyaltyPointTransactionSchema = new mongoose.Schema(
         "game_reward", // Phần thưởng từ mini game (tương lai)
         "admin_adjustment", // Điều chỉnh bởi admin
         "expired", // Điểm hết hạn
+        "points_to_discount", // Quy đổi điểm sang discount
       ],
       required: true,
     },

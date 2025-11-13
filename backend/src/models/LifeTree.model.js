@@ -11,6 +11,8 @@ const lifeTreeSchema = new Schema(
     // Cooldown helpers
     lastWaterAt: { type: Date },
     lastFertilizeAt: { type: Date },
+    // Track rewarded stages to prevent duplicate rewards
+    rewardedStages: { type: [Number], default: [] },
   },
   { timestamps: true }
 );
