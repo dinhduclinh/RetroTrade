@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store/redux_store";
-import { jwtDecode } from "jwt-decode";
+import { decodeToken, type DecodedToken } from '@/utils/jwtHelper';
 import { toast } from "sonner";
 import { ModeratorSidebar } from "@/components/ui/moderator/moderator-sidebar";
 import { ModeratorHeader } from "@/components/ui/moderator/moderator-header";
@@ -34,18 +34,6 @@ import ProductCategoryManager from "@/components/ui/moderator/categories/categor
 import ProductManagement from "@/components/ui/moderator/product/product-management";
 import TopHighlightTable from "@/components/ui/moderator/product/top-highlight-table";
 import { DisputeManagement } from "@/components/ui/moderator/dispute/dispute-management";
-
-// JWT token payload interface
-interface JwtPayload {
-  _id?: string;
-  email: string;
-  userGuid?: string;
-  avatarUrl?: string;
-  role?: string;
-  fullName?: string;
-  exp: number;
-  iat: number;
-}
 
 export default function ModeratorDashboard() {
   console.log(
@@ -167,35 +155,29 @@ export default function ModeratorDashboard() {
     if (!accessToken) {
       toast.error("Bạn cần đăng nhập để truy cập trang này");
       router.push("/auth/login");
+      setIsLoading(false);
       return;
     }
 
-    try {
-      const decoded = jwtDecode<JwtPayload>(accessToken);
+    const decoded = decodeToken(accessToken);
 
-      // Check if token is expired
-      const currentTime = Date.now() / 1000;
-      if (decoded.exp && decoded.exp < currentTime) {
-        toast.error("Phiên đăng nhập đã hết hạn");
-        router.push("/auth/login");
-        return;
-      }
-
-      // Check if user has moderator role
-      if (decoded.role !== "moderator" && decoded.role !== "admin") {
-        toast.error("Bạn không có quyền truy cập trang moderator");
-        router.push("/home");
-        return;
-      }
-
-      setIsAuthorized(true);
-    } catch (error) {
-      console.error("Token decode error:", error);
-      toast.error("Token không hợp lệ");
+    if (!decoded) {
+      toast.error("Token không hợp lệ hoặc đã hết hạn");
       router.push("/auth/login");
-    } finally {
       setIsLoading(false);
+      return;
     }
+
+    // Check if user has moderator role
+    if (decoded.role !== "moderator" && decoded.role !== "admin") {
+      toast.error("Bạn không có quyền truy cập trang moderator");
+      router.push("/home");
+      setIsLoading(false);
+      return;
+    }
+
+    setIsAuthorized(true);
+    setIsLoading(false);
   }, [accessToken, router]);
 
   // Show loading while checking authorization

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { jwtDecode } from "jwt-decode";
+import { decodeToken, type DecodedToken } from '@/utils/jwtHelper';
 import type { RootState } from "@/store/redux_store";
 import {
   getCommentsByPost,
@@ -21,13 +21,6 @@ interface CommentSectionProps {
   postId: string;
 }
 
-interface DecodedToken {
-  id?: string;
-  _id?: string;
-  email?: string;
-  exp?: number;
-}
-
 export default function CommentSection({ postId }: CommentSectionProps) {
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState<string>("");
@@ -37,11 +30,8 @@ export default function CommentSection({ postId }: CommentSectionProps) {
   const accessToken = useSelector((state: RootState) => state.auth.accessToken);
   const isLoggedIn = !!accessToken;
 
-
-  const decoded: DecodedToken | null = accessToken
-    ? jwtDecode(accessToken)
-    : null;
-  const currentUserId = decoded?._id || decoded?.id || null;
+  const decoded = decodeToken(accessToken);
+  const currentUserId = decoded?._id || null;
 
   const fetchComments = async () => {
     const res = await getCommentsByPost(postId);

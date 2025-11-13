@@ -19,19 +19,9 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '@/store/redux_store';
 import { logout, toggleDarkMode } from '@/store/auth/authReducer';
 import { fetchCartItemCount } from '@/store/cart/cartActions';
-import { jwtDecode } from 'jwt-decode';
+import { decodeToken, type DecodedToken } from '@/utils/jwtHelper';
 import { toast } from "sonner";
 import Image from "next/image";
-
-interface DecodedToken {
-  email: string;
-  userGuid?: string;
-  avatarUrl?: string;
-  role?: string;
-  fullName?: string;
-  exp: number;
-  iat: number;
-}
 
 export function Header() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -44,48 +34,34 @@ export function Header() {
 
   // Decode JWT token để lấy thông tin user
   const decodedUser = React.useMemo(() => {
-    if (typeof accessToken === 'string' && accessToken.trim()) {
-      try {
-        const decoded = jwtDecode<DecodedToken>(accessToken);
-        return decoded;
-      } catch (error) {
-        console.error('Invalid token:', error);
-        return null;
-      }
-    }
-    return null;
+    return decodeToken(accessToken);
   }, [accessToken]);
 
   useEffect(() => {
     if (decodedUser) {
-      // Kiểm tra token có hết hạn không
-      const currentTime = Date.now() / 1000;
-      if (decodedUser.exp && decodedUser.exp > currentTime) {
-        setIsLoggedIn(true);
-        setUserInfo(decodedUser);
+      setIsLoggedIn(true);
+      setUserInfo(decodedUser);
 
-        // Fetch cart count when user is logged in
-        dispatch(fetchCartItemCount());
+      // Fetch cart count when user is logged in
+      dispatch(fetchCartItemCount());
 
-        // Chuyển hướng dựa trên role
-        const currentPath = router.pathname;
+      // Chuyển hướng dựa trên role
+      const currentPath = router.pathname;
 
-        // Redirect logic dựa trên role
-        if (currentPath === '/') {
-          router.push('/home');
-        }
-      } else {
-        // Token hết hạn
-        dispatch(logout());
-        setIsLoggedIn(false);
-        setUserInfo(null);
-        toast.error("Phiên đăng nhập đã hết hạn");
+      // Redirect logic dựa trên role
+      if (currentPath === '/') {
+        router.push('/home');
       }
     } else {
+      // Token không hợp lệ hoặc hết hạn
+      if (accessToken) {
+        dispatch(logout());
+        toast.error("Phiên đăng nhập đã hết hạn");
+      }
       setIsLoggedIn(false);
       setUserInfo(null);
     }
-  }, [decodedUser, dispatch, router]);
+  }, [decodedUser, accessToken, dispatch, router]);
 
   // Apply dark mode to document
   useEffect(() => {

@@ -14,19 +14,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/common/avat
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/store/redux_store";
 import { logout } from "@/store/auth/authReducer";
-import { jwtDecode } from "jwt-decode";
+import { decodeToken, type DecodedToken } from '@/utils/jwtHelper';
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-
-interface DecodedToken {
-  email: string;
-  userGuid?: string;
-  avatarUrl?: string;
-  role?: string;
-  fullName?: string;
-  exp?: number;
-  iat: number;
-}
 
 interface OwnerHeaderProps {
   onToggleSidebar?: () => void;
@@ -42,34 +32,21 @@ export function OwnerHeader({ onToggleSidebar, isSidebarOpen = true }: OwnerHead
 
   // Decode JWT token để lấy thông tin user
   const decodedUser = React.useMemo(() => {
-    if (typeof accessToken === "string" && accessToken.trim()) {
-      try {
-        const decoded = jwtDecode<DecodedToken>(accessToken);
-        return decoded;
-      } catch (error) {
-        console.error("Invalid token:", error);
-        return null;
-      }
-    }
-    return null;
+    return decodeToken(accessToken);
   }, [accessToken]);
 
   useEffect(() => {
     if (decodedUser) {
-      // Kiểm tra token có hết hạn không
-      const currentTime = Date.now() / 1000;
-      if (decodedUser.exp && decodedUser.exp > currentTime) {
-        setUserInfo(decodedUser);
-      } else {
-        // Token hết hạn
+      setUserInfo(decodedUser);
+    } else {
+      // Token không hợp lệ hoặc hết hạn
+      if (accessToken) {
         dispatch(logout());
-        setUserInfo(null);
         toast.error("Phiên đăng nhập đã hết hạn");
       }
-    } else {
       setUserInfo(null);
     }
-  }, [decodedUser, dispatch]);
+  }, [decodedUser, accessToken, dispatch]);
 
   const handleLogout = () => {
     setUserInfo(null);

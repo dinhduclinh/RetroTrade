@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useSelector } from "react-redux";
-import { jwtDecode } from "jwt-decode";
+import { decodeToken } from '@/utils/jwtHelper';
 import { listOrders, renterReturn } from "@/services/auth/order.api";
 import type { Order } from "@/services/auth/order.api";
 import { RootState } from "@/store/redux_store";
@@ -44,12 +44,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-interface DecodedToken {
-  id?: string;
-  _id?: string;
-  role?: string;
-}
-
 export default function OrderListPage({ onOpenDetail }: { onOpenDetail?: (id: string) => void }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,17 +57,9 @@ export default function OrderListPage({ onOpenDetail }: { onOpenDetail?: (id: st
   const accessToken = useSelector((state: RootState) => state.auth.accessToken);
 
   // Decode token
-  let userRole: string | undefined;
-  let userId: string | undefined;
-  if (accessToken) {
-    try {
-      const decoded = jwtDecode<DecodedToken>(accessToken);
-      userRole = decoded.role?.toLowerCase();
-      userId = decoded.id || decoded._id;
-    } catch (err) {
-      console.error("❌ Decode error:", err);
-    }
-  }
+  const decodedUser = useMemo(() => decodeToken(accessToken), [accessToken]);
+  const userRole = decodedUser?.role?.toLowerCase();
+  const userId = decodedUser?._id;
 
   useEffect(() => {
     const fetchOrders = async () => {
