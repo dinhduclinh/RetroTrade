@@ -174,12 +174,11 @@ export default function TermsPage({ initialTerms }: TermsPageProps) {
               <Shield className="w-10 h-10 text-white" />
             </div>
           </div>
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-900 bg-clip-text text-transparent mb-4">
+          <h1 className="text-4xl h-15 font-bold bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-900 bg-clip-text text-transparent mb-4">
             {terms.title}
           </h1>
           <p className="text-slate-600 text-lg max-w-2xl mx-auto">
-            Phiên bản {terms.version} - Vui lòng đọc kỹ trước khi sử dụng dịch
-            vụ
+            Phiên bản {terms.version}
           </p>
           <div className="mt-6 inline-flex items-center gap-2 text-sm text-slate-500">
             <Clock className="w-4 h-4" />
@@ -299,7 +298,7 @@ export default function TermsPage({ initialTerms }: TermsPageProps) {
               href="mailto:support@retrotrade.vn"
               className="text-indigo-600 hover:text-indigo-700 font-medium transition-colors"
             >
-              support@retrotrade.vn
+              retrotrade131@gmail.com
             </a>
           </p>
         </div>
