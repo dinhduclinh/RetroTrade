@@ -40,7 +40,7 @@ import {
 } from "@/store/cart/cartActions";
 import { setCartItems } from "@/store/cart/cartReducer";
 import PopupModal from "@/components/ui/common/PopupModal";
-import { getCurrentTax } from "@/services/tax/tax.api";
+import { getCurrentServiceFee } from "@/services/serviceFee/serviceFee.api";
 
 
 export default function CartPage() {
@@ -82,27 +82,27 @@ export default function CartPage() {
   // Selected items state for checkout
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
-  // Tax rate state
-  const [taxRate, setTaxRate] = useState<number>(3); // Default 3%
+  // ServiceFee rate state
+  const [serviceFeeRate, setServiceFeeRate] = useState<number>(3); // Default 3%
 
   useEffect(() => {
     dispatch(fetchCartItems());
   }, [dispatch]);
 
-  // Fetch tax rate
+  // Fetch serviceFee rate
   useEffect(() => {
-    const fetchTaxRate = async () => {
+    const fetchServiceFeeRate = async () => {
       try {
-        const response = await getCurrentTax();
+        const response = await getCurrentServiceFee();
         if (response.success && response.data) {
-          setTaxRate(response.data.taxRate);
+          setServiceFeeRate(response.data.serviceFeeRate);
         }
       } catch (error) {
-        console.error("Error fetching tax rate:", error);
+        console.error("Error fetching serviceFee rate:", error);
         // Keep default 3% if error
       }
     };
-    fetchTaxRate();
+    fetchServiceFeeRate();
   }, []);
 
   // Initialize all items as selected when cart items change
@@ -594,8 +594,8 @@ const handleCheckout = () => {
     return sum;
   }, 0);
 
-  const tax = (subtotal * taxRate) / 100;
-  const total = subtotal + tax + totalDeposit;
+  const serviceFee = (subtotal * serviceFeeRate) / 100;
+  const total = subtotal + serviceFee + totalDeposit;
 
   // Format price helper
   const formatPrice = (price: number, currency: string) => {
@@ -1155,8 +1155,8 @@ const handleCheckout = () => {
                   <span>{subtotal.toLocaleString("vi-VN")}₫</span>
                 </div>
                 <div className="flex justify-between text-yellow-200">
-                  <span>Phí dịch vụ ({taxRate}%)</span>
-                  <span>{tax.toLocaleString("vi-VN")}₫</span>
+                  <span>Phí dịch vụ ({serviceFeeRate}%)</span>
+                  <span>{serviceFee.toLocaleString("vi-VN")}₫</span>
                 </div>
                 <div className="flex justify-between text-amber-200">
                   <span>Tiền cọc</span>

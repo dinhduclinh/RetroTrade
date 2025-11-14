@@ -129,6 +129,20 @@ export const deleteBankAccount = async (id: string) => {
   }
 };
 
+export const payOrderWithWallet = async (orderId: string, userId?: string) => {
+  try {
+    const payload = {
+      orderId,
+      userId,
+    };
+    const res = await instance.post("/wallet/order/payment", payload);
+    return await parseFetchResponse(res);
+  } catch (error) {
+    console.error("[wallet.api] payOrderWithWallet error:", error);
+    throw error;
+  }
+};
+
 // Gọi API rút tiền từ ví
 export const withdrawFromWallet = async (amount: number, note: string, bankAccountId: string) => {
   try {
@@ -140,17 +154,6 @@ export const withdrawFromWallet = async (amount: number, note: string, bankAccou
   }
 };
 // API thanh toán đơn hàng sử dụng ví của người dùng 
-export const payOrderWithWallet = async (orderId: string) => {
-
-  try {
-    // Gọi POST, chỉ truyền orderId thôi - instance đã tự thêm headers
-    const res = await instance.post("/wallet/order/payment", { orderId });
-    return await parseFetchResponse(res);
-  } catch (error) {
-    console.error("[wallet.api] payOrderWithWallet error:", error);
-    throw error;
-  }
-};
 
 // API lấy 3 giao dịch gần nhất của ví người dùng
 export const getRecentWalletTransactions = async () => {

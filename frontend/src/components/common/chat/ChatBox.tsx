@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useLayoutEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/store/redux_store";
-import { jwtDecode } from "jwt-decode";
+import { decodeToken, type DecodedToken } from '@/utils/jwtHelper';
 import { useRouter } from "next/router";
 import {
   connectSocket,
@@ -28,16 +28,6 @@ import Image from "next/image";
 import { formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
 
-interface DecodedToken {
-  email: string;
-  userGuid?: string;
-  avatarUrl?: string;
-  fullName?: string;
-  _id?: string;
-  exp: number;
-  iat: number;
-}
-
 interface ChatBoxProps {
   isOpen: boolean;
   onClose: () => void;
@@ -50,16 +40,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({ isOpen, onClose, initialConversations
   
   // Decode user from token
   const user = useMemo(() => {
-    if (typeof accessToken === "string" && accessToken.trim()) {
-      try {
-        const decoded = jwtDecode<DecodedToken>(accessToken);
-        return decoded;
-      } catch (error) {
-        console.error("Invalid token:", error);
-        return null;
-      }
-    }
-    return null;
+    return decodeToken(accessToken);
   }, [accessToken]);
   
   const [conversations, setConversations] = useState<Conversation[]>(initialConversations || []);

@@ -28,6 +28,11 @@ type ActionResponse = {
   data?: TreeState;
   message?: string;
   retryAfterMs?: number;
+  reward?: {
+    points: number;
+    newBalance: number;
+    stage: number;
+  };
 };
 
 type UseBambooGameResult = {
@@ -41,12 +46,16 @@ type UseBambooGameResult = {
   pending: boolean;
   onWater: () => Promise<void> | void;
   onFertilize: () => Promise<void> | void;
+  onReset: () => Promise<void> | void;
   onChangeBackground: (bg: BackgroundType) => Promise<void>;
   refresh: () => Promise<void>;
   treeUrl: string;
   handleImageError: () => void;
   handleImageLoad: () => void;
   displayStage: number;
+  isResetDialogOpen: boolean;
+  setIsResetDialogOpen: (open: boolean) => void;
+  handleConfirmReset: () => Promise<void>;
 };
 
 const toErrorMessage = (error: unknown, fallback: string) =>
@@ -86,6 +95,7 @@ export function useBambooGame(): UseBambooGameResult {
   const [notice, setNotice] = useState<string | null>(null);
   const [displayStage, setDisplayStage] = useState(0);
   const [candidateIdx, setCandidateIdx] = useState(0);
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
 
   const authHeaders = useCallback(() => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -120,7 +130,7 @@ export function useBambooGame(): UseBambooGameResult {
       });
       const data = (await parseJsonSafe(res)) as StateResponse;
       if (!data.success || !data.data) {
-        setError(data.message || 'Failed to load state');
+        setError(data.message || 'Không thể tải trạng thái');
         setTree(null);
         return;
       }
@@ -128,7 +138,7 @@ export function useBambooGame(): UseBambooGameResult {
       setTree(data.data.tree);
       setRequiresAuth(false);
     } catch (err) {
-      setError(toErrorMessage(err, 'Failed to load'));
+      setError(toErrorMessage(err, 'Không thể tải dữ liệu'));
       setTree(null);
     } finally {
       setLoading(false);
@@ -169,6 +179,9 @@ export function useBambooGame(): UseBambooGameResult {
           return;
         }
         if (data.data) setTree(data.data);
+        if (data.reward) {
+          setNotice(`🎉 Chúc mừng! Bạn đã đạt cấp độ ${data.reward.stage} và nhận được ${data.reward.points} RT Points!`);
+        }
       } catch (err) {
         const message = toErrorMessage(err, 'Thao tác thất bại');
         const hint = message.startsWith('<!DOCTYPE') || message.includes('<html')
@@ -184,6 +197,36 @@ export function useBambooGame(): UseBambooGameResult {
 
   const onWater = useCallback(() => performAction('water'), [performAction]);
   const onFertilize = useCallback(() => performAction('fertilize'), [performAction]);
+
+  const onReset = useCallback(() => {
+    if (pending || !accessToken) return;
+    setIsResetDialogOpen(true);
+  }, [pending, accessToken]);
+
+  const handleConfirmReset = useCallback(async () => {
+    if (!accessToken) return;
+
+    setPending(true);
+    setNotice(null);
+    setIsResetDialogOpen(false);
+    try {
+      const res = await resilientFetch(`/tree/reset`, {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      const data = (await parseJsonSafe(res)) as { success: boolean; message?: string; data?: TreeState };
+      if (!data.success) {
+        setNotice(data.message || 'Trồng lại cây mới thất bại');
+        return;
+      }
+      if (data.data) setTree(data.data);
+      setNotice(data.message || 'Đã trồng lại cây mới thành công!');
+    } catch (err) {
+      setNotice(toErrorMessage(err, 'Trồng lại cây mới thất bại'));
+    } finally {
+      setPending(false);
+    }
+  }, [accessToken, authHeaders, parseJsonSafe, resilientFetch]);
 
   const onChangeBackground = useCallback(
     async (bg: BackgroundType) => {
@@ -240,12 +283,16 @@ export function useBambooGame(): UseBambooGameResult {
     pending,
     onWater,
     onFertilize,
+    onReset,
     onChangeBackground,
     refresh: fetchState,
     treeUrl,
     handleImageError,
     handleImageLoad,
     displayStage,
+    isResetDialogOpen,
+    setIsResetDialogOpen,
+    handleConfirmReset,
   };
 }
 

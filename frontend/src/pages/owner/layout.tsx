@@ -4,19 +4,12 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
-import { jwtDecode } from "jwt-decode";
+import { decodeToken, type DecodedToken } from '@/utils/jwtHelper';
 import { toast } from "sonner";
 import { Home, Package, ShoppingBag, Wallet, Settings } from "lucide-react";
 import OwnerHeader from "@/components/ui/owner/owner-header";
 import { RootState } from "@/store/redux_store";
 import { logout } from "@/store/auth/authReducer";
-
-interface JwtPayload {
-  email: string;
-  role?: string;
-  exp?: number;
-  iat: number;
-}
 
 export default function OwnerLayout({ children }: { children: React.ReactNode }) {
   const [activePage, setActivePage] = useState("");
@@ -38,37 +31,30 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
     if (!accessToken) {
       toast.error("Bạn cần đăng nhập để truy cập trang quản lý");
       router.push("/auth/login");
+      setIsLoading(false);
       return;
     }
 
-    try {
-      const decoded = jwtDecode<JwtPayload>(accessToken);
+    const decoded = decodeToken(accessToken);
 
-      // Check if token is expired
-      const currentTime = Date.now() / 1000;
-      if (decoded.exp && decoded.exp < currentTime) {
-        toast.error("Phiên đăng nhập đã hết hạn");
-        dispatch(logout());
-        router.push("/auth/login");
-        return;
-      }
-
-      // Check if user has owner role
-      if (decoded.role !== "owner") {
-        toast.error("Bạn không có quyền truy cập trang quản lý chủ sở hữu");
-        router.push("/home");
-        return;
-      }
-
-      setIsAuthorized(true);
-    } catch (error) {
-      console.error("Token decode error:", error);
-      toast.error("Token không hợp lệ");
+    if (!decoded) {
+      toast.error("Token không hợp lệ hoặc đã hết hạn");
       dispatch(logout());
       router.push("/auth/login");
-    } finally {
       setIsLoading(false);
+      return;
     }
+
+    // Check if user has owner role
+    if (decoded.role !== "owner") {
+      toast.error("Bạn không có quyền truy cập trang quản lý chủ sở hữu");
+      router.push("/home");
+      setIsLoading(false);
+      return;
+    }
+
+    setIsAuthorized(true);
+    setIsLoading(false);
   }, [accessToken, router, dispatch]);
 
   // Show loading while checking authorization

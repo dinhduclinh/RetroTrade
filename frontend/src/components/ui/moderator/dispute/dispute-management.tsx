@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store/redux_store";
-import { jwtDecode } from "jwt-decode";
+import { decodeToken, type DecodedToken } from '@/utils/jwtHelper';
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/common/card";
 import { Badge } from "@/components/ui/common/badge";
@@ -29,17 +29,6 @@ import {
 import { getDisputes, getDisputeById, assignDispute, unassignDispute, resolveDispute, type Dispute } from "@/services/moderator/disputeOrder.api";
 import { getOrderDetails, type Order } from "@/services/auth/order.api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/common/avatar";
-
-interface JwtPayload {
-  _id?: string;
-  email: string;
-  userGuid?: string;
-  avatarUrl?: string;
-  role?: string;
-  fullName?: string;
-  exp: number;
-  iat: number;
-}
 
 export function DisputeManagement() {
   const { accessToken } = useSelector((state: RootState) => state.auth);
@@ -74,14 +63,8 @@ export function DisputeManagement() {
   const [loadingDetailData, setLoadingDetailData] = useState(false);
 
   useEffect(() => {
-    if (accessToken) {
-      try {
-        const decoded = jwtDecode<JwtPayload>(accessToken);
-        setCurrentUserId(decoded._id || null);
-      } catch (error) {
-        console.error("Token decode error:", error);
-      }
-    }
+    const decoded = decodeToken(accessToken);
+    setCurrentUserId(decoded?._id || null);
   }, [accessToken]);
 
   useEffect(() => {

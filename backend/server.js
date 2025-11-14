@@ -60,17 +60,17 @@ app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-const { autoUpdateTaxStatus } = require("./src/controller/tax/taxAutoUpdate.controller");
+const { autoUpdateServiceFeeStatus } = require("./src/controller/serviceFee/serviceFeeAutoUpdate.controller");
 
 // cập nhật lúc 0h mỗi ngày
 cron.schedule('0 0 * * *', updateTrendingItems);
 
-// Tự động cập nhật trạng thái tax mỗi giờ
+// Tự động cập nhật trạng thái serviceFee mỗi giờ
 cron.schedule('0 * * * *', async () => {
   try {
-    await autoUpdateTaxStatus();
+    await autoUpdateServiceFeeStatus();
   } catch (error) {
-    console.error("Lỗi cron job cập nhật tax:", error);
+    console.error("Lỗi cron job cập nhật serviceFee:", error);
   }
 });
 

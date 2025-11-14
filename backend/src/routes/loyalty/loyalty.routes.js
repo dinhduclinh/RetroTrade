@@ -127,5 +127,70 @@ router.post("/claim-daily-login", authenticateToken, async (req, res) => {
   }
 });
 
+/**
+ * @route POST /api/v1/loyalty/convert-to-discount
+ * @desc Quy đổi RT Points sang discount
+ * @access Private
+ */
+router.post("/convert-to-discount", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const { points } = req.body;
+
+    if (!points || typeof points !== "number" || points <= 0) {
+      return res.status(400).json({
+        code: 400,
+        message: "Số điểm không hợp lệ",
+      });
+    }
+
+    const result = await loyaltyController.convertPointsToDiscount(userId, points);
+
+    if (result.success) {
+      // Tạo thông báo khi quy đổi thành công
+      try {
+        const { createNotification } = require("../../middleware/createNotification");
+        await createNotification(
+          userId,
+          "Loyalty",
+          "Quy đổi RT Points thành công",
+          `Bạn đã quy đổi ${result.pointsUsed} RT Points sang discount ${result.discountPercent}%. Discount có hiệu lực trong 1 tháng và chỉ dùng được 1 lần.`,
+          { 
+            points: result.pointsUsed, 
+            discountPercent: result.discountPercent,
+            discountId: result.discount._id,
+            reason: "points_to_discount" 
+          }
+        );
+      } catch (e) {
+        console.error("Error sending loyalty notification:", e);
+      }
+
+      return res.json({
+        code: 200,
+        message: "Quy đổi RT Points sang discount thành công",
+        data: {
+          discount: result.discount,
+          pointsUsed: result.pointsUsed,
+          discountPercent: result.discountPercent,
+          newBalance: result.newBalance,
+        },
+      });
+    } else {
+      return res.status(400).json({
+        code: 400,
+        message: result.error || "Không thể quy đổi RT Points",
+      });
+    }
+  } catch (error) {
+    console.error("Error converting points to discount:", error);
+    return res.status(500).json({
+      code: 500,
+      message: "Lỗi server khi quy đổi RT Points",
+      error: error.message,
+    });
+  }
+});
+
 module.exports = router;
 

@@ -42,15 +42,15 @@ module.exports.calculateTotals = async function (
       throw new Error("Invalid input");
     }
 
-    // Lấy tax rate từ database
-    const Tax = require("../../models/Tax.model");
-    const taxRate = await Tax.getCurrentTaxRate();
+    // Lấy serviceFee rate từ database
+    const ServiceFee = require("../../models/ServiceFee.model");
+    const serviceFeeRate = await ServiceFee.getCurrentServiceFeeRate();
 
     const duration = calculateDurationInUnit(startAt, endAt, priceUnitId);
     if (duration <= 0) throw new Error("Invalid date range");
 
     const rentalAmount = basePrice * duration * quantity;
-    const serviceFee = rentalAmount * (taxRate / 100);
+    const serviceFee = rentalAmount * (serviceFeeRate / 100);
     const depositAmount = depositPerUnit * quantity;
     const totalAmount = rentalAmount + serviceFee + depositAmount;
 
@@ -60,7 +60,7 @@ module.exports.calculateTotals = async function (
       duration,
       rentalAmount,
       totalAmount,
-      taxRate,
+      serviceFeeRate,
       serviceFee,
       unitName,
     });
