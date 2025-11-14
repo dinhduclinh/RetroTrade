@@ -766,16 +766,16 @@ export default function ProductDetailPage() {
               <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
                 <div className="md:col-span-5">
                   <div className="flex items-center gap-2">
-                    <div className="font-medium text-gray-900">
-                      {product.Owner?.DisplayName || product.Owner?.FullName || "Người dùng"}
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900">
+                        {product.Owner?.DisplayName || product.Owner?.FullName || "Người dùng"}
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                        <CheckCircle className="w-3 h-3" /> Chủ cho thuê
+                      </span>
                     </div>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-orange-50 text-orange-700 border border-orange-200">
-                      <CheckCircle className="w-3.5 h-3.5" /> Đã xác minh
-                    </span>
                   </div>
-                  <div className="mt-1 text-sm text-gray-600">
-                    (0 đánh giá) • 0 sản phẩm • 0 đã bán
-                  </div>
+                  
                   <div className="mt-2 flex gap-2">
                     <button
                       onClick={async () => {
@@ -854,12 +854,12 @@ export default function ProductDetailPage() {
                   </div>
                 </div>
                 <div className="md:col-span-7">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     <div className="flex items-center gap-2 text-gray-700">
                       <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
                         <ShieldCheck className="w-5 h-5" />
                       </div>
-                      <div className="text-sm">Đáng tin cậy</div>
+                      <div className="text-sm">Đối tác đáng tin cậy</div>
                     </div>
                     <div className="flex items-center gap-2 text-gray-700">
                       <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -871,13 +871,7 @@ export default function ProductDetailPage() {
                       <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
                         <MessageCircle className="w-5 h-5" />
                       </div>
-                      <div className="text-sm">Phản hồi nhanh</div>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-700">
-                      <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
-                        <Truck className="w-5 h-5" />
-                      </div>
-                      <div className="text-sm">Giao hàng nhanh</div>
+                      <div className="text-sm">Hỗ trợ 24/7</div>
                     </div>
                   </div>
                 </div>

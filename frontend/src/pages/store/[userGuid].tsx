@@ -6,7 +6,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import type { RootState } from "@/store/redux_store";
-import { MapPin, Star, Bookmark, ShieldCheck, Truck, BadgeCheck, Clock3, ChevronLeft, ChevronRight, Search, Filter, X, Loader2, ChevronDown, ChevronUp, Eye } from "lucide-react";
+import { MapPin, Star, Bookmark, ShieldCheck, Truck, BadgeCheck, Clock3, ChevronLeft, ChevronRight, Loader2, Eye, ChevronDown, MessageCircle } from "lucide-react";
 import { getFavorites, getPublicStoreByUserGuid } from "@/services/products/product.api";
 import { toast } from "sonner";
 
@@ -57,7 +57,7 @@ const formatPrice = (price: number, currency: string) => {
   return `$${price}`;
 };
 
-const LIMIT = 20; // Consistent with API default
+const LIMIT = 8; // Updated to 8 products per page/load
 
 export default function OwnerStorePage() {
   const router = useRouter();
@@ -65,19 +65,14 @@ export default function OwnerStorePage() {
 
   // States
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [owner, setOwner] = useState<Owner | null>(null);
-  const [items, setItems] = useState<Product[]>([]);
+  const [items, setItems] = useState<Product[]>([]); // For pagination mode
+  const [products, setProducts] = useState<Product[]>([]); // For load more mode
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filters, setFilters] = useState({
-    minPrice: "",
-    maxPrice: "",
-    category: "",
-    sortBy: "newest",
-  });
-  const [showFilters, setShowFilters] = useState(false);
+  const [isLoadMoreMode, setIsLoadMoreMode] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [favoriteLoading, setFavoriteLoading] = useState<Set<string>>(new Set());
   const isAuthenticated = useAppSelector((state: RootState) => !!state.auth.accessToken);
@@ -85,29 +80,17 @@ export default function OwnerStorePage() {
   const dispatch = useAppDispatch();
 
   const totalPages = useMemo(() => Math.ceil((total || 0) / LIMIT), [total]);
-  const hasActiveFilters = useMemo(() => 
-    searchQuery || filters.minPrice || filters.maxPrice || filters.category !== ""
-  , [searchQuery, filters]);
 
   const availableCategories = useMemo(() => {
-    return Array.from(new Set(items.map((it) => it.Category?.name).filter(Boolean)));
-  }, [items]);
+    const displayItems = isLoadMoreMode ? products : items;
+    return Array.from(new Set(displayItems.map((it) => it.Category?.name).filter(Boolean)));
+  }, [isLoadMoreMode, products, items]);
 
-  // Build query params
-  const buildQueryParams = useCallback(() => {
-    const params: any = {
-      limit: LIMIT,
-    };
-    if (searchQuery) params.q = searchQuery;
-    if (filters.minPrice) params.minPrice = filters.minPrice;
-    if (filters.maxPrice) params.maxPrice = filters.maxPrice;
-    if (filters.category) params.category = filters.category;
-    if (filters.sortBy) params.sortBy = filters.sortBy;
-    return params;
-  }, [searchQuery, filters]);
+  const displayItems = useMemo(() => isLoadMoreMode ? products : items, [isLoadMoreMode, products, items]);
 
-  // Update URL with current query params
+  // Update URL with current query params (only for pagination mode)
   const updateUrl = useCallback((page: number) => {
+    if (isLoadMoreMode) return; // No URL update in load more mode
     const query: any = { ...router.query };
     if (page > 1) {
       query.page = page.toString();
@@ -117,32 +100,28 @@ export default function OwnerStorePage() {
     router.replace(
       {
         pathname: router.pathname,
-        query: { ...query, ...buildQueryParams() },
+        query,
       },
       undefined,
       { shallow: true }
     );
-  }, [router, buildQueryParams]);
+  }, [router, isLoadMoreMode]);
 
-  // Read page from URL on initial load
+  // Read page from URL on initial load (only for pagination mode)
   useEffect(() => {
-    if (router.isReady) {
+    if (router.isReady && !isLoadMoreMode) {
       const page = parseInt(router.query.page as string) || 1;
       setCurrentPage(page);
     }
-  }, [router.isReady, router.query.page]);
+  }, [router.isReady, router.query.page, isLoadMoreMode]);
 
   // Fetch user's favorites on component mount
   useEffect(() => {
-    // Import API functions
-    const loadFavorites = async () => {
-      const { getFavorites } = await import('@/services/products/product.api');
-      return getFavorites;
-    };
     const fetchFavorites = async () => {
       if (!isAuthenticated) return;
       
       try {
+        const { getFavorites } = await import('@/services/products/product.api');
         const res = await getFavorites();
         
         if (res.ok) {
@@ -194,9 +173,9 @@ export default function OwnerStorePage() {
       return newSet;
     });
 
-    // Update the item's favorite count
-    setItems(prev => 
-      prev.map(item => 
+    // Update the item's favorite count in display items
+    const updateDisplayItems = (prevItems: Product[]) => 
+      prevItems.map(item => 
         item._id === productId 
           ? { 
               ...item, 
@@ -205,8 +184,13 @@ export default function OwnerStorePage() {
                 : (item.FavoriteCount || 0) + 1
             } 
           : item
-      )
-    );
+      );
+
+    if (isLoadMoreMode) {
+      setProducts(updateDisplayItems);
+    } else {
+      setItems(updateDisplayItems);
+    }
 
     try {
       // Dynamically import the required API functions
@@ -234,8 +218,8 @@ export default function OwnerStorePage() {
         return newSet;
       });
       
-      setItems(prev => 
-        prev.map(item => 
+      const revertDisplayItems = (prevItems: Product[]) => 
+        prevItems.map(item => 
           item._id === productId 
             ? { 
                 ...item, 
@@ -244,8 +228,13 @@ export default function OwnerStorePage() {
                   : Math.max(0, (item.FavoriteCount || 1) - 1)
               } 
             : item
-        )
-      );
+        );
+
+      if (isLoadMoreMode) {
+        setProducts(revertDisplayItems);
+      } else {
+        setItems(revertDisplayItems);
+      }
       
       if (error.response?.status === 401 || error.response?.status === 403) {
         router.push('/auth/login');
@@ -260,84 +249,90 @@ export default function OwnerStorePage() {
         return newSet;
       });
     }
-  }, [favorites, favoriteLoading, isAuthenticated, router]);
+  }, [favorites, favoriteLoading, isAuthenticated, router, isLoadMoreMode]);
 
-  const fetchStoreData = useCallback(async () => {
+  const fetchStoreData = useCallback(async (page?: number) => {
     if (!userGuid) {
       setError("Không có userGuid");
       setLoading(false);
       return;
     }
     
-    // Update URL with current page
-    if (currentPage > 1) {
-      updateUrl(currentPage);
-    } else {
-      const { page, ...query } = router.query;
-      if (page) {
-        router.replace(
-          { pathname: router.pathname, query },
-          undefined,
-          { shallow: true }
-        );
-      }
+    const fetchPage = page || currentPage;
+    // Update URL with current page (only pagination mode)
+    if (!isLoadMoreMode && fetchPage > 1) {
+      updateUrl(fetchPage);
+    } else if (!isLoadMoreMode) {
+      const { page: _, ...query } = router.query;
+      router.replace(
+        { pathname: router.pathname, query },
+        undefined,
+        { shallow: true }
+      );
     }
+
     try {
       setLoading(true);
       setError(null);
-      const queryParams = { ...buildQueryParams(), page: currentPage };
+      const queryParams = { limit: LIMIT, page: fetchPage };
       const res = await getPublicStoreByUserGuid(String(userGuid), queryParams);
       const { owner: fetchedOwner, items: fetchedItems, total: fetchedTotal } = res?.data || res || { owner: null, items: [], total: 0 };
       setOwner(fetchedOwner);
-      setItems(fetchedItems);
-      setTotal(fetchedTotal);
+
+      // Determine mode based on total (only on initial load)
+      if (fetchPage === 1) {
+        setTotal(fetchedTotal);
+        if (fetchedTotal <= 16) {
+          setIsLoadMoreMode(true);
+          setProducts(fetchedItems);
+        } else {
+          setIsLoadMoreMode(false);
+          setItems(fetchedItems);
+        }
+      } else if (!isLoadMoreMode) {
+        // For pagination mode, update items
+        setItems(fetchedItems);
+      }
+
     } catch (e) {
       console.error("Failed to load owner store", e);
       setError("Không thể tải dữ liệu cửa hàng");
     } finally {
       setLoading(false);
     }
-  }, [userGuid, currentPage, buildQueryParams, updateUrl, router]);
+  }, [userGuid, currentPage, updateUrl, router, isLoadMoreMode]);
 
-  // Handle page change with smooth scroll and URL update
-  const handlePageChange = (newPage: number) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setCurrentPage(newPage);
-      updateUrl(newPage);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+  // Load more handler for load more mode
+  const handleLoadMore = useCallback(async () => {
+    if (loadingMore || products.length >= total) return;
+    
+    const nextPage = Math.ceil(products.length / LIMIT) + 1;
+    try {
+      setLoadingMore(true);
+      const queryParams = { limit: LIMIT, page: nextPage };
+      const res = await getPublicStoreByUserGuid(String(userGuid), queryParams);
+      const { items: moreItems } = res?.data || res || { items: [] };
+      setProducts(prev => [...prev, ...moreItems]);
+    } catch (e) {
+      console.error("Failed to load more", e);
+      toast.error("Không thể tải thêm sản phẩm");
+    } finally {
+      setLoadingMore(false);
     }
-  };
+  }, [userGuid, products.length, total, loadingMore]);
 
-  // Handle filter changes
-  const handleFilterChange = (key: string, value: string) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: value
-    }));
-    setCurrentPage(1);
-  };
+  // Handle page change with smooth scroll and URL update (only pagination mode)
+  const handlePageChange = useCallback((newPage: number) => {
+    if (isLoadMoreMode || newPage < 1 || newPage > totalPages) return;
+    setCurrentPage(newPage);
+    fetchStoreData(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [isLoadMoreMode, totalPages, fetchStoreData]);
 
-  // Reset all filters
-  const resetFilters = () => {
-    setSearchQuery("");
-    setFilters({
-      minPrice: "",
-      maxPrice: "",
-      category: "",
-      sortBy: "newest",
-    });
-    setCurrentPage(1);
-  };
-
-  // Initial load and when filters change
+  // Initial load
   useEffect(() => {
     if (!router.isReady) return;
-    
-    const timer = setTimeout(() => {
-      fetchStoreData();
-    }, 300); // Debounce search
-
-    return () => clearTimeout(timer);
+    fetchStoreData(1);
   }, [fetchStoreData, router.isReady]);
 
   const ownerInfo = useMemo(() => owner, [owner]);
@@ -419,7 +414,7 @@ export default function OwnerStorePage() {
                   <BadgeCheck className="w-4 h-4" /> Uy tín
                 </div>
                 <div className="inline-flex items-center gap-1 px-3 py-2 rounded-full bg-blue-50 text-blue-700 text-sm font-medium border border-blue-200">
-                  <Truck className="w-4 h-4" /> Giao nhanh
+                  <MessageCircle className="w-4 h-4" /> Hỗ trợ 24/7
                 </div>
                 <div className="inline-flex items-center gap-1 px-3 py-2 rounded-full bg-green-50 text-green-700 text-sm font-medium border border-green-200">
                   <ShieldCheck className="w-4 h-4" /> Bảo đảm
@@ -434,7 +429,7 @@ export default function OwnerStorePage() {
                 <div className="text-center p-4 rounded-xl bg-gradient-to-r from-green-50 to-emerald-50 border border-green-100">
                   <div className="text-gray-600 text-sm">Còn hàng</div>
                   <div className="text-2xl font-bold text-gray-900">{
-                    items.filter((it) => (it.AvailableQuantity ?? 0) > 0).length
+                    displayItems.filter((it) => (it.AvailableQuantity ?? 0) > 0).length
                   }</div>
                 </div>
                 <div className="text-center p-4 rounded-xl bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-100">
@@ -452,163 +447,13 @@ export default function OwnerStorePage() {
           </div>
         </div>
 
-        {/* Search and Filter Bar */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="bg-white/90 backdrop-blur-sm rounded-3xl p-6 shadow-lg mb-6 border border-white/20 hover:shadow-xl transition-all duration-300"
-        >
-          <div className="flex flex-col md:flex-row gap-4 mb-6">
-            {/* Search Input */}
-            <motion.div 
-              className="relative flex-1 group"
-              whileHover={{ scale: 1.01 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 10 }}
-            >
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-indigo-400 group-hover:text-indigo-500 transition-colors" />
-              </div>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && fetchStoreData()}
-                className="block w-full pl-12 pr-10 py-3 border-2 border-indigo-100 rounded-xl bg-white/50 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent text-gray-700 placeholder-gray-400 transition-all duration-200"
-                placeholder="Nhập tên sản phẩm..."
-              />
-              {searchQuery && (
-                <motion.button
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  onClick={() => setSearchQuery('')}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-indigo-600 transition-colors"
-                  aria-label="Xóa tìm kiếm"
-                >
-                  <X className="h-5 w-5" />
-                </motion.button>
-              )}
-            </motion.div>
-            
-            {/* Filter Button */}
-            <motion.button
-              onClick={() => setShowFilters(!showFilters)}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.98 }}
-              className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl transition-all duration-200 ${
-                hasActiveFilters 
-                  ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-200' 
-                  : 'bg-white border-2 border-indigo-100 text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50'
-              }`}
-            >
-              <Filter className="w-5 h-5" />
-              <span className="font-medium">Bộ lọc</span>
-              {hasActiveFilters && (
-                <motion.span 
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="ml-1 w-6 h-6 flex items-center justify-center bg-white text-indigo-600 text-xs font-bold rounded-full"
-                >
-                  {[searchQuery, filters.minPrice, filters.maxPrice, filters.category].filter(Boolean).length}
-                </motion.span>
-              )}
-            </motion.button>
-            
-            {/* Sort Dropdown */}
-            <motion.div className="relative" whileHover={{ scale: 1.02 }}>
-              <select
-                value={filters.sortBy}
-                onChange={(e) => handleFilterChange('sortBy', e.target.value)}
-                className="w-full h-full pl-4 pr-10 py-3 border-2 border-indigo-100 rounded-xl bg-white/50 text-indigo-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent appearance-none cursor-pointer"
-              >
-                <option value="newest">Mới nhất</option>
-                <option value="price_asc">Giá tăng dần</option>
-                <option value="price_desc">Giá giảm dần</option>
-                <option value="popular">Phổ biến</option>
-              </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <ChevronDown className="h-5 w-5 text-indigo-400" />
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Filter Panel */}
-          {showFilters && (
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-medium text-gray-900">Bộ lọc</h3>
-                <div className="flex gap-2">
-                  <button 
-                    onClick={resetFilters}
-                    className="text-sm text-blue-600 hover:text-blue-800"
-                  >
-                    Đặt lại
-                  </button>
-                  <button 
-                    onClick={() => setShowFilters(false)}
-                    className="text-gray-500 hover:text-gray-700"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Giá tối thiểu</label>
-                  <input
-                    type="number"
-                    value={filters.minPrice}
-                    onChange={(e) => handleFilterChange('minPrice', e.target.value)}
-                    placeholder="Từ"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Giá tối đa</label>
-                  <input
-                    type="number"
-                    value={filters.maxPrice}
-                    onChange={(e) => handleFilterChange('maxPrice', e.target.value)}
-                    placeholder="Đến"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Danh mục</label>
-                  <select
-                    value={filters.category}
-                    onChange={(e) => handleFilterChange('category', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Tất cả danh mục</option>
-                    {availableCategories.map((cat) => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                    {/* Fallback categories if no items */}
-                    {availableCategories.length === 0 && [
-                      "Điện tử",
-                      "Thời trang",
-                      "Nội thất",
-                      "Thể thao",
-                      "Sách"
-                    ].map((cat) => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-          )}
-        </motion.div>
-
         {/* Product grid */}
         <div className="bg-white rounded-3xl p-6 shadow-lg mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-2 sm:mb-0">Sản phẩm đang cho thuê</h2>
           </div>
 
-          {items.length === 0 ? (
+          {displayItems.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
                 <MapPin className="w-8 h-8 text-gray-400" />
@@ -617,7 +462,7 @@ export default function OwnerStorePage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {items.map((it, index) => {
+              {displayItems.map((it, index) => {
                 const thumb = it.Images?.[0]?.Url || '/placeholder.jpg';
                 const href = `/products/details?id=${it._id}`;
                 const availableQuantity = it.AvailableQuantity || 0;
@@ -751,8 +596,31 @@ export default function OwnerStorePage() {
             </div>
           )}
 
-          {/* Pagination */}
-          {totalPages > 1 && (
+          {/* Load More Button (for load more mode) */}
+          {isLoadMoreMode && products.length < total && (
+            <div className="text-center mt-8">
+              <button
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                {loadingMore ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Đang tải thêm...
+                  </>
+                ) : (
+                  <>
+                    Xem thêm
+                    <ChevronDown className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
+          {/* Pagination (for pagination mode) */}
+          {!isLoadMoreMode && totalPages > 1 && (
             <div className="flex flex-col sm:flex-row items-center justify-between mt-12 space-y-4 sm:space-y-0">
               <div className="text-sm text-gray-500">
                 Trang {currentPage} / {totalPages} ({total} sản phẩm)

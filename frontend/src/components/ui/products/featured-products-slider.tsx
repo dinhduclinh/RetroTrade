@@ -5,16 +5,15 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
 import {
-  Star,
   Eye,
   Package,
   MapPin,
   ChevronLeft,
   ChevronRight,
   RefreshCw,
-  Zap,
   Sparkles,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { getHighlightedProducts } from "@/services/products/product.api";
 
 interface Product {
@@ -29,461 +28,404 @@ interface Product {
   rentCount?: number;
   city?: string;
   district?: string;
-  priceUnit?: {
-    UnitName: string;
-  };
+  priceUnit?: { UnitName: string };
 }
 
 interface FeaturedProductsSliderProps {
   featuredProducts?: Product[];
   isLoading?: boolean;
-  currentSlide?: number;
-  onSlideChange?: (index: number) => void;
-  onNextSlide?: () => void;
-  onPrevSlide?: () => void;
-  onRefresh?: () => void;
-  getVisibleProducts?: () => Product[];
   formatPrice?: (price: number, currency: string) => string;
 }
 
 const formatPrice = (price: number, currency: string) => {
-  if (currency === "VND") {
-    return new Intl.NumberFormat("vi-VN").format(price) + "đ";
-  }
+  if (currency === "VND") return new Intl.NumberFormat("vi-VN").format(price) + "đ";
   return `$${price}`;
+};
+
+// Tối đa 180 ký tự
+const truncateDescription = (desc?: string, max = 180) => {
+  if (!desc) return "Khám phá sản phẩm nổi bật này ngay hôm nay!";
+  return desc.length > max ? `${desc.slice(0, max)}...` : desc;
 };
 
 export default function FeaturedProductsSlider({
   featuredProducts: externalProducts,
   isLoading: externalLoading,
-  currentSlide: externalSlide,
-  onSlideChange: externalOnSlideChange,
-  onNextSlide: externalOnNextSlide,
-  onPrevSlide: externalOnPrevSlide,
-  onRefresh: externalOnRefresh,
-  getVisibleProducts: externalGetVisibleProducts,
   formatPrice: externalFormatPrice,
 }: FeaturedProductsSliderProps) {
   const router = useRouter();
-  const sliderRef = useRef<HTMLDivElement>(null);
   const autoplayRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // Internal state
+  const delayTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [internalProducts, setInternalProducts] = useState<Product[]>([]);
   const [internalLoading, setInternalLoading] = useState(true);
-  const [internalSlide, setInternalSlide] = useState(0);
+
+  const [mainSlide, setMainSlide] = useState(0);
+  const [stackSlide, setStackSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
-  // Use external props if provided, otherwise use internal state
   const featuredProducts = externalProducts ?? internalProducts;
   const isLoading = externalLoading ?? internalLoading;
-  const currentSlide = externalSlide ?? internalSlide;
   const priceFormatter = externalFormatPrice ?? formatPrice;
-
   const productsLength = featuredProducts?.length || 0;
-  const totalSlides = Math.max(1, productsLength - 3);
 
-  // Fetch featured products
+  /* ---------- FETCH ---------- */
   const fetchFeaturedProducts = useCallback(async () => {
-    if (externalProducts) return; // Don't fetch if products provided externally
-
+    if (externalProducts) return;
     try {
       setInternalLoading(true);
-      const response = await getHighlightedProducts();
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        const formattedProducts = (result.data || []).map((product: any) => {
-          let thumbnailUrl = product.thumbnail || "/placeholder.jpg";
-
-          if (!thumbnailUrl || thumbnailUrl === "/placeholder.jpg") {
-            if (product.images && product.images.length > 0) {
-              const firstImage = product.images[0];
-              if (typeof firstImage === "object") {
-                thumbnailUrl =
-                  firstImage.Url || firstImage.url || firstImage.thumbnail || thumbnailUrl;
-              } else if (typeof firstImage === "string") {
-                thumbnailUrl = firstImage;
-              }
-            }
-          }
-
-          if (thumbnailUrl && thumbnailUrl !== "/placeholder.jpg") {
-            if (!thumbnailUrl.startsWith("http") && !thumbnailUrl.startsWith("/")) {
-              thumbnailUrl = `/${thumbnailUrl}`;
-            }
-            if (thumbnailUrl.startsWith("/") && !thumbnailUrl.startsWith("http")) {
-              const cleanPath = thumbnailUrl.replace(/^\/+/, "");
-              thumbnailUrl = `${process.env.NEXT_PUBLIC_API_URL || ""}/${cleanPath}`;
-            }
-          }
-
-          const priceUnit =
-            (product.priceUnit && (product.priceUnit[0] || product.priceUnit)) ||
-            (product.PriceUnit && { UnitName: product.PriceUnit }) ||
-            { UnitName: "ngày" };
-
-          return {
-            _id: product._id || "",
-            title: product.Title || "No title",
-            shortDescription: product.Description || "",
-            thumbnail: thumbnailUrl,
-            basePrice: product.BasePrice || 0,
-            currency: product.Currency || "VND",
-            depositAmount: product.DepositAmount || 0,
-            createdAt: product.CreatedAt || new Date().toISOString(),
-            availableQuantity: 1,
-            quantity: 1,
-            viewCount: product.ViewCount || 0,
-            rentCount: product.RentCount || 0,
-            favoriteCount: product.FavoriteCount || 0,
-            address: [product.Address, product.District, product.City]
-              .filter(Boolean)
-              .join(", "),
-            city: product.City,
-            district: product.District,
-            condition: product.condition || { ConditionName: "Used" },
-            priceUnit: priceUnit,
-            category: product.category
-              ? {
-                  _id: product.category._id || product.CategoryId || "",
-                  name: product.category.Name || product.category.name || "",
-                }
-              : null,
-            tags: (product.tags || []).map((tag: any) => ({
-              _id: tag._id,
-              name: tag.Name || tag.name,
-            })),
-            isHighlighted: true,
-          };
-        });
-
-        setInternalProducts(formattedProducts);
-      } else {
-        throw new Error(result.message || "Failed to fetch highlighted products");
-      }
-    } catch (err) {
-      console.error("Error fetching featured products:", err);
-      const errorMsg =
-        err instanceof Error
-          ? err.message
-          : String(err || "Có lỗi xảy ra khi tải sản phẩm nổi bật");
-      toast.error(errorMsg);
+      const res = await getHighlightedProducts();
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.message ?? "Load error");
+      const formatted = (json.data || []).map((p: any) => {
+        let thumb = p.thumbnail || "/placeholder.jpg";
+        if (!thumb.startsWith("http") && !thumb.startsWith("/")) thumb = `/${thumb}`;
+        if (thumb.startsWith("/") && !thumb.startsWith("http"))
+          thumb = `${process.env.NEXT_PUBLIC_API_URL || ""}${thumb.replace(/^\/+/, "/")}`;
+        const unit = p.priceUnit?.[0] ?? p.priceUnit ?? p.PriceUnit ?? { UnitName: "ngày" };
+        return {
+          _id: p._id ?? "",
+          title: p.Title ?? "No title",
+          shortDescription: p.Description ?? "",
+          thumbnail: thumb,
+          basePrice: p.BasePrice ?? 0,
+          currency: p.Currency ?? "VND",
+          depositAmount: p.DepositAmount ?? 0,
+          viewCount: p.ViewCount ?? 0,
+          rentCount: p.RentCount ?? 0,
+          city: p.City ?? "",
+          district: p.District ?? "",
+          priceUnit: unit,
+        };
+      });
+      setInternalProducts(formatted);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Lỗi tải sản phẩm");
     } finally {
       setInternalLoading(false);
     }
   }, [externalProducts]);
 
-  // Fetch on mount if using internal state
   useEffect(() => {
-    if (!externalProducts) {
-      fetchFeaturedProducts();
-    }
+    if (!externalProducts) fetchFeaturedProducts();
   }, [externalProducts, fetchFeaturedProducts]);
 
-  // Slide handlers
-  const handleNextSlide = useCallback(() => {
-    if (externalOnNextSlide) {
-      externalOnNextSlide();
-    } else {
-      setInternalSlide((prev) => {
-        const next = (prev + 1) % totalSlides;
-        return next;
-      });
-    }
-  }, [externalOnNextSlide, totalSlides]);
-
-  const handlePrevSlide = useCallback(() => {
-    if (externalOnPrevSlide) {
-      externalOnPrevSlide();
-    } else {
-      setInternalSlide((prev) => (prev - 1 + totalSlides) % totalSlides);
-    }
-  }, [externalOnPrevSlide, totalSlides]);
-
-  const handleSlideChange = useCallback((index: number) => {
-    if (externalOnSlideChange) {
-      externalOnSlideChange(index);
-    } else {
-      setInternalSlide(index);
-    }
-  }, [externalOnSlideChange]);
-
-  const handleRefresh = () => {
-    if (externalOnRefresh) {
-      externalOnRefresh();
-    } else {
-      fetchFeaturedProducts();
-    }
-  };
-
-  // Get visible products
-  const getVisibleProducts = () => {
-    if (externalGetVisibleProducts) {
-      return externalGetVisibleProducts();
-    }
-
-    if (featuredProducts.length <= 4) return featuredProducts;
-    const endIndex = currentSlide + 4;
-    if (endIndex > featuredProducts.length) {
-      return [
-        ...featuredProducts.slice(currentSlide),
-        ...featuredProducts.slice(0, endIndex % featuredProducts.length),
-      ];
-    }
-    return featuredProducts.slice(currentSlide, endIndex);
-  };
-
-  // Autoplay functionality
+  /* ---------- AUTOPLAY 5s + LOOP VÔ HẠN ---------- */
   useEffect(() => {
-    if (!featuredProducts || productsLength <= 4 || isPaused) return;
+    if (!featuredProducts || productsLength === 0 || isPaused) return;
 
     autoplayRef.current = setInterval(() => {
-      handleNextSlide();
-    }, 4000); // Auto slide every 4 seconds
+      setStackSlide((prev) => (prev + 1) % productsLength);
+    }, 5000);
 
     return () => {
-      if (autoplayRef.current) {
-        clearInterval(autoplayRef.current);
-      }
+      if (autoplayRef.current) clearInterval(autoplayRef.current);
     };
-  }, [productsLength, isPaused, featuredProducts, handleNextSlide]);
+  }, [productsLength, isPaused, featuredProducts]);
 
-  const handleMouseEnter = () => setIsPaused(true);
-  const handleMouseLeave = () => setIsPaused(false);
+  /* ---------- DELAY 2s CHO MAIN ---------- */
+  useEffect(() => {
+    if (delayTimeoutRef.current) clearTimeout(delayTimeoutRef.current);
+
+    delayTimeoutRef.current = setTimeout(() => {
+      setMainSlide(stackSlide);
+    }, 2000);
+
+    return () => {
+      if (delayTimeoutRef.current) clearTimeout(delayTimeoutRef.current);
+    };
+  }, [stackSlide]);
+
+  /* ---------- CLICK CARD → MAIN NGAY ---------- */
+  const handleCardClick = (index: number) => {
+    setMainSlide(index);
+    setStackSlide(index);
+    if (delayTimeoutRef.current) clearTimeout(delayTimeoutRef.current);
+  };
+
+  /* ---------- NÚT MAIN ---------- */
+  const handleMainPrev = () => setMainSlide((p) => (p - 1 + productsLength) % productsLength);
+  const handleMainNext = () => setMainSlide((p) => (p + 1) % productsLength);
 
   if (isLoading) {
     return (
-      <div className="bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 py-16">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col items-center justify-center py-20">
-            <div className="relative">
-              <div className="animate-spin rounded-full h-16 w-16 border-4 border-purple-200 border-t-purple-600"></div>
-              <Sparkles className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 text-purple-600 animate-pulse" />
-            </div>
-            <p className="mt-6 text-black font-medium">Đang tải sản phẩm nổi bật...</p>
+      <section className="py-24 px-4 bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+        <div className="container mx-auto text-center py-20">
+          <div className="relative inline-block">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-purple-200 border-t-purple-600" />
+            <Sparkles className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 text-purple-600 animate-pulse" />
           </div>
+          <p className="mt-6 text-black font-medium">Đang tải sản phẩm nổi bật...</p>
         </div>
-      </div>
+      </section>
     );
   }
 
-  if (!featuredProducts || featuredProducts.length === 0) {
+  if (productsLength === 0) {
     return (
-      <div className="bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 py-16">
-        <div className="container mx-auto px-4">
-          <div className="text-center py-16 bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-purple-100 to-blue-100 mb-6">
-              <Package className="w-10 h-10 text-purple-600" />
-            </div>
-            <p className="text-black text-lg mb-6">Hiện chưa có sản phẩm nổi bật nào</p>
-            <button
-              onClick={handleRefresh}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Tải lại
-            </button>
+      <section className="py-24 px-4 bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+        <div className="container mx-auto text-center py-16 bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-purple-100 to-blue-100 mb-6">
+            <Package className="w-10 h-10 text-purple-600" />
           </div>
+          <p className="text-black text-lg mb-6">Hiện chưa có sản phẩm nổi bật</p>
+          <button
+            onClick={fetchFeaturedProducts}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-lg"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Tải lại
+          </button>
         </div>
-      </div>
+      </section>
     );
   }
+
+  const mainProduct = featuredProducts[mainSlide];
 
   return (
-    <div
-      className="bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 py-16 relative overflow-hidden"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+    <section
+      className="relative py-24 px-4 bg-gradient-to-br from-indigo-50 via-white to-purple-50 overflow-hidden"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
     >
-      {/* Decorative background elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-indigo-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
+      <div className="absolute inset-0 opacity-10">
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage:
+              'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'%239C92AC\' fill-opacity=\'0.1\' fill-rule=\'evenodd\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4664h2V6h4V4H6z\'/%3E%3C/g%3E%3C/svg%3E")',
+            backgroundSize: "30px",
+          }}
+        />
       </div>
 
-      <div className="container mx-auto px-4 relative z-10">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <Zap className="w-6 h-6 text-yellow-500 animate-pulse" />
-            <h2 className="text-4xl font-bold text-black">
-              Sản phẩm nổi bật
-            </h2>
-            <Sparkles className="w-6 h-6 text-purple-600 animate-pulse" />
-          </div>
-          <p className="text-black text-lg">Khám phá những sản phẩm được yêu thích nhất</p>
+      <div className="container mx-auto">
+        <div className="text-center mb-16">
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="text-4xl md:text-5xl font-bold text-gray-900"
+          >
+            SẢN PHẨM{" "}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">
+              NỔI BẬT
+            </span>
+          </motion.h2>
         </div>
 
-        {/* Carousel */}
-        <div className="relative">
-          {/* Products Grid */}
-          <div
-            ref={sliderRef}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 transition-all duration-700 ease-in-out"
-          >
-            {getVisibleProducts().map((product, index) => (
-              <div
-                key={`${product._id}-${currentSlide}-${index}`}
-                className="group relative bg-white rounded-2xl shadow-lg hover:shadow-2xl overflow-hidden transition-all duration-500 transform hover:-translate-y-2 cursor-pointer border border-gray-100"
-                onClick={() => router.push(`/products/details?id=${product._id}`)}
-              >
-                {/* Image Container */}
-                <div className="relative h-56 overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent z-10"></div>
-                  <Image
-                    src={product.thumbnail || "/placeholder.jpg"}
-                    alt={product.title || "Product image"}
-                    fill
-                    className="object-cover transition-transform duration-700 group-hover:scale-110"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      if (target.src !== "/placeholder.jpg") {
-                        target.src = "/placeholder.jpg";
-                      }
-                    }}
-                  />
-                  
-                  {/* Badge */}
-                  <div className="absolute top-3 right-3 z-20 bg-gradient-to-r from-yellow-400 via-yellow-500 to-orange-500 text-white text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg animate-pulse">
-                    <Star className="w-3.5 h-3.5 fill-current" />
-                    <span>Nổi bật</span>
+        {/* MAIN + STACK */}
+        <div className="relative h-[520px] md:h-[500px] rounded-3xl overflow-hidden bg-gray-900">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={mainSlide}
+              className="absolute inset-0 flex"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              {/* BG */}
+              <Image
+                src={mainProduct.thumbnail || "/placeholder.jpg"}
+                alt={mainProduct.title}
+                fill
+                className="object-cover"
+                priority
+                sizes="100vw"
+                onError={(e) => {
+                  const t = e.target as HTMLImageElement;
+                  if (t.src !== "/placeholder.jpg") t.src = "/placeholder.jpg";
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
+
+              {/* LEFT CONTENT */}
+              <div className="relative z-10 flex items-center w-full md:w-1/2 pl-6 pr-8 md:pl-12 md:pr-16 lg:pl-20 xl:pl-24">
+                <motion.div
+                  initial={{ opacity: 0, x: -50 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="text-white"
+                >
+                  <motion.h1
+                    className="text-2xl md:text-3xl lg:text-4xl font-bold leading-tight line-clamp-2 mb-3"
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.3 }}
+                  >
+                    {mainProduct.title}
+                  </motion.h1>
+
+                  <div className="flex flex-wrap gap-4 text-sm text-gray-300 mb-4">
+                    <div className="flex items-center gap-1">
+                      <MapPin className="w-4 h-4" />
+                      {mainProduct.district}, {mainProduct.city}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Eye className="w-4 h-4" />
+                      {mainProduct.viewCount ?? 0} xem
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Package className="w-4 h-4" />
+                      {mainProduct.rentCount ?? 0} thuê
+                    </div>
                   </div>
 
-                  {/* Gradient Overlay on Hover */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-purple-600/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10"></div>
-                </div>
+                  <p className="text-gray-200 mb-5 line-clamp-3">
+                    {truncateDescription(mainProduct.shortDescription, 180)}
+                  </p>
 
-                {/* Content */}
-                <div className="p-5 space-y-4">
-                  {/* Title */}
-                  <h3 className="font-bold text-lg text-black line-clamp-2 min-h-[3.5rem] transition-colors duration-300">
-                    {product.title}
-                  </h3>
-
-                  {/* Location */}
-                  <div className="flex items-center gap-2 text-sm text-black">
-                    <MapPin className="w-4 h-4 text-purple-500 flex-shrink-0" />
-                    <span className="truncate">
-                      {[product.district, product.city].filter(Boolean).join(", ") || "Chưa có địa chỉ"}
-                    </span>
-                  </div>
-
-                  {/* Price Card */}
-                  <div className="bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 rounded-xl p-4 border border-purple-100">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <p className="text-xs text-black mb-1 font-medium">Giá thuê</p>
-                        <p className="text-xl font-bold text-black">
-                          {priceFormatter(product.basePrice, product.currency)}
-                          {product.priceUnit?.UnitName && (
-                            <span className="text-sm font-normal text-black">
-                              /{product.priceUnit.UnitName}
+                  <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20 mb-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-300">Giá thuê</p>
+                        <p className="text-xl font-bold">
+                          {priceFormatter(mainProduct.basePrice, mainProduct.currency)}
+                          {mainProduct.priceUnit?.UnitName && (
+                            <span className="text-sm font-normal text-gray-300">
+                              /{mainProduct.priceUnit.UnitName}
                             </span>
                           )}
                         </p>
                       </div>
-                      <div className="text-right border-l border-purple-200 pl-4 ml-4">
-                        <p className="text-xs text-black mb-1 font-medium">Đặt cọc</p>
-                        <p className="text-base font-bold text-black">
-                          {priceFormatter(product.depositAmount, product.currency)}
+                      <div>
+                        <p className="text-xs text-gray-300">Đặt cọc</p>
+                        <p className="text-lg font-bold">
+                          {priceFormatter(mainProduct.depositAmount, mainProduct.currency)}
                         </p>
                       </div>
                     </div>
                   </div>
 
-                  {/* Stats */}
-                  <div className="flex items-center justify-between text-xs text-black pt-3 border-t border-gray-100">
-                    <div className="flex items-center gap-1.5">
-                      <Eye className="w-4 h-4 text-blue-500" />
-                      <span className="font-medium">{product.viewCount?.toLocaleString() || "0"}</span>
-                      <span className="text-black">lượt xem</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Package className="w-4 h-4 text-purple-500" />
-                      <span className="font-medium">{product.rentCount || "0"}</span>
-                      <span className="text-black">lượt thuê</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Hover Effect Border */}
-                <div className="absolute inset-0 rounded-2xl border-2 border-purple-400 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+                  <motion.button
+                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-full font-bold w-full md:w-auto transition-all shadow-xl"
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => router.push(`/products/details?id=${mainProduct._id}`)}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Xem chi tiết
+                    <ChevronRight className="w-4 h-4" />
+                  </motion.button>
+                </motion.div>
               </div>
-            ))}
-          </div>
 
-          {/* Navigation Arrows */}
-          {productsLength > 4 && (
+              {/* RIGHT – STACKED CARDS*/}
+              <div className="hidden md:flex w-1/2 items-center justify-center">
+                <div className="relative w-80 h-64">
+                  <AnimatePresence initial={false}>
+                    {featuredProducts.map((p, i) => {
+                      const offset = (i - stackSlide + productsLength) % productsLength;
+                      const isActive = offset === 0;
+
+                      const rotate = offset * 8;
+                      const x = offset * 22;
+                      const y = offset * 18;
+                      const scale = 1 - offset * 0.1;
+                      const zIndex = 100 - offset;
+                      const opacity = 1 - offset * 0.25;
+
+                      return (
+                        <motion.div
+                          key={p._id}
+                          className={`absolute top-8 right-28 w-64 bg-white rounded-2xl shadow-2xl overflow-hidden cursor-pointer transition-all border-2 ${
+                            isActive ? "border-purple-500" : "border-transparent"
+                          }`}
+                          style={{ zIndex, transformOrigin: "right center" }}
+                          initial={{ x: 400, y: 200, rotate: 30, opacity: 0 }}
+                          animate={{ x, y, rotate, scale, opacity }}
+                          exit={{ x: -400, y: -200, rotate: -30, opacity: 0 }}
+                          transition={{
+                            type: "spring",
+                            stiffness: 260,
+                            damping: 30,
+                            mass: 1.2,
+                          }}
+                          whileHover={{
+                            scale: scale + 0.12,
+                            y: y - 20,
+                            rotate: rotate - 3,
+                            boxShadow: "0 25px 50px -12px rgba(139, 92, 246, 0.4)",
+                          }}
+                          onClick={() => handleCardClick(i)}
+                        >
+                          {/* GLOW KHI ACTIVE */}
+                          {isActive && (
+                            <div className="absolute inset-0 rounded-2xl shadow-[0_0_30px_rgba(139,92,246,0.6)] pointer-events-none animate-pulse" />
+                          )}
+
+                          <div className="relative h-40">
+                            <Image
+                              src={p.thumbnail || "/placeholder.jpg"}
+                              alt={p.title}
+                              fill
+                              className="object-cover"
+                              sizes="256px"
+                              loading="lazy"
+                            />
+                            {isActive && (
+                              <div className="absolute top-3 right-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg">
+                                Đang xem
+                              </div>
+                            )}
+                          </div>
+                          <div className="p-4">
+                            <h3 className="font-semibold text-sm line-clamp-1 text-gray-800">
+                              {p.title}
+                            </h3>
+                            <p className="text-purple-600 font-bold text-sm mt-1">
+                              {priceFormatter(p.basePrice, p.currency)}
+                              {p.priceUnit?.UnitName && `/${p.priceUnit.UnitName}`}
+                            </p>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
+                </div>
+              </div>
+            </motion.div>
+          </AnimatePresence>
+
+          {/* NÚT MAIN */}
+          {productsLength > 1 && (
             <>
               <button
-                onClick={handlePrevSlide}
-                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 bg-white hover:bg-gradient-to-r hover:from-purple-600 hover:to-blue-600 text-gray-700 hover:text-white rounded-full p-3 shadow-xl z-20 transition-all duration-300 hover:scale-110 hover:shadow-2xl border border-gray-200 group"
-                aria-label="Previous slide"
+                onClick={handleMainPrev}
+                className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 p-3 rounded-full shadow-xl z-20 hover:scale-110 transition"
+                aria-label="Prev main"
               >
-                <ChevronLeft className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                <ChevronLeft className="w-6 h-6" />
               </button>
               <button
-                onClick={handleNextSlide}
-                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 bg-white hover:bg-gradient-to-r hover:from-purple-600 hover:to-blue-600 text-gray-700 hover:text-white rounded-full p-3 shadow-xl z-20 transition-all duration-300 hover:scale-110 hover:shadow-2xl border border-gray-200 group"
-                aria-label="Next slide"
+                onClick={handleMainNext}
+                className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 p-3 rounded-full shadow-xl z-20 hover:scale-110 transition"
+                aria-label="Next main"
               >
-                <ChevronRight className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                <ChevronRight className="w-6 h-6" />
               </button>
             </>
           )}
 
-          {/* Dots Indicator */}
-          {totalSlides > 1 && (
-            <div className="flex justify-center items-center gap-2 mt-8">
-              {Array.from({ length: totalSlides }).map((_, index) => (
+          {/* DOTS */}
+          {productsLength > 1 && (
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-20">
+              {Array.from({ length: productsLength }).map((_, i) => (
                 <button
-                  key={index}
-                  onClick={() => handleSlideChange(index)}
-                  className="relative group"
-                  aria-label={`Go to slide ${index + 1}`}
-                >
-                  <div
-                    className={`h-2 rounded-full transition-all duration-500 ${
-                      currentSlide === index
-                        ? "w-10 bg-gradient-to-r from-purple-600 to-blue-600 shadow-lg"
-                        : "w-2 bg-gray-300 hover:bg-gray-400 group-hover:w-6"
-                    }`}
-                  />
-                  {currentSlide === index && (
-                    <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full animate-pulse opacity-75"></div>
-                  )}
-                </button>
+                  key={i}
+                  onClick={() => handleCardClick(i)}
+                  className={`h-2 rounded-full transition-all ${
+                    i === mainSlide
+                      ? "w-10 bg-white shadow-lg"
+                      : "w-2 bg-white/50 hover:bg-white/80"
+                  }`}
+                />
               ))}
             </div>
           )}
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes blob {
-          0%, 100% {
-            transform: translate(0, 0) scale(1);
-          }
-          33% {
-            transform: translate(30px, -50px) scale(1.1);
-          }
-          66% {
-            transform: translate(-20px, 20px) scale(0.9);
-          }
-        }
-        .animate-blob {
-          animation: blob 7s infinite;
-        }
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
-      `}</style>
-    </div>
+    </section>
   );
 }
-
