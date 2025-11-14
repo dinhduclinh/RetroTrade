@@ -23,7 +23,9 @@ export default function GoogleCallbackPage() {
           return;
         }
 
-        // Decode ID token to extract profile
+        // Decode ID token to extract profile (Google ID token, not our JWT)
+        // Note: Google ID token is different from our JWT, but we can still use jwtDecode
+        // However, for Google ID token, we'll decode it manually since it's not our token format
         const payloadJson = JSON.parse(atob(idToken.split(".")[1] || ""));
         const email = payloadJson?.email as string | undefined;
         const fullName = payloadJson?.name as string | undefined;

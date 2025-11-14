@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/store/redux_store";
-import { jwtDecode } from "jwt-decode";
+import { decodeToken, type DecodedToken } from '@/utils/jwtHelper';
 import { useRouter } from "next/router";
 import {
   connectSocket,
@@ -26,32 +26,13 @@ import { Search } from "lucide-react";
 import Image from "next/image";
 import Head from "next/head";
 
-interface DecodedToken {
-  email: string;
-  userGuid?: string;
-  avatarUrl?: string;
-  fullName?: string;
-  _id?: string;
-  exp: number;
-  iat: number;
-}
-
 const MessagesPage = () => {
   const router = useRouter();
   const { accessToken } = useSelector((state: RootState) => state.auth);
   
   // Decode user from token
   const user = useMemo(() => {
-    if (typeof accessToken === "string" && accessToken.trim()) {
-      try {
-        const decoded = jwtDecode<DecodedToken>(accessToken);
-        return decoded;
-      } catch (error) {
-        console.error("Invalid token:", error);
-        return null;
-      }
-    }
-    return null;
+    return decodeToken(accessToken);
   }, [accessToken]);
   
   const [conversations, setConversations] = useState<Conversation[]>([]);

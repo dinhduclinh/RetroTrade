@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/store/redux_store";
-import { jwtDecode } from "jwt-decode";
+import { decodeToken, type DecodedToken } from '@/utils/jwtHelper';
 import { useRouter } from "next/router";
 import Head from "next/head";
 import { ModeratorSidebar } from "@/components/ui/moderator/moderator-sidebar";
@@ -26,31 +26,12 @@ import EmojiPicker from "@/components/common/chat/EmojiPicker";
 import Image from "next/image";
 import { Search } from "lucide-react";
 
-interface DecodedToken {
-  email: string;
-  userGuid?: string;
-  avatarUrl?: string;
-  fullName?: string;
-  _id?: string;
-  role?: string;
-  exp: number;
-  iat: number;
-}
-
 const ModeratorMessagesPage: React.FC = () => {
   const router = useRouter();
   const { accessToken } = useSelector((state: RootState) => state.auth);
 
   const user = useMemo(() => {
-    if (typeof accessToken === "string" && accessToken.trim()) {
-      try {
-        const decoded = jwtDecode<DecodedToken>(accessToken);
-        return decoded;
-      } catch {
-        return null;
-      }
-    }
-    return null;
+    return decodeToken(accessToken);
   }, [accessToken]);
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
