@@ -40,7 +40,7 @@ import { RootState, AppDispatch } from "@/store/redux_store";
 import { logout, toggleDarkMode } from "@/store/auth/authReducer";
 import { fetchCartItemCount } from "@/store/cart/cartActions";
 import { jwtDecode } from "jwt-decode";
-import { decodeToken, type DecodedToken } from '@/utils/jwtHelper';
+import { decodeToken, type DecodedToken } from "@/utils/jwtHelper";
 import { toast } from "sonner";
 import Image from "next/image";
 
@@ -84,8 +84,8 @@ export function Header() {
       const currentPath = router.pathname;
 
       // Redirect logic dựa trên role
-      if (currentPath === '/') {
-        router.push('/home');
+      if (currentPath === "/") {
+        router.push("/home");
       }
     } else {
       // Token không hợp lệ hoặc hết hạn
@@ -101,9 +101,9 @@ export function Header() {
   // Apply dark mode to document
   useEffect(() => {
     if (isDarkMode) {
-      document.documentElement.classList.add('dark');
+      document.documentElement.classList.add("dark");
     } else {
-      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.remove("dark");
     }
   }, [isDarkMode]);
 
@@ -125,32 +125,32 @@ export function Header() {
     setUserInfo(null);
     dispatch(logout());
     toast.success("Đăng xuất thành công");
-    router.push('/');
+    router.push("/");
   };
 
   const handleGoToProfile = () => {
-    router.push('/auth/profile');
+    router.push("/auth/profile");
   };
 
   const handleGoToOrders = () => {
-    router.push('/order');
+    router.push("/order");
   };
 
   const handleGoToAdminPanel = () => {
-    router.push('/admin');
+    router.push("/admin");
   };
 
   const handleGoToModeratorPanel = () => {
-    router.push('/moderator');
+    router.push("/moderator");
   };
 
   const handleGoToOwnerPanel = () => {
-    router.push('/owner');
+    router.push("/owner");
   };
 
-    const handleGoToMyfavirite = () => {
-      router.push("/products/myfavorite");
-    };
+  const handleGoToMyfavirite = () => {
+    router.push("/products/myfavorite");
+  };
 
   // Render menu items dựa trên role
   const renderRoleSpecificMenuItems = () => {
@@ -280,7 +280,6 @@ export function Header() {
           </nav>
 
           <div className="flex items-center gap-4 z-[100]">
-           
             {isLoggedIn && (
               <>
                 <Button

@@ -7,7 +7,7 @@ import { createOrderAction } from "@/store/order/orderActions";
 import { removeItemFromCartAction } from "@/store/cart/cartActions";
 import type { CartItem } from "@/services/auth/cartItem.api";
 import { format } from "date-fns";
-import { RootState, AppDispatch } from "@/store/redux_store";
+import { RootState } from "@/store/redux_store";
 import { decodeToken } from "@/utils/jwtHelper";
 import { getUserProfile } from "@/services/auth/user.api";
 import {
@@ -44,6 +44,7 @@ import { payOrderWithWallet } from "@/services/wallet/wallet.api";
 import PopupModal from "@/components/ui/common/PopupModal";
 
 import { AddressSelector } from "@/components/ui/auth/address/address-selector";
+
 
 const calculateRentalDays = (item: CartItem): number => {
   if (!item.rentalStartDate || !item.rentalEndDate) return 0;
@@ -116,7 +117,7 @@ type ApiError = {
 };
 
 export default function Checkout() {
-  const dispatch = useDispatch<AppDispatch>();
+  const dispatch = useDispatch<any>();
   const router = useRouter();
   const accessToken = useSelector((state: RootState) => state.auth.accessToken);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
@@ -378,7 +379,7 @@ export default function Checkout() {
   const goToPage = (page: number) => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
@@ -680,17 +681,39 @@ export default function Checkout() {
   };
 
   // Validate item changes
-  const validateItem = (itemId: string, data: {
-    quantity: number;
-    rentalStartDate: string;
-    rentalEndDate: string;
-  }, item: CartItem): { isValid: boolean; errors: { quantity?: string; rentalStartDate?: string; rentalEndDate?: string } } => {
-    const errors: { quantity?: string; rentalStartDate?: string; rentalEndDate?: string } = {};
+  const validateItem = (
+    itemId: string,
+    data: {
+      quantity: number;
+      rentalStartDate: string;
+      rentalEndDate: string;
+    },
+    item: CartItem
+  ): {
+    isValid: boolean;
+    errors: {
+      quantity?: string;
+      rentalStartDate?: string;
+      rentalEndDate?: string;
+    };
+  } => {
+    const errors: {
+      quantity?: string;
+      rentalStartDate?: string;
+      rentalEndDate?: string;
+    } = {};
 
     // Validate quantity
-    if (!data.quantity || data.quantity < 1 || !Number.isInteger(data.quantity)) {
+    if (
+      !data.quantity ||
+      data.quantity < 1 ||
+      !Number.isInteger(data.quantity)
+    ) {
       errors.quantity = "Số lượng phải là số nguyên dương";
-    } else if (item.availableQuantity !== undefined && data.quantity > item.availableQuantity) {
+    } else if (
+      item.availableQuantity !== undefined &&
+      data.quantity > item.availableQuantity
+    ) {
       errors.quantity = `Số lượng không được vượt quá ${item.availableQuantity} sản phẩm có sẵn`;
     }
 
@@ -718,7 +741,7 @@ export default function Checkout() {
 
     return {
       isValid: Object.keys(errors).length === 0,
-      errors
+      errors,
     };
   };
 
@@ -730,7 +753,7 @@ export default function Checkout() {
         quantity: item.quantity,
         rentalStartDate: formatDateTimeLocal(item.rentalStartDate || ""),
         rentalEndDate: formatDateTimeLocal(item.rentalEndDate || ""),
-      }
+      },
     });
     setItemErrors({ ...itemErrors, [item._id]: {} });
   };
@@ -746,22 +769,26 @@ export default function Checkout() {
   };
 
   // Update editing field
-  const updateEditingField = (itemId: string, field: string, value: string | number) => {
+  const updateEditingField = (
+    itemId: string,
+    field: string,
+    value: string | number
+  ) => {
     setEditingItems({
       ...editingItems,
       [itemId]: {
         ...editingItems[itemId],
-        [field]: value
-      }
+        [field]: value,
+      },
     });
     // Clear error for this field when user starts typing
-    if (itemErrors[itemId]?.[field as keyof typeof itemErrors[string]]) {
+    if (itemErrors[itemId]?.[field as keyof (typeof itemErrors)[string]]) {
       setItemErrors({
         ...itemErrors,
         [itemId]: {
           ...itemErrors[itemId],
-          [field]: undefined
-        }
+          [field]: undefined,
+        },
       });
     }
   };
@@ -777,13 +804,13 @@ export default function Checkout() {
     if (!validation.isValid) {
       setItemErrors({
         ...itemErrors,
-        [item._id]: validation.errors
+        [item._id]: validation.errors,
       });
       return;
     }
 
     // Update cartItems
-    const updatedItems = cartItems.map(cartItem => {
+    const updatedItems = cartItems.map((cartItem) => {
       if (cartItem._id === item._id) {
         return {
           ...cartItem,
@@ -1533,9 +1560,9 @@ export default function Checkout() {
                 <div className="mt-6">
                 <AddressSelector
                   selectedAddressId={selectedAddressId}
-                  onSelect={(address) => {
-                    setSelectedAddressId(address._id);
-                    applyAddressToShipping(address);
+                  onSelect={(addr) => {
+                    setSelectedAddressId(addr._id);
+                    applyAddressToShipping(addr);
                   }}
                 />
               </div>
@@ -1947,6 +1974,39 @@ export default function Checkout() {
                     {depositTotal.toLocaleString("vi-VN")}₫
                   </span>
                 </div>
+                {publicDiscount && publicDiscountAmount > 0 && (
+                  <div className="flex justify-between items-center py-2 border-b border-white/20">
+                    <span className="text-blue-200 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4" />
+                      Giảm giá công khai ({publicDiscount.code})
+                    </span>
+                    <span className="font-semibold text-blue-100">
+                      -{publicDiscountAmount.toLocaleString("vi-VN")}₫
+                    </span>
+                  </div>
+                )}
+                {privateDiscount && privateDiscountAmount > 0 && (
+                  <div className="flex justify-between items-center py-2 border-b border-white/20">
+                    <span className="text-purple-200 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4" />
+                      Giảm giá riêng tư ({privateDiscount.code})
+                    </span>
+                    <span className="font-semibold text-purple-100">
+                      -{privateDiscountAmount.toLocaleString("vi-VN")}₫
+                    </span>
+                  </div>
+                )}
+                {totalDiscountAmount > 0 && (
+                  <div className="flex justify-between items-center py-2 border-b border-white/20">
+                    <span className="text-green-200 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4" />
+                      Tổng giảm giá
+                    </span>
+                    <span className="font-semibold text-green-100">
+                      -{totalDiscountAmount.toLocaleString("vi-VN")}₫
+                    </span>
+                  </div>
+                )}
                 <div className="pt-2">
                   <p className="text-xs text-emerald-100 text-center italic">
                     (Hoàn lại tiền cọc sau khi trả đồ)
@@ -1956,7 +2016,9 @@ export default function Checkout() {
 
               <div className="mt-6 bg-white/20 rounded-xl p-4 backdrop-blur-sm border border-white/30">
                 <div className="flex justify-between items-center">
-                  <span className="text-lg font-semibold text-white">Tổng cộng</span>
+                  <span className="text-lg font-semibold text-white">
+                    Tổng cộng
+                  </span>
                   <span className="text-3xl font-bold text-yellow-200">
                     {grandTotal.toLocaleString("vi-VN")}₫
                   </span>
@@ -1993,7 +2055,7 @@ export default function Checkout() {
      
       {/* Confirm Popup */}
       {confirmPopup.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-1000 flex items-center justify-center p-4">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"

@@ -31,12 +31,11 @@ import {
   User,
   Mail,
   Store,
-  ArrowLeft,
 } from "lucide-react";
 import type { Order } from "@/services/auth/order.api";
 import Image from "next/image";
 import Link from "next/link";
-
+import { getCurrentTax } from "@/services/tax/tax.api";
 interface TimelineStep {
   status: string;
   label: string;
@@ -56,7 +55,6 @@ const getUnitName = (priceUnit: string | undefined): string => {
   };
   return map[priceUnit] || "đơn vị";
 };
-
 
 const calculateRentalAmount = (order: Order): number => {
   const basePrice = order.itemSnapshot.basePrice ?? 0;
@@ -90,18 +88,18 @@ const getPaymentStatusLabel = (status: string): string => {
   return statusMap[status.toLowerCase()] || status;
 };
 
-export default function OrderDetail({ id: propId }: { id?: string }) {
+export default function OrderDetail() {
   const router = useRouter();
-  const { id: routeId, orderId: queryOrderId } = router.query as { id?: string; orderId?: string };
-  const id = propId || queryOrderId || routeId;
+  const { id } = router.query;
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-
   const [pendingAction, setPendingAction] = useState<() => Promise<void>>(
-    () => async () => { }
+    () => async () => {}
   );
+  const [taxRate, setTaxRate] = useState<number | null>(null);
+
   useEffect(() => {
     if (id) {
       loadOrder();
@@ -114,6 +112,25 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
       const res = await getOrderDetails(id as string);
       if (res.data) {
         setOrder(res.data);
+        const rentalAmount = calculateRentalAmount(res.data);
+        const serviceFee = res.data.serviceFee || 0;
+        if (rentalAmount > 0 && serviceFee > 0) {
+          const calculatedTaxRate = Math.round(
+            (serviceFee / rentalAmount) * 100
+          );
+          setTaxRate(calculatedTaxRate);
+        } else {
+          try {
+            const taxResponse = await getCurrentTax();
+            if (taxResponse.success && taxResponse.data) {
+              setTaxRate(taxResponse.data.taxRate);
+            } else {
+              setTaxRate(3);
+            }
+          } catch {
+            setTaxRate(3);
+          }
+        }
       }
     } catch (error) {
       console.error("Lỗi tải đơn hàng:", error);
@@ -211,33 +228,45 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
     { label: "Đơn hàng", href: "/order", icon: ShoppingBag },
     { label: "Chi tiết đơn hàng", href: `/order/${id}`, icon: Eye },
   ];
- 
-  // Breadcrumb removed in inline render
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50 py-8 px-4">
       <div className="max-w-5xl mx-auto">
-        <div className="mb-4">
-          <button
-            onClick={() => {
-              const { pathname, query } = router;
-              const q = query as Record<string, string | string[]>;
-              if (Object.prototype.hasOwnProperty.call(q, "orderId")) {
-                const newQuery: Record<string, string | string[]> = { ...q };
-                delete (newQuery as Record<string, unknown>).orderId;
-                router.replace({ pathname, query: newQuery }, undefined, {
-                  shallow: true,
-                });
-              } else {
-                router.back();
-              }
-            }}
-            className="inline-flex items-center gap-2 text-sm text-gray-700 hover:text-emerald-700 hover:underline"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Quay lại
-          </button>
-        </div>
+        {/* Breadcrumb Navigation */}
+        <nav className="mb-6">
+          <div className="flex items-center space-x-2 text-sm">
+            {breadcrumbs.map((breadcrumb, index) => {
+              const IconComponent = breadcrumb.icon;
+              const isLast = index === breadcrumbs.length - 1;
+
+              return (
+                <div
+                  key={breadcrumb.href}
+                  className="flex items-center space-x-2"
+                >
+                  {index > 0 && (
+                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                  )}
+
+                  {isLast ? (
+                    <span className="flex items-center space-x-1 text-gray-900 font-medium">
+                      {IconComponent && <IconComponent className="w-4 h-4" />}
+                      <span>{breadcrumb.label}</span>
+                    </span>
+                  ) : (
+                    <Link
+                      href={breadcrumb.href}
+                      className="flex items-center space-x-1 text-gray-600 hover:text-blue-600 transition-colors"
+                    >
+                      {IconComponent && <IconComponent className="w-4 h-4" />}
+                      <span>{breadcrumb.label}</span>
+                    </Link>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </nav>
 
         {/* Header */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
@@ -255,14 +284,15 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
             <div className="text-right">
               <span
                 className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium
-                ${order.orderStatus === "completed"
+                ${
+                  order.orderStatus === "completed"
                     ? "bg-green-100 text-green-700"
                     : order.orderStatus === "cancelled"
-                      ? "bg-red-100 text-red-700"
-                      : order.orderStatus === "progress"
-                        ? "bg-blue-100 text-blue-700"
-                        : "bg-yellow-100 text-yellow-700"
-                  }`}
+                    ? "bg-red-100 text-red-700"
+                    : order.orderStatus === "progress"
+                    ? "bg-blue-100 text-blue-700"
+                    : "bg-yellow-100 text-yellow-700"
+                }`}
               >
                 {getOrderStatusLabel(order.orderStatus)}
               </span>
@@ -540,12 +570,13 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
                     .map((step, idx) => (
                       <div key={idx} className="flex items-center gap-4">
                         <div
-                          className={`w-10 h-10 rounded-full flex items-center justify-center ${step.current
+                          className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                            step.current
                               ? "bg-emerald-600 text-white"
                               : step.active
-                                ? "bg-emerald-100 text-emerald-700"
-                                : "bg-gray-200 text-gray-400"
-                            }`}
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-gray-200 text-gray-400"
+                          }`}
                         >
                           {step.active || step.current ? (
                             <CheckCircle2 className="w-5 h-5" />
@@ -555,12 +586,13 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
                         </div>
                         <div className="flex-1">
                           <p
-                            className={`font-medium ${step.current
+                            className={`font-medium ${
+                              step.current
                                 ? "text-emerald-700"
                                 : step.active
-                                  ? "text-gray-700"
-                                  : "text-gray-400"
-                              }`}
+                                ? "text-gray-700"
+                                : "text-gray-400"
+                            }`}
                           >
                             {step.label}
                           </p>
@@ -614,7 +646,10 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
                 </div>
 
                 <div className="flex justify-between text-cyan-200">
-                  <span>Phí dịch vụ</span>
+                  <span>
+                    Phí dịch vụ
+                    {taxRate !== null ? ` (${taxRate}%)` : ""}
+                  </span>
                   <span>
                     {(order.serviceFee || 0).toLocaleString("vi-VN")}₫
                   </span>
@@ -627,69 +662,13 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
                   </span>
                 </div>
 
-                {order.discount &&
-                  ((order.discount.amountApplied ?? 0) > 0 ||
-                    (order.discount.secondaryAmountApplied ?? 0) > 0 ||
-                    (order.discount.totalAmountApplied ?? 0) > 0) && (
-                    <div className="flex justify-between text-green-200 border-t border-emerald-400 pt-3">
-                      <span>Giảm giá</span>
-                      <span className="font-medium">
-                        -
-                        {(
-                          order.discount.totalAmountApplied ||
-                          order.discount.amountApplied ||
-                          0
-                        ).toLocaleString("vi-VN")}
-                        ₫
-                      </span>
-                    </div>
-                  )}
-
                 <div className="border-t border-emerald-400 pt-3">
                   <div className="flex justify-between text-lg font-bold">
                     <span>Tổng thanh toán</span>
                     <span className="text-2xl">
-                      {(order.finalAmount || order.totalAmount).toLocaleString(
-                        "vi-VN"
-                      )}
-                      ₫
+                      {order.totalAmount.toLocaleString("vi-VN")}₫
                     </span>
                   </div>
-                  {order.discount &&
-                    (order.discount.code || order.discount.secondaryCode) && (
-                      <div className="mt-2 text-xs text-emerald-200/80">
-                        {order.discount.code && (
-                          <div>
-                            Mã công khai: {order.discount.code}{" "}
-                            {order.discount.type === "percent"
-                              ? `(${order.discount.value}%)`
-                              : `(${(order.discount.value ?? 0).toLocaleString(
-                                  "vi-VN"
-                                )}₫)`}{" "}
-                            -{" "}
-                            {(order.discount.amountApplied || 0).toLocaleString(
-                              "vi-VN"
-                            )}
-                            ₫
-                          </div>
-                        )}
-                        {order.discount.secondaryCode && (
-                          <div>
-                            Mã riêng tư: {order.discount.secondaryCode}{" "}
-                            {order.discount.secondaryType === "percent"
-                              ? `(${order.discount.secondaryValue}%)`
-                              : `(${order.discount.secondaryValue?.toLocaleString(
-                                  "vi-VN"
-                                )}₫)`}{" "}
-                            -{" "}
-                            {(
-                              order.discount.secondaryAmountApplied || 0
-                            ).toLocaleString("vi-VN")}
-                            ₫
-                          </div>
-                        )}
-                      </div>
-                    )}
                 </div>
               </div>
             </div>
@@ -703,13 +682,14 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
                 <span className="text-gray-700">Thanh toán</span>
                 <span
                   className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium
-                    ${order.paymentStatus === "paid"
-                      ? "bg-green-100 text-green-700"
-                      : order.paymentStatus === "not_paid"
+                    ${
+                      order.paymentStatus === "paid"
+                        ? "bg-green-100 text-green-700"
+                        : order.paymentStatus === "not_paid"
                         ? "bg-yellow-100 text-yellow-700"
                         : order.paymentStatus === "refunded"
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-gray-100 text-gray-700"
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-gray-100 text-gray-700"
                     }`}
                 >
                   {order.paymentStatus === "paid" && (

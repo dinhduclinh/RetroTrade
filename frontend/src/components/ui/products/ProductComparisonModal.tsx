@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, XCircle, Clock, DollarSign, Heart, Eye, Calendar, CheckCircle, Users } from 'lucide-react';
+import { X, Plus, XCircle, Clock, DollarSign, Bookmark, Eye, Calendar, CheckCircle, Users } from 'lucide-react';
 import Image from 'next/image';
 import { getComparableProducts } from '@/services/products/product.api';
 
@@ -272,7 +272,7 @@ export default function ProductComparisonModal({ isOpen, onClose, currentProduct
                       {product1.ViewCount || 0}
                     </span>
                     <span className="flex items-center text-gray-500">
-                      <Heart className="h-4 w-4 mr-1 text-red-500" />
+                      <Bookmark className="h-4 w-4 mr-1 text-yellow-500" />
                       {product1.FavoriteCount || 0}
                     </span>
                   </div>
@@ -349,7 +349,7 @@ export default function ProductComparisonModal({ isOpen, onClose, currentProduct
                       {product2.ViewCount || 0}
                     </span>
                     <span className="flex items-center text-gray-500">
-                      <Heart className="h-4 w-4 mr-1 text-red-500" />
+                      <Bookmark className="h-4 w-4 mr-1 text-yellow-500" />
                       {product2.FavoriteCount || 0}
                     </span>
                   </div>
@@ -500,8 +500,8 @@ export default function ProductComparisonModal({ isOpen, onClose, currentProduct
                         <span className="flex items-center" title="Lượt xem">
                           <Eye className="h-4 w-4 mr-1" /> {product1.ViewCount || 0}
                         </span>
-                        <span className="flex items-center text-red-500" title="Yêu thích">
-                          <Heart className="h-4 w-4 mr-1" /> {product1.FavoriteCount || 0}
+                        <span className="flex items-center text-yellow-500" title="Yêu thích">
+                          <Bookmark className="h-4 w-4 mr-1" /> {product1.FavoriteCount || 0}
                         </span>
                       </div>
                     </td>
@@ -510,8 +510,8 @@ export default function ProductComparisonModal({ isOpen, onClose, currentProduct
                         <span className="flex items-center" title="Lượt xem">
                           <Eye className="h-4 w-4 mr-1" /> {product2.ViewCount || 0}
                         </span>
-                        <span className="flex items-center text-red-500" title="Yêu thích">
-                          <Heart className="h-4 w-4 mr-1" /> {product2.FavoriteCount || 0}
+                        <span className="flex items-center text-yellow-500" title="Yêu thích">
+                          <Bookmark className="h-4 w-4 mr-1" /> {product2.FavoriteCount || 0}
                         </span>
                       </div>
                     </td>

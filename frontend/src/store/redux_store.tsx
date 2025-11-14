@@ -4,7 +4,7 @@ import { combineReducers } from 'redux';
 import authReducer from '@/store/auth/authReducer';
 import cartReducer from '@/store/cart/cartReducer';
 import presenceReducer from '@/store/presence/presence.slice';
-
+import orderReducer from "@/store/order/orderReducer";
 // Import storage with proper error handling
 import createWebStorage from 'redux-persist/lib/storage/createWebStorage';
 
@@ -42,7 +42,7 @@ const rootReducer = combineReducers({
     auth: persistReducer(authPersistConfig, authReducer),
     cart: cartReducer,
     presence: presenceReducer,
-    
+    order: orderReducer
     // thêm các slice khác ở đây
 });
 
