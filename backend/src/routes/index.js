@@ -26,12 +26,14 @@ const auditRouter = require("./audit/audit.routes");
 const loyaltyRouter = require("./loyalty/loyalty.routes");
 const treeGameRouter = require("./games/tree.routes");
 const adminComplaintRouter = require("./admin/complaint.routes");
+const termsRouter = require("./terms/terms.routes");
 module.exports = (app) => {
     const api = "/api/v1";
     app.use(api + "/auth", userAuthRouter);
     app.use(api + "/user", userRouter);
     app.use(api + "/signature", signatureRouter);
     app.use(api + "/contract", contractRouter);
+    app.use(api + "/terms", termsRouter);
     app.use(api + "/categories", categoryRouter);
     app.use(api + "/products", productRouter);
     app.use(api + "/products/upload", uploadproductRouter);

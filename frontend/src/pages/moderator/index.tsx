@@ -33,7 +33,7 @@ import {
 import ProductCategoryManager from "@/components/ui/moderator/categories/category-management";
 import ProductManagement from "@/components/ui/moderator/product/product-management";
 import TopHighlightTable from "@/components/ui/moderator/product/top-highlight-table";
-import { DisputeManagement } from "@/components/ui/moderator/dispute/dispute-management";
+import DisputeManagementPage from "./dispute";
 
 export default function ModeratorDashboard() {
   console.log(
@@ -45,7 +45,13 @@ export default function ModeratorDashboard() {
   const searchParams = useSearchParams();
   const { accessToken } = useSelector((state: RootState) => state.auth);
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "requests" | "verification" | "blog" | "productManagement" | "messages" | "disputes"
+    | "dashboard"
+    | "requests"
+    | "verification"
+    | "blog"
+    | "productManagement"
+    | "messages"
+    | "dispute"
   >("dashboard");
   const [activeBlogTab, setActiveBlogTab] = useState<
     "posts" | "categories" | "comments" | "tags"
@@ -64,16 +70,16 @@ export default function ModeratorDashboard() {
       | "blog"
       | "productManagement"
       | "messages"
-      | "disputes"
+      | "dispute"
   ) => {
     console.log("Moderator handleTabChange called with:", tab);
-    
+
     // Navigate to messages page (separate route)
     if (tab === "messages") {
       router.push("/moderator/messages");
       return;
     }
-    
+
     // For other tabs, update state and URL query parameter
     setActiveTab(tab);
     const newUrl = `/moderator?tab=${tab}`;
@@ -130,7 +136,7 @@ export default function ModeratorDashboard() {
         "blog",
         "productManagement",
         "messages",
-        "disputes",
+        "dispute",
       ].includes(tab)
     ) {
       console.log("Setting activeTab from URL query parameter:", tab);
@@ -146,7 +152,7 @@ export default function ModeratorDashboard() {
         | "verification"
         | "blog"
         | "productManagement"
-        | "disputes";
+        | "dispute";
       setActiveTab(validTab);
     }
   }, [searchParams, router]);
@@ -236,9 +242,9 @@ export default function ModeratorDashboard() {
       case "requests":
         return <OwnerRequestManagement />;
       case "verification":
-        return <VerificationRequestManagement />;
-      case "disputes":
-        return <DisputeManagement />;
+        return <VerificationQueue />;
+      case "dispute":
+        return <DisputeManagementPage />;
       default:
         return <DashboardOverview />;
     }
@@ -278,8 +284,8 @@ export default function ModeratorDashboard() {
         return "Yêu cầu kiểm duyệt";
       case "verification":
         return "Xác thực tài khoản";
-      case "disputes":
-        return "Xử lý khiếu nại";
+      case "dispute":
+        return "Xử lý Tranh chấp Đơn hàng";
       default:
         return "Dashboard Tổng quan";
     }
@@ -319,8 +325,8 @@ export default function ModeratorDashboard() {
         return "Duyệt và phê duyệt các yêu cầu từ người dùng";
       case "verification":
         return "Xác thực danh tính và thông tin người dùng";
-      case "disputes":
-        return "Quản lý và xử lý các tranh chấp từ người dùng";
+      case "dispute":
+        return "Quản lý và giải quyết khiếu nại tranh chấp đơn hàng";
       default:
         return "Tổng quan về hoạt động và thống kê hệ thống";
     }

@@ -67,6 +67,8 @@ const reportSchema = new Schema({
   },
 });
 
+reportSchema.index({ orderId: 1, status: 1 });
+reportSchema.index({ reporterId: 1, createdAt: -1 });
 
 const Report = mongoose.model("Report", reportSchema);
 

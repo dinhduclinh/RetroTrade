@@ -210,7 +210,6 @@ const OwnerProductDetailPage: React.FC = () => {
     const statusId = product?.StatusId ?? 1;
     const statusConfig = statuses[statusId] || statuses[1];
     const StatusIcon = statusConfig.icon;
-    const hasRejectReason = statusId === 3 && product?.rejectReason;
 
     return (
       <div
@@ -220,11 +219,6 @@ const OwnerProductDetailPage: React.FC = () => {
           <StatusIcon size={14} />
           <span>{statusConfig.text}</span>
         </div>
-        {hasRejectReason && (
-          <p className="text-xs text-white/90 mt-1 p-1 bg-black/20 rounded-md w-full text-left truncate max-w-[200px]">
-            Lý do: {product.rejectReason}
-          </p>
-        )}
       </div>
     );
   };
@@ -254,7 +248,7 @@ const OwnerProductDetailPage: React.FC = () => {
   };
 
   if (!isAuthenticated) {
-    return null; // Redirect handled in useEffect
+    return null; 
   }
 
   if (loading) {
@@ -293,12 +287,19 @@ const OwnerProductDetailPage: React.FC = () => {
     product.Tags?.map((t: ProductTag) => t.Tag?.name || t.name || "").filter(
       Boolean
     ) || [];
-  const reviews = product.Reviews || []; // Assuming Reviews is part of product data; otherwise, fetch separately
+  const reviews = product.Reviews || []; 
 
   const averageRating =
     reviews.length > 0
       ? reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length
       : 0;
+
+  const hasRejectReason = product.StatusId === 3 && product.rejectReason;
+  const rejectReason = product.rejectReason ?? "";
+
+  const mainRejectReason = hasRejectReason
+    ? rejectReason.substring(0, 100) + (rejectReason.length > 100 ? "..." : "")
+    : "";
 
   return (
     <>
@@ -308,21 +309,19 @@ const OwnerProductDetailPage: React.FC = () => {
           <div className="container mx-auto px-4 py-4 max-w-7xl">
             <div className="flex items-center justify-between">
               <div className="mb-8">
-                        <button
-                          onClick={() => router.back()}
-                          className="flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-4 transition-colors"
-                        >
-                          <ArrowLeft size={20} />
-                          <span>Quay lại</span>
-                        </button>
-                        <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
-                          <Package className="w-8 h-8 text-blue-600" />
-                          Chi tiết sản phẩm
-                        </h1>
-                        <p className="text-gray-600">
-                          Xem chi tiết sản phẩm của bạn
-                        </p>
-                      </div>
+                <button
+                  onClick={() => router.back()}
+                  className="flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-4 transition-colors"
+                >
+                  <ArrowLeft size={20} />
+                  <span>Quay lại</span>
+                </button>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center gap-3">
+                  <Package className="w-8 h-8 text-blue-600" />
+                  Chi tiết sản phẩm
+                </h1>
+                <p className="text-gray-600">Xem chi tiết sản phẩm của bạn</p>
+              </div>
               <div className="flex gap-3">
                 <button
                   onClick={() => router.push(`/owner/myproducts/update/${id}`)}
@@ -421,6 +420,11 @@ const OwnerProductDetailPage: React.FC = () => {
               <div className="bg-white rounded-xl p-6 shadow-sm border">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
+                    {hasRejectReason && (
+                      <p className="text-sm text-red-600 bg-red-50 p-2 rounded-md mb-2 border border-red-200">
+                        Lý do từ chối: {mainRejectReason}
+                      </p>
+                    )}
                     <h2 className="text-2xl font-bold text-gray-900 mb-2">
                       {product.Title}
                     </h2>
@@ -465,7 +469,7 @@ const OwnerProductDetailPage: React.FC = () => {
               </div>
 
               {/* Pricing Info */}
-              <div className="bg-white rounded-xl p-6 shadow-sm border">
+              <div className="bg-white rounded-xl p-6 shadow-sm border min-h-[200px] mb-8">
                 <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   <DollarSign size={20} className="text-green-600" />
                   Thông tin giá
@@ -488,13 +492,13 @@ const OwnerProductDetailPage: React.FC = () => {
               </div>
 
               {/* Inventory & Rental Info */}
-              <div className="bg-white rounded-xl p-6 shadow-sm border">
+              <div className="bg-white rounded-xl p-6 shadow-sm border min-h-[200px] mb-4">
                 <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   <Package size={20} className="text-blue-600" />
                   Thông tin cho thuê
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                     <div className="text-sm text-gray-600 mb-1">
                       Tổng số lượng
                     </div>
@@ -502,13 +506,13 @@ const OwnerProductDetailPage: React.FC = () => {
                       {product.Quantity}
                     </div>
                   </div>
-                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                     <div className="text-sm text-gray-600 mb-1">Còn trống</div>
                     <div className="text-xl font-bold text-green-600">
                       {product.AvailableQuantity || product.Quantity}
                     </div>
                   </div>
-                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                     <div className="text-sm text-gray-600 mb-1">
                       Thuê tối thiểu
                     </div>
@@ -517,7 +521,7 @@ const OwnerProductDetailPage: React.FC = () => {
                       {product.PriceUnit?.UnitName || "ngày"}
                     </div>
                   </div>
-                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                     <div className="text-sm text-gray-600 mb-1">
                       Thuê tối đa
                     </div>
@@ -528,60 +532,52 @@ const OwnerProductDetailPage: React.FC = () => {
                   </div>
                 </div>
               </div>
-
-              
             </div>
           </div>
 
-{/* Location & Timeline - Side by side */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* Location */}
-                <div className="bg-white rounded-xl p-6 shadow-sm border">
-                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <MapPin size={20} className="text-red-500" />
-                    Địa điểm
-                  </h3>
-                  <div className="space-y-1 text-gray-700">
-                    <p>
-                      {product.Address}
-                    </p>
-                    <p>
-                      <span className="font-medium">Xã/Phường:</span>{" "}
-                      {product.District}
-                    </p>
-                    <p>
-                      <span className="font-medium">Tỉnh/Thành phố:</span>{" "}
-                      {product.City}
-                    </p>
-                  </div>
-                </div>
+          {/* Location & Timeline*/}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-auto">
+            {/* Location */}
+            <div className="bg-white rounded-xl p-6 shadow-sm border">
+              <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <MapPin size={20} className="text-red-500" />
+                Địa điểm
+              </h3>
+              <div className="space-y-1 text-gray-700">
+                <p className="mb-2">{product.Address}</p>
+                <p className="mb-1">
+                  <span className="font-medium">Xã/Phường:</span>{" "}
+                  {product.District}
+                </p>
+                <p>
+                  <span className="font-medium">Tỉnh/Thành phố:</span>{" "}
+                  {product.City}
+                </p>
+              </div>
+            </div>
 
-                {/* Timeline */}
-                <div className="bg-white rounded-xl p-6 shadow-sm border">
-                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <Clock size={20} className="text-purple-600" />
-                    Thời gian
-                  </h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Ngày tạo:</span>
-                      <span className="font-medium text-gray-900">
-                        {new Date(product.CreatedAt).toLocaleDateString(
-                          "vi-VN"
-                        )}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Cập nhật gần nhất:</span>
-                      <span className="font-medium text-gray-900">
-                        {new Date(product.UpdatedAt).toLocaleDateString(
-                          "vi-VN"
-                        )}
-                      </span>
-                    </div>
-                  </div>
+            {/* Timeline */}
+            <div className="bg-white rounded-xl p-6 shadow-sm border">
+              <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <Clock size={20} className="text-purple-600" />
+                Thời gian
+              </h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Ngày tạo:</span>
+                  <span className="font-medium text-gray-900">
+                    {new Date(product.CreatedAt).toLocaleDateString("vi-VN")}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Cập nhật gần nhất:</span>
+                  <span className="font-medium text-gray-900">
+                    {new Date(product.UpdatedAt).toLocaleDateString("vi-VN")}
+                  </span>
                 </div>
               </div>
+            </div>
+          </div>
 
           {/* Description Section */}
           <div className="bg-white rounded-xl shadow-sm border overflow-hidden mt-6">

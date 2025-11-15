@@ -5,6 +5,10 @@ const Item = require("../../models/Product/Item.model");
 const User = require("../../models/User.model");
 const ItemImages = require("../../models/Product/ItemImage.model");
 const { calculateTotals } = require("./calculateRental");
+const DiscountController = require("./discount.controller");
+const Discount = require("../../models/Discount/Discount.model");
+const DiscountAssignment = require("../../models/Discount/DiscountAssignment.model");
+const DiscountRedemption = require("../../models/Discount/DiscountRedemption.model");
 
 function isTimeRangeOverlap(aStart, aEnd, bStart, bEnd) {
   return new Date(aStart) < new Date(bEnd) && new Date(bStart) < new Date(aEnd);
@@ -38,19 +42,19 @@ module.exports = {
       if (!itemId || !finalStartAt || !finalEndAt || !shippingAddress) {
         await session.abortTransaction();
         return res.status(400).json({
-          message: "Missing required fields",
+          message: "Thiếu các trường bắt buộc",
         });
       }
 
       const item = await Item.findById(itemId).session(session);
       if (!item || item.IsDeleted || item.StatusId !== 2) {
         await session.abortTransaction();
-        return res.status(404).json({ message: "Item unavailable" });
+        return res.status(404).json({ message: "Sản phẩm không có sẵn" });
       }
 
       if (item.AvailableQuantity < quantity) {
         await session.abortTransaction();
-        return res.status(400).json({ message: "Not enough quantity" });
+        return res.status(400).json({ message: "Số lượng không đủ" });
       }
 
       const images = await ItemImages.find({
@@ -87,35 +91,26 @@ module.exports = {
 
       // calculateTotals trả về:
       // - rentalAmount: tiền thuê
-      // - serviceFee: phí dịch vụ
+      // - serviceFee: phí dịch vụ (tính trên rentalAmount + depositAmount)
       // - depositAmount: tiền cọc
-      // - totalAmount: rentalAmount + serviceFee + depositAmount
-      const { totalAmount, rentalAmount, depositAmount, serviceFee, duration, unitName } =
+      const { rentalAmount, depositAmount, serviceFee, duration, unitName } =
         result;
 
-      // === DISCOUNT ===
-      // Discount được tính trên: tiền thuê + tiền cọc (KHÔNG bao gồm serviceFee)
-      // baseAmountForDiscount = rentalAmount + depositAmount
+      // baseAmountForDiscount = tiền thuê + tiền cọc (để tính discount)
       const baseAmountForDiscount = rentalAmount + depositAmount;
       let discountInfo = null;
       let finalAmount = baseAmountForDiscount;
       let totalDiscountAmount = 0;
       const discountCodes = [];
       
-      // Legacy support: if discountCode is provided, use it
       const publicCode = publicDiscountCode || (discountCode ? discountCode : null);
       const privateCode = privateDiscountCode;
-      
-      // Apply public discount first (if exists)
+    
       if (publicCode) {
         try {
-          const DiscountController = require("./discount.controller");
-          const Discount = require("../../models/Discount.model");
-          const DiscountAssignment = require("../../models/Discount/DiscountAssignment.model");
-          const DiscountRedemption = require("../../models/Discount/DiscountRedemption.model");
           const validated = await DiscountController.validateAndCompute({
             code: publicCode,
-            baseAmount: baseAmountForDiscount,
+            baseAmount: baseAmountForDiscount, 
             ownerId: item.OwnerId,
             itemId: item._id,
             userId: renterId,
@@ -130,7 +125,7 @@ module.exports = {
               value: validated.discount.value,
               amountApplied: validated.amount,
             };
-            // Store discount info for later use (after order is created)
+        
             if (!discountInfo._publicDiscountData) {
               discountInfo._publicDiscountData = {
                 discount: validated.discount,
@@ -139,17 +134,12 @@ module.exports = {
             }
           }
         } catch (e) {
-          // ignore discount errors to not block order creation
+         
         }
       }
       
-      // Apply private discount on remaining amount (if exists)
       if (privateCode && finalAmount > 0) {
         try {
-          const DiscountController = require("./discount.controller");
-          const Discount = require("../../models/Discount.model");
-          const DiscountAssignment = require("../../models/Discount/DiscountAssignment.model");
-          const DiscountRedemption = require("../../models/Discount/DiscountRedemption.model");
           const validated = await DiscountController.validateAndCompute({
             code: privateCode,
             baseAmount: finalAmount, // Use remaining amount after public discount
@@ -184,17 +174,12 @@ module.exports = {
             }
           }
         } catch (e) {
-          // ignore discount errors to not block order creation
+        
         }
       }
+      // Công thức: Tổng = tiền thuê + tiền cọc + phí dịch vụ - giảm giá
+      const finalOrderAmount = Math.max(0, rentalAmount + depositAmount + serviceFee - totalDiscountAmount);
 
-      // Tính finalAmount sau khi apply discount
-      // Công thức mới: Tổng = tiền thuê + tiền cọc + (tiền thuê + tiền cọc) * thuế - giảm giá
-      // = rentalAmount + depositAmount + serviceFee - totalDiscountAmount
-      // = totalAmount - totalDiscountAmount
-      const finalOrderAmount = Math.max(0, totalAmount - totalDiscountAmount);
-
-      // Clean up internal data before saving
       const cleanDiscountInfo = discountInfo ? {
         code: discountInfo.code,
         type: discountInfo.type,
@@ -207,7 +192,6 @@ module.exports = {
         totalAmountApplied: discountInfo.totalAmountApplied || totalDiscountAmount,
       } : null;
 
-      // === TẠO ORDER ===
       const orderDoc = await Order.create(
         [
           {
@@ -244,17 +228,12 @@ module.exports = {
 
       
 
-      // Cập nhật DiscountRedemption với orderId và increment usedCount trong transaction
       const publicDiscountData = discountInfo?._publicDiscountData;
       const privateDiscountData = discountInfo?._privateDiscountData;
 
-      // Increment discount usedCount and create DiscountRedemption for public discount
+     
       if (publicDiscountData) {
         try {
-          const Discount = require("../../models/Discount.model");
-          const DiscountAssignment = require("../../models/Discount/DiscountAssignment.model");
-          const DiscountRedemption = require("../../models/Discount/DiscountRedemption.model");
-          
           await Discount.updateOne(
             { _id: publicDiscountData.discount._id },
             { $inc: { usedCount: 1 } },
@@ -268,7 +247,7 @@ module.exports = {
               { session }
             );
           } catch (assignErr) {
-            // Ignore nếu không có assignment (đối với discount công khai không được claim)
+          
           }
           
           try {
@@ -287,13 +266,9 @@ module.exports = {
         }
       }
 
-      // Increment discount usedCount and create DiscountRedemption for private discount
+    
       if (privateDiscountData) {
         try {
-          const Discount = require("../../models/Discount.model");
-          const DiscountAssignment = require("../../models/Discount/DiscountAssignment.model");
-          const DiscountRedemption = require("../../models/Discount/DiscountRedemption.model");
-          
           await Discount.updateOne(
             { _id: privateDiscountData.discount._id },
             { $inc: { usedCount: 1 } },
@@ -337,8 +312,9 @@ module.exports = {
         data: {
           orderId: orderIdString, // Trả về string thay vì ObjectId
           orderGuid: newOrder.orderGuid,
-          totalAmount,
-          finalAmount: finalOrderAmount,
+          rentalAmount: rentalAmount, // Tiền thuê
+          totalAmount: rentalAmount, // Giữ lại để tương thích (totalAmount = rentalAmount)
+          finalAmount: finalOrderAmount, // Tổng cuối cùng sau khi trừ discount
           discount: cleanDiscountInfo,
           depositAmount,
           serviceFee,
@@ -468,10 +444,16 @@ module.exports = {
       }
 
       order.orderStatus = "progress";
+      order.paymentStatus = "paid"; 
       order.lifecycle.startedAt = new Date();
       await order.save();
 
-      return res.json({ message: "Order started", orderGuid: order.orderGuid });
+      return res.json({
+        message: "Order started",
+        orderGuid: order.orderGuid,
+        orderStatus: order.orderStatus,
+        paymentStatus: order.paymentStatus,
+      });
     } catch (err) {
       console.error("startOrder err:", err);
       return res
@@ -758,6 +740,14 @@ module.exports = {
       const order = await Order.findById(orderId)
         .populate("renterId", "fullName email avatarUrl userGuid")
         .populate("ownerId", "fullName email avatarUrl userGuid")
+        .populate({
+          path: "disputeId",
+          select: "status reason createdAt resolution",
+          populate: {
+            path: "handledBy",
+            select: "fullName",
+          },
+        })
         .lean();
 
       if (!order || order.isDeleted)
@@ -787,7 +777,7 @@ module.exports = {
       const userId = req.user._id;
       const { status, paymentStatus, search, page = 1, limit = 20 } = req.query;
 
-      // Cho phép mọi role xem đơn hàng của mình (là renter hoặc owner)
+    
       const filter = {
         isDeleted: false,
         $or: [{ renterId: userId }, { ownerId: userId }],

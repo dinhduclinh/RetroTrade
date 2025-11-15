@@ -46,7 +46,6 @@ const orderSchema = new mongoose.Schema(
       },
     },
     totalAmount: { type: Number, required: true, min: 0 },
-    // discount fields - hỗ trợ cả public và private discount
     discount: {
       // Public discount
       code: String,
@@ -98,6 +97,11 @@ const orderSchema = new mongoose.Schema(
     },
     contractId: { type: Types.ObjectId, ref: "Contract" },
     isContractSigned: { type: Boolean, default: false },
+    disputeId: {
+      type: Types.ObjectId,
+      ref: "Report",
+      default: null,
+    },
     returnInfo: {
       returnedAt: Date,
       confirmedBy: { type: Types.ObjectId, ref: "User" },

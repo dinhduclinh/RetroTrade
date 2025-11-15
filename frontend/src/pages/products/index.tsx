@@ -118,11 +118,11 @@ const normalizeItems = (rawItems: any[]): Product[] => {
       : undefined,
     tags: Array.isArray(item.Tags)
       ? (item.Tags.map((t: any) => {
-          const id = toIdString(t.TagId || t.Tag?._id || t._id || t.id);
-          const name = t.Tag?.name || t.TagName || t.Name || t.name;
-          if (!id || !name) return null;
-          return { _id: id, name };
-        }).filter(Boolean) as { _id: string; name: string }[])
+        const id = toIdString(t.TagId || t.Tag?._id || t._id || t.id);
+        const name = t.Tag?.name || t.TagName || t.Name || t.name;
+        if (!id || !name) return null;
+        return { _id: id, name };
+      }).filter(Boolean) as { _id: string; name: string }[])
       : [],
     city: item.City,
     district: item.District,
@@ -186,7 +186,7 @@ export default function ProductPage() {
       else sp.set("page", String(page));
       const qs = sp.toString();
       router.push(qs ? `${pathname}?${qs}` : pathname);
-    } catch {}
+    } catch { }
   };
   const goToPage = (page: number) => {
     const clamped = Math.max(1, Math.min(totalPages, page));
@@ -196,28 +196,6 @@ export default function ProductPage() {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
-  const bannerImages = useMemo(
-    () => [
-      "/banners/banner-5.jpeg",
-      "/banners/banner-9.jpeg",
-      "/banners/banner-3.jpg",
-    ],
-    []
-  );
-  const [activeBanner, setActiveBanner] = useState(0);
-  const autoplayRef = useRef<NodeJS.Timeout | null>(null);
-  const bannerContainerRef = useRef<HTMLDivElement | null>(null);
-  const sliderRef = useRef<HTMLDivElement>(null);
-  const [imgRatios, setImgRatios] = useState<number[]>([]);
-  const [computedBannerHeight, setComputedBannerHeight] = useState<number>(0);
-  const targetBannerRatio = useMemo(() => {
-    const vals = (imgRatios || []).filter(
-      (v) => typeof v === "number" && v > 0
-    );
-    if (!vals.length) return 0.53;
-    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-    return Math.max(0.4, Math.min(0.65, avg));
-  }, [imgRatios]);
 
   // Fetch featured products
   const fetchFeaturedProducts = useCallback(async () => {
@@ -225,12 +203,12 @@ export default function ProductPage() {
       setIsLoading(true);
       const response = await getHighlightedProducts();
       const result = await response.json();
-      
+
       if (response.ok && result.success) {
         const formattedProducts = (result.data || []).map((product: any) => {
           // Get the thumbnail URL from the API response
           let thumbnailUrl = product.thumbnail || '/placeholder-image.jpg';
-          
+
           // If no thumbnail, check the images array as fallback
           if (!thumbnailUrl || thumbnailUrl === '/placeholder-image.jpg') {
             if (product.images && product.images.length > 0) {
@@ -242,7 +220,7 @@ export default function ProductPage() {
               }
             }
           }
-          
+
           // Ensure the URL is properly formatted
           if (thumbnailUrl && thumbnailUrl !== '/placeholder-image.jpg') {
             // If it's a relative path, make sure it's served from the public folder
@@ -256,12 +234,12 @@ export default function ProductPage() {
               thumbnailUrl = `${process.env.NEXT_PUBLIC_API_URL || ''}/${cleanPath}`;
             }
           }
-          
+
           console.log('Final thumbnail URL:', thumbnailUrl); // Debug log
-          
+
           // Map PriceUnitId to the corresponding unit name
           const getUnitName = (priceUnitId: number) => {
-            switch(priceUnitId) {
+            switch (priceUnitId) {
               case 1: return 'giờ';
               case 2: return 'ngày';
               case 3: return 'tuần';
@@ -269,13 +247,13 @@ export default function ProductPage() {
               default: return 'ngày';
             }
           };
-          
+
           // Use PriceUnitId if available, otherwise fall back to priceUnit from the backend
-          const unitName = product.PriceUnitId ? getUnitName(product.PriceUnitId) : 
-                         (product.priceUnit?.UnitName || 'ngày');
-          
+          const unitName = product.PriceUnitId ? getUnitName(product.PriceUnitId) :
+            (product.priceUnit?.UnitName || 'ngày');
+
           const priceUnit = { UnitName: unitName };
-          
+
           return {
             _id: product._id || '',
             title: product.Title || 'No title',
@@ -295,18 +273,18 @@ export default function ProductPage() {
             district: product.District,
             condition: product.condition || { ConditionName: 'Used' },
             priceUnit: priceUnit,
-            category: product.category ? { 
-              _id: product.category._id || (product.CategoryId || ''), 
-              name: product.category.Name || product.category.name || '' 
+            category: product.category ? {
+              _id: product.category._id || (product.CategoryId || ''),
+              name: product.category.Name || product.category.name || ''
             } : null,
-            tags: (product.tags || []).map((tag: any) => ({ 
-              _id: tag._id, 
-              name: tag.Name || tag.name 
+            tags: (product.tags || []).map((tag: any) => ({
+              _id: tag._id,
+              name: tag.Name || tag.name
             })),
             isHighlighted: true // Since we're fetching highlighted products
           };
         });
-        
+
         setFeaturedProducts(formattedProducts);
       } else {
         throw new Error(result.message || 'Failed to fetch highlighted products');
@@ -461,38 +439,6 @@ export default function ProductPage() {
     dispatch,
     router,
   ]);
-  // Autoplay banner
-  useEffect(() => {
-    if (bannerImages.length <= 1) return;
-    if (autoplayRef.current) clearInterval(autoplayRef.current);
-    autoplayRef.current = setInterval(() => {
-      setActiveBanner((p) => (p + 1) % bannerImages.length);
-    }, 8000);
-    return () => {
-      if (autoplayRef.current) clearInterval(autoplayRef.current);
-    };
-  }, [bannerImages.length]);
-
-  // Recalculate banner height based on container width & a stable target ratio
-  useEffect(() => {
-    const recalc = () => {
-      const container = bannerContainerRef.current;
-      if (!container) return;
-
-      const containerWidth = container.clientWidth;
-      const naturalHeight = containerWidth * targetBannerRatio;
-
-      const minH = 260;
-      const maxH = 560;
-      const targetH = Math.max(minH, Math.min(maxH, Math.round(naturalHeight)));
-
-      setComputedBannerHeight(targetH);
-    };
-
-    recalc();
-    window.addEventListener("resize", recalc);
-    return () => window.removeEventListener("resize", recalc);
-  }, [targetBannerRatio]);
 
   // Filter items
   useEffect(() => {
@@ -772,108 +718,10 @@ export default function ProductPage() {
   }
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 py-6">
-      {/* BANNER - HOÀN CHỈNH & RESPONSIVE */}
-      <div className="container mx-auto px-4 max-w-7xl mb-6">
-        <div
-          ref={bannerContainerRef}
-          className="relative bg-white rounded-2xl shadow overflow-hidden"
-          style={{ height: computedBannerHeight > 0 ? `${computedBannerHeight}px` : undefined, minHeight: 260, maxHeight: 600 }}
-        >
-          <div
-            className="flex h-full transition-transform duration-700 ease-out will-change-transform"
-            style={{
-              transform: `translateX(-${bannerImages.length > 0 ? (activeBanner * (100 / bannerImages.length)) : 0}%)`,
-              width: `${bannerImages.length * 100}%`,
-            }}
-          >
-            {bannerImages.map((src, idx) => (
-              <div
-                key={idx}
-                className="relative h-full shrink-0 bg-gray-50"
-                style={{ width: `${bannerImages.length > 0 ? (100 / bannerImages.length) : 100}%` }}
-              >
-                <img
-                  src={src}
-                  alt={`banner-${idx + 1}`}
-                  className="absolute inset-0 w-full h-full object-contain"
-                  onLoad={(e) => {
-                    const img = e.currentTarget as HTMLImageElement;
-                    if (img.naturalWidth && img.naturalHeight) {
-                      const ratio = img.naturalHeight / img.naturalWidth;
-                      setImgRatios((prev) => {
-                        const next = [...prev];
-                        next[idx] = ratio;
-                        return next;
-                      });
-                    }
-                  }}
-                  onError={(e) => {
-                    const img = e.currentTarget as HTMLImageElement;
-                    if ((img as any)._fallbackApplied) return;
-                    (img as any)._fallbackApplied = true;
-                    img.src = "/banners/banner-1.jpg";
-                  }}
-                />
-              </div>
-            ))}
-          </div>
-
-          {/* Dots */}
-          {bannerImages.length > 1 && (
-            <div className="absolute inset-x-0 bottom-3 flex justify-center gap-2">
-              {bannerImages.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setActiveBanner(i)}
-                  className={`transition-all duration-300 rounded-full ${
-                    i === activeBanner
-                      ? "bg-blue-600 w-8 h-2"
-                      : "bg-gray-300 w-2 h-2"
-                  }`}
-                  aria-label={`Go to banner ${i + 1}`}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* Navigation Arrows */}
-          {bannerImages.length > 1 && (
-            <>
-              <button
-                onClick={() =>
-                  setActiveBanner(
-                    (p) => (p - 1 + bannerImages.length) % bannerImages.length
-                  )
-                }
-                className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white p-2 rounded-full shadow-md transition"
-                aria-label="Previous"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() =>
-                  setActiveBanner((p) => (p + 1) % bannerImages.length)
-                }
-                className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white p-2 rounded-full shadow-md transition"
-                aria-label="Next"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
       {/* Featured Products Slider */}
       <FeaturedProductsSlider
         featuredProducts={featuredProducts}
         isLoading={isLoading}
-        currentSlide={currentSlide}
-        onSlideChange={setCurrentSlide}
-        onNextSlide={nextSlide}
-        onPrevSlide={prevSlide}
-        onRefresh={fetchFeaturedProducts}
-        getVisibleProducts={getVisibleProducts}
         formatPrice={formatPrice}
       />
 
@@ -1008,11 +856,10 @@ export default function ProductPage() {
                       <span
                         key={t._id}
                         onClick={() => toggleTag(t._id)}
-                        className={`text-xs px-3 py-1 rounded-full cursor-pointer transition ${
-                          active
+                        className={`text-xs px-3 py-1 rounded-full cursor-pointer transition ${active
                             ? "bg-blue-100 text-blue-600"
                             : "bg-gray-100 text-gray-700 hover:bg-blue-100 hover:text-blue-600"
-                        }`}
+                          }`}
                       >
                         #{t.count ? `${t.name} (${t.count})` : t.name}
                       </span>
@@ -1025,9 +872,8 @@ export default function ProductPage() {
 
           {/* Main Content */}
           <main
-            className={`flex-1 transition-all duration-500 ease-out ${
-              mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
-            }`}
+            className={`flex-1 transition-all duration-500 ease-out ${mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+              }`}
           >
             <div className="flex justify-between items-center mb-6">
               <h1 className="text-3xl font-bold">Sản phẩm cho thuê</h1>
@@ -1126,22 +972,20 @@ export default function ProductPage() {
                                 favoriteLoading.has(item._id) ||
                                 !isAuthenticated
                               }
-                              className={`p-1 rounded transition-colors ${
-                                isLocalFavorite
+                              className={`p-1 rounded transition-colors ${isLocalFavorite
                                   ? "text-yellow-500 hover:text-yellow-600"
                                   : "text-gray-500 hover:text-yellow-500"
-                              } ${
-                                favoriteLoading.has(item._id) ||
-                                !isAuthenticated
+                                } ${favoriteLoading.has(item._id) ||
+                                  !isAuthenticated
                                   ? "opacity-50 cursor-not-allowed"
                                   : "cursor-pointer"
-                              }`}
+                                }`}
                               title={
                                 isLocalFavorite
                                   ? "Bỏ yêu thích"
                                   : isAuthenticated
-                                  ? "Thêm yêu thích"
-                                  : "Đăng nhập để yêu thích"
+                                    ? "Thêm yêu thích"
+                                    : "Đăng nhập để yêu thích"
                               }
                             >
                               <Bookmark
@@ -1262,11 +1106,10 @@ export default function ProductPage() {
                 <button
                   onClick={() => goToPage(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className={`px-3 py-2 rounded border text-sm ${
-                    currentPage === 1
+                  className={`px-3 py-2 rounded border text-sm ${currentPage === 1
                       ? "text-gray-400 border-gray-200 cursor-not-allowed"
                       : "text-gray-700 border-gray-300 hover:bg-gray-50"
-                  }`}
+                    }`}
                 >
                   Trước
                 </button>
@@ -1274,11 +1117,10 @@ export default function ProductPage() {
                   <button
                     key={i}
                     onClick={() => goToPage(i + 1)}
-                    className={`w-9 h-9 rounded border text-sm font-medium ${
-                      currentPage === i + 1
+                    className={`w-9 h-9 rounded border text-sm font-medium ${currentPage === i + 1
                         ? "bg-blue-600 text-white border-blue-600"
                         : "text-gray-700 border-gray-300 hover:bg-gray-50"
-                    }`}
+                      }`}
                   >
                     {i + 1}
                   </button>
@@ -1286,11 +1128,10 @@ export default function ProductPage() {
                 <button
                   onClick={() => goToPage(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className={`px-3 py-2 rounded border text-sm ${
-                    currentPage === totalPages
+                  className={`px-3 py-2 rounded border text-sm ${currentPage === totalPages
                       ? "text-gray-400 border-gray-200 cursor-not-allowed"
                       : "text-gray-700 border-gray-300 hover:bg-gray-50"
-                  }`}
+                    }`}
                 >
                   Sau
                 </button>

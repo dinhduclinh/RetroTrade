@@ -496,22 +496,20 @@ export default function OrderDetailPage() {
     order.itemSnapshot.priceUnit
   );
 
-  // Calculate pricing breakdown - giống với logic trong index.tsx
-  // Công thức mới: Tổng = tiền thuê + tiền cọc + (tiền thuê + tiền cọc) * thuế - giảm giá
-  // Theo backend: 
+  // Hiển thị giá từ backend - không tính toán lại
+  // Backend đã tính sẵn tất cả các giá trị:
   // - totalAmount = rentalAmount (tiền thuê)
   // - serviceFee = phí dịch vụ (tính trên tiền thuê + tiền cọc)
   // - depositAmount = tiền cọc
   // - finalAmount = rentalAmount + depositAmount + serviceFee - totalDiscountAmount
   
-  // Tiền thuê (rentalTotal)
-  const rentalTotal = order.totalAmount || 0; // totalAmount là tiền thuê (rentalAmount)
+  // Tiền thuê (rentalTotal) - lấy từ backend
+  const rentalTotal = order.totalAmount || 0;
   
-  // Tiền cọc (depositTotal)
+  // Tiền cọc (depositTotal) - lấy từ backend
   const depositTotal = order.depositAmount || 0;
   
-  // Phí dịch vụ (serviceFeeAmount) - đã được tính sẵn trong order theo công thức mới
-  // serviceFee = (rentalAmount + depositAmount) * serviceFeeRate
+  // Phí dịch vụ (serviceFeeAmount) - lấy từ backend
   const serviceFeeAmount = order.serviceFee || 0;
   
   // Lấy discount info từ order
@@ -520,9 +518,9 @@ export default function OrderDetailPage() {
   const privateDiscountAmount = discount?.secondaryAmountApplied || 0;
   const totalDiscountAmount = discount?.totalAmountApplied || (publicDiscountAmount + privateDiscountAmount);
   
-  // Tính grandTotal theo công thức mới: 
-  // Tổng = tiền thuê + tiền cọc + (tiền thuê + tiền cọc) * thuế - giảm giá
-  const grandTotal = Math.max(0, rentalTotal + depositTotal + serviceFeeAmount - totalDiscountAmount);
+  // Sử dụng finalAmount từ backend (đã tính sẵn)
+  // Nếu không có finalAmount, tính lại: rentalTotal + depositTotal + serviceFeeAmount - totalDiscountAmount
+  const grandTotal = order.finalAmount || Math.max(0, rentalTotal + depositTotal + serviceFeeAmount - totalDiscountAmount);
 
   // Breadcrumb data
   const breadcrumbs = [
@@ -868,23 +866,32 @@ export default function OrderDetailPage() {
                 <CreditCard className="w-8 h-8" />
                 Tóm tắt thanh toán
               </h2>
-              <div className="space-y-4 text-base">
-                <div className="flex justify-between">
-                  <span>Tiền thuê</span>
-                  <span>{formatPrice(rentalTotal, order.currency)}</span>
-                </div>
-                
-                <div className="flex justify-between text-amber-200">
-                  <span>Tiền cọc</span>
-                  <span>{formatPrice(depositTotal, order.currency)}</span>
-                </div>
-                
-                <div className="flex justify-between text-yellow-200">
-                  <span>Phí dịch vụ</span>
-                  <span>{formatPrice(serviceFeeAmount, order.currency)}</span>
+              <div className="space-y-3 text-base">
+                {/* 1. Tiền thuê */}
+                <div className="flex justify-between items-center py-2 border-b border-white/20">
+                  <span className="text-emerald-50">Tiền thuê</span>
+                  <span className="font-semibold text-white">
+                    {formatPrice(rentalTotal, order.currency)}
+                  </span>
                 </div>
 
-                {/* Hiển thị discount nếu có */}
+                {/* 2. Phí dịch vụ */}
+                <div className="flex justify-between items-center py-2 border-b border-white/20">
+                  <span className="text-yellow-200">Phí dịch vụ</span>
+                  <span className="font-semibold text-yellow-100">
+                    {formatPrice(serviceFeeAmount, order.currency)}
+                  </span>
+                </div>
+
+                {/* 3. Tiền cọc */}
+                <div className="flex justify-between items-center py-2 border-b border-white/20">
+                  <span className="text-amber-200">Tiền cọc</span>
+                  <span className="font-semibold text-amber-100">
+                    {formatPrice(depositTotal, order.currency)}
+                  </span>
+                </div>
+
+                {/* 4. Giảm giá (nếu có) */}
                 {totalDiscountAmount > 0 && (
                   <div className="space-y-1">
                     {publicDiscountAmount > 0 && discount?.code && (
@@ -915,9 +922,8 @@ export default function OrderDetailPage() {
                     </div>
                   </div>
                 )}
-                <div className="flex justify-between text-yellow-200 text-xs">
-                  <span>(Hoàn lại tiền cọc sau khi trả đồ)</span>
-                </div>
+
+                {/* 5. Tổng cộng */}
                 <div className="border-t border-emerald-400 pt-3">
                   <div className="flex justify-between text-lg font-bold">
                     <span>Tổng cộng</span>
@@ -925,7 +931,38 @@ export default function OrderDetailPage() {
                       {formatPrice(grandTotal, order.currency)}
                     </span>
                   </div>
+                  <div className="mt-2 text-xs text-emerald-100 text-center italic">
+                    (Hoàn lại tiền cọc sau khi trả đồ)
+                  </div>
                 </div>
+
+                {/* Chi tiết mã giảm giá đã sử dụng */}
+                {discount && (discount.code || discount.secondaryCode) && (
+                  <div className="mt-4 pt-4 border-t border-emerald-400">
+                    <div className="text-xs text-emerald-200/80 space-y-1">
+                      {discount.code && (
+                        <div>
+                          <span className="font-semibold">Mã công khai:</span> {discount.code}{" "}
+                          {discount.type === "percent"
+                            ? `(${discount.value}%)`
+                            : `(${formatPrice(discount.value ?? 0, order.currency)})`}{" "}
+                          -{" "}
+                          {formatPrice(discount.amountApplied || 0, order.currency)}
+                        </div>
+                      )}
+                      {discount.secondaryCode && (
+                        <div>
+                          <span className="font-semibold">Mã riêng tư:</span> {discount.secondaryCode}{" "}
+                          {discount.secondaryType === "percent"
+                            ? `(${discount.secondaryValue}%)`
+                            : `(${formatPrice(discount.secondaryValue ?? 0, order.currency)})`}{" "}
+                          -{" "}
+                          {formatPrice(discount.secondaryAmountApplied || 0, order.currency)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="mt-6 pt-6 border-t border-emerald-400 space-y-3 text-sm">

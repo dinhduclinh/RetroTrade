@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, XCircle, Clock, DollarSign, Heart, Eye, Calendar, CheckCircle, Users } from 'lucide-react';
+import { X, Plus, XCircle, Clock, DollarSign, Bookmark, Eye, Calendar, CheckCircle, Users } from 'lucide-react';
 import Image from 'next/image';
 import { getComparableProducts } from '@/services/products/product.api';
 
@@ -83,6 +83,8 @@ export default function ProductComparisonModal({ isOpen, onClose, currentProduct
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isComparing, setIsComparing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
 
   useEffect(() => {
     if (isOpen && currentProduct?._id) {
@@ -108,14 +110,14 @@ export default function ProductComparisonModal({ isOpen, onClose, currentProduct
       
       const response = await getComparableProducts(
         currentProduct._id,
-        currentProduct.Category._id,
-        5
+        currentProduct.Category._id
       );
       
       console.log('Comparable products response:', response);
       
       if (response && response.data) {
         setComparableProducts(response.data);
+        setCurrentPage(1); // Reset to first page when loading new products
       } else if (response && response.message) {
         setError(response.message);
       }
@@ -162,6 +164,29 @@ export default function ProductComparisonModal({ isOpen, onClose, currentProduct
 
   // Calculate max height based on viewport
   const maxHeight = `calc(100vh - 100px)`;
+
+  // Calculate pagination
+  const totalPages = Math.ceil(comparableProducts.length / itemsPerPage);
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = comparableProducts.slice(indexOfFirstItem, indexOfLastItem);
+
+  // Change page
+  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+
+  // Handle previous page
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(prev => prev - 1);
+    }
+  };
+
+  // Handle next page
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(prev => prev + 1);
+    }
+  };
 
   // Render comparison view
   if (isComparing && selectedProducts.length === 2) {
@@ -247,7 +272,7 @@ export default function ProductComparisonModal({ isOpen, onClose, currentProduct
                       {product1.ViewCount || 0}
                     </span>
                     <span className="flex items-center text-gray-500">
-                      <Heart className="h-4 w-4 mr-1 text-red-500" />
+                      <Bookmark className="h-4 w-4 mr-1 text-yellow-500" />
                       {product1.FavoriteCount || 0}
                     </span>
                   </div>
@@ -324,7 +349,7 @@ export default function ProductComparisonModal({ isOpen, onClose, currentProduct
                       {product2.ViewCount || 0}
                     </span>
                     <span className="flex items-center text-gray-500">
-                      <Heart className="h-4 w-4 mr-1 text-red-500" />
+                      <Bookmark className="h-4 w-4 mr-1 text-yellow-500" />
                       {product2.FavoriteCount || 0}
                     </span>
                   </div>
@@ -475,8 +500,8 @@ export default function ProductComparisonModal({ isOpen, onClose, currentProduct
                         <span className="flex items-center" title="Lượt xem">
                           <Eye className="h-4 w-4 mr-1" /> {product1.ViewCount || 0}
                         </span>
-                        <span className="flex items-center text-red-500" title="Yêu thích">
-                          <Heart className="h-4 w-4 mr-1" /> {product1.FavoriteCount || 0}
+                        <span className="flex items-center text-yellow-500" title="Yêu thích">
+                          <Bookmark className="h-4 w-4 mr-1" /> {product1.FavoriteCount || 0}
                         </span>
                       </div>
                     </td>
@@ -485,8 +510,8 @@ export default function ProductComparisonModal({ isOpen, onClose, currentProduct
                         <span className="flex items-center" title="Lượt xem">
                           <Eye className="h-4 w-4 mr-1" /> {product2.ViewCount || 0}
                         </span>
-                        <span className="flex items-center text-red-500" title="Yêu thích">
-                          <Heart className="h-4 w-4 mr-1" /> {product2.FavoriteCount || 0}
+                        <span className="flex items-center text-yellow-500" title="Yêu thích">
+                          <Bookmark className="h-4 w-4 mr-1" /> {product2.FavoriteCount || 0}
                         </span>
                       </div>
                     </td>
@@ -586,19 +611,6 @@ export default function ProductComparisonModal({ isOpen, onClose, currentProduct
       <div className="bg-white p-6 rounded-xl w-full max-w-6xl max-h-[80vh] overflow-y-auto shadow-2xl border border-gray-200">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800">So sánh sản phẩm</h2>
-          
-          {error && (
-            <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4 w-full rounded-md">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <XCircle className="h-5 w-5 text-red-400" aria-hidden="true" />
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-red-700">{error}</p>
-                </div>
-              </div>
-            </div>
-          )}
           <button 
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700 p-2 rounded-full hover:bg-gray-100"
@@ -607,63 +619,70 @@ export default function ProductComparisonModal({ isOpen, onClose, currentProduct
           </button>
         </div>
         
-        {/* Selected Products */}
-        <div className="mb-6">
-          {selectedProducts.length > 0 ? (
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Sản phẩm đã chọn</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {selectedProducts.map(product => (
-                  <div key={product._id} className="border border-gray-200 rounded-xl p-4 relative shadow-sm hover:shadow-md transition-shadow">
-                    <button
-                      onClick={() => removeProduct(product._id)}
-                      className="absolute top-3 right-3 text-gray-400 hover:text-red-500 p-1 rounded-full hover:bg-red-50"
-                    >
-                      <XCircle size={20} />
-                    </button>
-                    {product.Images?.[0]?.Url && (
-                      <div className="h-48 bg-gray-100 rounded-lg mb-3 overflow-hidden">
-                        <Image
-                          src={product.Images[0].Url}
-                          alt={product.Title}
-                          width={200}
-                          height={160}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    )}
-                    <h3 className="font-semibold text-lg mb-2 line-clamp-2">{product.Title}</h3>
-                    <div className="text-lg font-bold text-blue-600 mb-2 flex items-center">
-                      {formatPrice(product.BasePrice, product.Currency)}
-                      {product.PriceUnit && <span className="text-sm font-normal ml-1">/{product.PriceUnit.UnitName}</span>}
-                    </div>
-                    {product.Condition && (
-                      <div className="text-sm text-gray-600 mb-3 flex items-center">
-                        <CheckCircle className="h-4 w-4 mr-1 text-green-500" />
-                        {product.Condition.ConditionName}
-                      </div>
-                    )}
-                    <div className="flex justify-between text-xs text-gray-500">
-                      <span className="flex items-center">
-                        <Eye className="h-3 w-3 mr-1" />
-                        {product.ViewCount || 0} lượt xem
-                      </span>
-                      <span className="flex items-center">
-                        <Heart className="h-3 w-3 mr-1 text-red-500" />
-                        {product.FavoriteCount || 0} yêu thích
-                      </span>
-                    </div>
-                  </div>
-                ))}
+        {error && (
+          <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-6 rounded-md">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <XCircle className="h-5 w-5 text-red-400" aria-hidden="true" />
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-red-700">{error}</p>
               </div>
             </div>
-          ) : (
-            <div className="text-center py-8 text-gray-500">
-              Chưa có sản phẩm nào để so sánh
+          </div>
+        )}
+        
+        {/* Selected Products */}
+        {selectedProducts.length > 0 && (
+          <div className="mb-8">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Sản phẩm đã chọn ({selectedProducts.length}/2)</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {selectedProducts.map((product) => (
+                <div key={product._id} className="border border-blue-200 bg-blue-50 rounded-lg p-4 flex items-center">
+                  {product.Images?.[0]?.Url && (
+                    <div className="h-16 w-16 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden mr-3">
+                      <Image
+                        src={product.Images[0].Url}
+                        alt={product.Title}
+                        width={64}
+                        height={64}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-gray-900 truncate">{product.Title}</h4>
+                    <div className="text-sm text-gray-600">
+                      {formatPrice(product.BasePrice, product.Currency)}
+                      {product.PriceUnit && `/${product.PriceUnit.UnitName}`}
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeProduct(product._id);
+                    }}
+                    className="ml-2 text-gray-400 hover:text-red-500"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              ))}
             </div>
-          )}
-        </div>
-          
+            
+            {selectedProducts.length === 2 && (
+              <div className="mt-4 text-center">
+                <button
+                  onClick={() => setIsComparing(true)}
+                  className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors"
+                >
+                  Bắt đầu so sánh
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+        
         {/* Available Products */}
         <div>
           <div className="flex justify-between items-center mb-4">
@@ -672,69 +691,136 @@ export default function ProductComparisonModal({ isOpen, onClose, currentProduct
               <span className="text-sm text-yellow-600 font-medium">Đã chọn tối đa 2 sản phẩm</span>
             )}
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {loading ? (
-              [...Array(5)].map((_, i) => (
-                <div key={i} className="animate-pulse bg-gray-100 rounded-xl p-4 h-32" />
-              ))
-            ) : comparableProducts.length > 0 ? (
-              comparableProducts.map((product) => {
-                const isSelected = selectedProducts.some(p => p._id === product._id);
-                const isMaxSelected = selectedProducts.length >= 2 && !isSelected;
-                return (
-                  <div 
-                    key={product._id} 
-                    className={`border rounded-xl p-4 cursor-pointer transition-all hover:shadow-md ${
-                      isMaxSelected ? 'opacity-50 cursor-not-allowed border-gray-300' : 'border-gray-200 hover:border-blue-200'
-                    } ${isSelected ? 'border-blue-300 bg-blue-50' : ''}`}
-                    onClick={() => {
-                      if (!isMaxSelected) {
-                        toggleProductSelection(product);
-                      }
-                    }}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1 pr-2">
-                        <h4 className="font-semibold text-gray-900 text-sm mb-1 line-clamp-2">{product.Title}</h4>
-                        <p className="text-blue-600 font-medium text-sm mb-2">
-                          {formatPrice(product.BasePrice, product.Currency)}
-                          {product.PriceUnit && <span className="text-gray-500"> /{product.PriceUnit.UnitName}</span>}
-                        </p>
-                        {product.Condition && (
-                          <p className="text-xs text-gray-500 flex items-center">
-                            <CheckCircle className="h-3 w-3 mr-1 text-green-500" />
-                            {product.Condition.ConditionName}
-                          </p>
+          
+          {loading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="animate-pulse bg-gray-100 rounded-lg p-3 h-48" />
+              ))}
+            </div>
+          ) : comparableProducts.length > 0 ? (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+                {currentItems.map((product) => {
+                  const isSelected = selectedProducts.some(p => p._id === product._id);
+                  const isMaxSelected = selectedProducts.length >= 2 && !isSelected;
+                  
+                  return (
+                    <div 
+                      key={product._id}
+                      onClick={() => !isMaxSelected && toggleProductSelection(product)}
+                      className={`relative border rounded-lg p-3 cursor-pointer transition-all ${
+                        isSelected 
+                          ? 'border-blue-500 ring-2 ring-blue-200' 
+                          : isMaxSelected 
+                            ? 'opacity-50 cursor-not-allowed border-gray-300' 
+                            : 'border-gray-200 hover:border-blue-200 hover:shadow-md'
+                      }`}
+                    >
+                      {isSelected && (
+                        <div className="absolute -top-2 -right-2 bg-blue-500 text-white rounded-full p-1">
+                          <CheckCircle size={16} />
+                        </div>
+                      )}
+                      {product.Images?.[0]?.Url && (
+                        <div className="h-32 bg-gray-100 rounded-lg mb-2 overflow-hidden">
+                          <Image
+                            src={product.Images[0].Url}
+                            alt={product.Title}
+                            width={150}
+                            height={120}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+                      <h3 className="font-medium text-sm line-clamp-2 mb-1">{product.Title}</h3>
+                      <div className="text-sm font-bold text-blue-600 mb-1">
+                        {formatPrice(product.BasePrice, product.Currency)}
+                        {product.PriceUnit && (
+                          <span className="text-xs font-normal ml-1">/{product.PriceUnit.UnitName}</span>
                         )}
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (!isMaxSelected) {
-                            toggleProductSelection(product);
-                          }
-                        }}
-                        className={`p-2 rounded-full transition-colors ${
-                          isSelected
-                            ? 'bg-blue-100 text-blue-600 hover:bg-blue-200'
-                            : isMaxSelected
-                              ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
-                              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                        }`}
-                        disabled={isMaxSelected}
-                      >
-                        {isSelected ? <X size={16} /> : <Plus size={16} />}
-                      </button>
+                      {product.Condition && (
+                        <div className="text-xs text-gray-600 flex items-center">
+                          <CheckCircle className="h-3 w-3 mr-1 text-green-500" />
+                          {product.Condition.ConditionName}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="col-span-full text-center py-8 text-gray-500">
-                Không có sản phẩm nào để so sánh
+                  );
+                })}
               </div>
-            )}
-          </div>
+              
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex justify-center items-center mt-6 space-x-2">
+                  <button
+                    onClick={handlePrevPage}
+                    disabled={currentPage === 1}
+                    className={`px-3 py-1.5 text-sm rounded-md ${
+                      currentPage === 1 
+                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
+                        : 'bg-blue-500 text-white hover:bg-blue-600'
+                    }`}
+                  >
+                    Trước
+                  </button>
+                  
+                  <div className="flex space-x-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNumber;
+                      if (totalPages <= 5) {
+                        pageNumber = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNumber = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNumber = totalPages - 4 + i;
+                      } else {
+                        pageNumber = currentPage - 2 + i;
+                      }
+                      
+                      if (pageNumber > 0 && pageNumber <= totalPages) {
+                        return (
+                          <button
+                            key={pageNumber}
+                            onClick={() => setCurrentPage(pageNumber)}
+                            className={`w-8 h-8 text-sm rounded-md flex items-center justify-center ${
+                              currentPage === pageNumber
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-gray-200 hover:bg-gray-300'
+                            }`}
+                          >
+                            {pageNumber}
+                          </button>
+                        );
+                      }
+                      return null;
+                    })}
+                  </div>
+                  
+                  <button
+                    onClick={handleNextPage}
+                    disabled={currentPage === totalPages}
+                    className={`px-3 py-1.5 text-sm rounded-md ${
+                      currentPage === totalPages 
+                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
+                        : 'bg-blue-500 text-white hover:bg-blue-600'
+                    }`}
+                  >
+                    Tiếp
+                  </button>
+                  
+                  <div className="ml-2 text-xs text-gray-600">
+                    Trang {currentPage} / {totalPages}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              Chưa có sản phẩm nào để so sánh
+            </div>
+          )}
         </div>
         
         {/* Footer */}
@@ -744,17 +830,6 @@ export default function ProductComparisonModal({ isOpen, onClose, currentProduct
             className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
             Đóng
-          </button>
-          <button
-            disabled={selectedProducts.length < 2}
-            onClick={handleCompare}
-            className={`px-6 py-3 rounded-lg text-white font-medium transition-colors ${
-              selectedProducts.length >= 2 
-                ? 'bg-blue-600 hover:bg-blue-700' 
-                : 'bg-gray-300 cursor-not-allowed'
-            }`}
-          >
-            So sánh ({selectedProducts.length}/2)
           </button>
         </div>
       </div>
