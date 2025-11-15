@@ -5,6 +5,15 @@ const Item = require("../../models/Product/Item.model");
 const User = require("../../models/User.model");
 const ItemImages = require("../../models/Product/ItemImage.model");
 const { calculateTotals } = require("./calculateRental");
+const {
+  notifyOrderCreated,
+  notifyOrderConfirmed,
+  notifyOrderStarted,
+  notifyOrderReturned,
+  notifyOrderCompleted,
+  notifyOrderCancelled,
+  notifyOrderDisputed
+} = require("../../middleware/orderNotification");
 
 function isTimeRangeOverlap(aStart, aEnd, bStart, bEnd) {
   return new Date(aStart) < new Date(bEnd) && new Date(bStart) < new Date(aEnd);
@@ -141,7 +150,7 @@ module.exports = {
           const DiscountRedemption = require("../../models/Discount/DiscountRedemption.model");
           const validated = await DiscountController.validateAndCompute({
             code: privateCode,
-            baseAmount: finalAmount, // Use remaining amount after public discount
+            baseAmount: finalAmount, 
             ownerId: item.OwnerId,
             itemId: item._id,
             userId: renterId,
@@ -312,11 +321,11 @@ module.exports = {
       const orderIdString = newOrder._id.toString();
 
       console.log(" Order created successfully - ID:", orderIdString, "Guid:", newOrder.orderGuid);
-
+      await notifyOrderCreated(newOrder); // Gửi notification khi tạo đơn
       return res.status(201).json({
         message: "Tạo đơn hàng thành công",
         data: {
-          orderId: orderIdString, // Trả về string thay vì ObjectId
+          orderId: orderIdString,
           orderGuid: newOrder.orderGuid,
           totalAmount,
           finalAmount: finalOrderAmount,
@@ -389,7 +398,9 @@ module.exports = {
       // Cộng RT Points cho renter khi order được xác nhận (không block nếu lỗi)
       try {
         const loyaltyController = require("../loyalty/loyalty.controller");
-        const { createNotification } = require("../../middleware/createNotification");
+        const {
+          createNotification,
+        } = require("../../middleware/createNotification");
         const result = await loyaltyController.addOrderPoints(
           order.renterId,
           order._id,
@@ -401,7 +412,12 @@ module.exports = {
             "Loyalty",
             "Cộng RT Points từ đơn hàng",
             `Bạn đã nhận ${result.transaction.points} RT Points từ đơn hàng ${order.orderGuid}.`,
-            { points: result.transaction.points, orderId: String(order._id), orderGuid: order.orderGuid, reason: "order_completed" }
+            {
+              points: result.transaction.points,
+              orderId: String(order._id),
+              orderGuid: order.orderGuid,
+              reason: "order_completed",
+            }
           );
         }
       } catch (loyaltyError) {
@@ -409,6 +425,7 @@ module.exports = {
         // Không block order confirmation nếu lỗi loyalty points
       }
 
+      await notifyOrderConfirmed(order); // Gửi notification khi xác nhận đơn
       return res.json({
         message: "Order confirmed and inventory reserved",
         orderGuid: order.orderGuid,
@@ -449,10 +466,10 @@ module.exports = {
       }
 
       order.orderStatus = "progress";
-      order.paymentStatus = "paid"; 
+      order.paymentStatus = "paid";
       order.lifecycle.startedAt = new Date();
       await order.save();
-
+      await notifyOrderStarted(order); // Gửi notification khi bắt đầu thuê
       return res.json({
         message: "Order started",
         orderGuid: order.orderGuid,
@@ -492,7 +509,7 @@ module.exports = {
       order.returnInfo.returnedAt = new Date();
       order.returnInfo.notes = notes || "";
       await order.save();
-
+      await notifyOrderReturned(order); // Gửi notification khi trả sản phẩm
       return res.status(200).json({
         message: "Order marked as returned",
         orderGuid: order.orderGuid,
@@ -571,6 +588,7 @@ module.exports = {
 
       const item = await Item.findById(order.itemId).session(session);
       if (item) {
+        item.RentCount = (item.RentCount || 0) + (order.unitCount || 1); // tang so luot thue
         if (order.returnInfo.conditionStatus === "Lost") {
           item.Quantity = Math.max(0, (item.Quantity || 0) - 1);
 
@@ -591,6 +609,7 @@ module.exports = {
       await session.commitTransaction();
       session.endSession();
 
+      await notifyOrderCompleted(order); // Gửi notification khi hoàn tất đơn
       return res.json({
         message: "Order completed",
         orderGuid: order.orderGuid,
@@ -668,6 +687,7 @@ module.exports = {
         order.lifecycle.canceledAt = new Date();
         await order.save({ session });
 
+        await notifyOrderCancelled(order); // Gửi notification
         await session.commitTransaction();
         session.endSession();
         return res.json({
@@ -721,7 +741,7 @@ module.exports = {
       order.disputeReason = reason;
       order.lifecycle.disputedAt = new Date();
       await order.save();
-
+      await notifyOrderDisputed(order); // Gửi notification
       return res.json({
         message: "Dispute opened",
         orderGuid: order.orderGuid,

@@ -35,7 +35,7 @@ import {
 import type { Order } from "@/services/auth/order.api";
 import Image from "next/image";
 import Link from "next/link";
-import { getCurrentTax } from "@/services/tax/tax.api";
+// import { getCurrentTax } from "@/services/tax/tax.api";
 interface TimelineStep {
   status: string;
   label: string;

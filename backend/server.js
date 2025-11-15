@@ -29,6 +29,8 @@ const {
 
 require("dotenv").config();
 
+require("./src/utils/orderReminder.job"); // Load cron nhắc nhở đơn hàng
+
 // Socket.io
 socketHandler(io);
 // Set io instance for message emission helper
