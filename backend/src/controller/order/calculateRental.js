@@ -53,21 +53,19 @@ module.exports.calculateTotals = async function (
     const depositAmount = depositPerUnit * quantity;
     // Tính serviceFee trên (tiền thuê + tiền cọc) theo yêu cầu mới
     const serviceFee = (rentalAmount + depositAmount) * (serviceFeeRate / 100);
-    const totalAmount = rentalAmount + serviceFee + depositAmount;
 
     const unitName = getUnitName(priceUnitId);
 
     console.log("calculateTotals SUCCESS:", {
       duration,
       rentalAmount,
-      totalAmount,
+      depositAmount,
       serviceFeeRate,
       serviceFee,
       unitName,
     });
 
     return {
-      totalAmount: Math.round(totalAmount),
       rentalAmount: Math.round(rentalAmount),
       serviceFee: Math.round(serviceFee),
       depositAmount: Math.round(depositAmount),
