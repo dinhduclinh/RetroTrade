@@ -30,7 +30,7 @@ describe("POST /api/v1/order (createOrder)", () => {
         itemId: "000000000000000000000000",
         rentalStartDate: "2025-11-06T09:00:00Z",
         rentalEndDate: "2025-11-07T09:00:00Z",
-        shippingAddress: { street: "123 Nguyễn Huệ", city: "Hồ Chí Minh" },
+        shippingAddress: { street: "123 Thach That", city: "Ha Noi" },
       });
 
     expect(res.statusCode).toBe(404);
@@ -39,7 +39,7 @@ describe("POST /api/v1/order (createOrder)", () => {
 
   // 3 Item bị xóa hoặc không còn hoạt động
   it("should return 404 if item is deleted or not active", async () => {
-    const deletedItemId = "68f3a599b852d5522e5e47bb"; // ID giả bị xóa
+    const deletedItemId = "68f3a599b852d5522e5e47bb"; 
     const res = await request(BASE_URL)
       .post("/api/v1/order")
       .set("Authorization", `Bearer ${token}`)

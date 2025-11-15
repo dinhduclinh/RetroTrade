@@ -19,6 +19,9 @@ export interface CreateOrderRequest {
   paymentMethod?: string;
   shippingAddress: Address;
   note?: string;
+  discountCode?: string;
+  discountAmount?: number;
+  discountType?: "percent" | "fixed";
 }
 
 export interface Order {
@@ -81,6 +84,7 @@ export interface Order {
   paymentStatus: string;
   orderStatus: string;
   isContractSigned: boolean;
+  disputeId?: string | { _id: string };
   isDeleted: boolean;
   createdAt: string;
   updatedAt: string;
@@ -105,7 +109,7 @@ const parseResponse = async (response: Response): Promise<ApiResponse<any>> => {
 
 export const createOrder = async (
   payload: CreateOrderRequest
-): Promise<ApiResponse<{ orderGuid: string; orderId: string }>> => {
+): Promise<ApiResponse<{ orderGuid: string; orderId: string; _id?: string }>> => {
   const response = await api.post("/order/", payload);
   return await parseResponse(response);
 };

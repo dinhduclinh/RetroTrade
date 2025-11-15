@@ -950,7 +950,6 @@ const getComparableProducts = async (req, res) => {
   let success = false;
   try {
     const { productId, categoryId } = req.params;
-    const { limit = 5 } = req.query;
 
     // Validate input
     if (!productId || !mongoose.Types.ObjectId.isValid(productId)) {
@@ -991,7 +990,7 @@ const getComparableProducts = async (req, res) => {
           IsDeleted: false
         }
       },
-      { $sample: { size: parseInt(limit) } }, // Get random products
+      // Removed $sample to get all matching products
       {
         $lookup: {
           from: "itemimages",

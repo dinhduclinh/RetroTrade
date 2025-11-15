@@ -6,9 +6,9 @@ import { toast } from "sonner";
 import { useRouter } from "next/router";
 import dynamic from 'next/dynamic';
 
-// Dynamically import the comparison modal with no SSR to avoid hydration issues
+
 const ProductComparisonModal = dynamic(
-  () => import('@/components/products/ProductComparisonModal'),
+  () => import('@/components/ui/products/ProductComparisonModal'),
   { ssr: false }
 );
 import AddToCartButton from "@/components/ui/common/AddToCartButton";
@@ -40,7 +40,10 @@ import {
   MessageCircle,
   Truck,
 } from "lucide-react";
-
+import RatingSection from "@/components/ui/products/rating";
+import { useDispatch } from "react-redux";
+import { fetchOrderList } from "@/store/order/orderActions";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 interface ProductDetailDto {
   _id: string;
   Title: string;
@@ -91,8 +94,6 @@ const formatPrice = (price: number, currency: string) => {
 export default function ProductDetailPage() {
   const router = useRouter();
   const { id } = router.query as { id?: string };
-
-
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [product, setProduct] = useState<ProductDetailDto | null>(null);
@@ -102,11 +103,40 @@ export default function ProductDetailPage() {
   const [selectedPlan, setSelectedPlan] = useState<
     "hour" | "day" | "week" | "month"
   >("day");
-  const [durationUnits, setDurationUnits] = useState<string>(""); // number as string for input control
+  const [durationUnits, setDurationUnits] = useState<string>(""); 
   const [dateError, setDateError] = useState<string>("");
   const [ownerTopItems, setOwnerTopItems] = useState<any[]>([]);
   const [similarItems, setSimilarItems] = useState<any[]>([]);
   const [showComparisonModal, setShowComparisonModal] = useState(false);
+    const isAuthenticated = useSelector((state: RootState) => !!state.auth.accessToken);
+  const accessToken = useSelector((state: RootState) => state.auth.accessToken);
+const dispatch = useAppDispatch();
+ const { orders = [] } = useAppSelector((state) => state.order || { orders: [] });
+  const completedOrders = useMemo(() => {
+    if (!id || !Array.isArray(orders)) return [];
+    return orders
+      .filter(
+        (order: any) =>
+          order.itemId?._id === id && order.orderStatus === "completed"
+      )
+      .map((order: any) => order._id);
+  }, [orders, id]);
+
+  useEffect(() => {
+    console.log("isAuthenticated:", isAuthenticated);
+    console.log("orders.length:", orders.length);
+    if (isAuthenticated && orders.length === 0) {
+      dispatch(fetchOrderList());
+    }
+  }, [isAuthenticated,]);
+
+  useEffect(() => {
+    if (!id) return;
+    const fetchDetail = async () => {
+      // ...
+    };
+    fetchDetail();
+  }, [id]);
 
   // Handle compare button click
   const handleCompare = useCallback(() => {
@@ -119,8 +149,6 @@ export default function ProductDetailPage() {
   const [favoriteCount, setFavoriteCount] = useState(0);
 
   // Get authentication state
-  const isAuthenticated = useSelector((state: RootState) => !!state.auth.accessToken);
-  const accessToken = useSelector((state: RootState) => state.auth.accessToken);
 
   // Fetch favorite status when product or authentication changes
   useEffect(() => {
@@ -596,10 +624,11 @@ export default function ProductDetailPage() {
                   <button
                     key={idx}
                     onClick={() => setSelectedImageIndex(idx)}
-                    className={`aspect-square rounded-lg overflow-hidden border ${idx === selectedImageIndex
+                    className={`aspect-square rounded-lg overflow-hidden border ${
+                      idx === selectedImageIndex
                         ? "border-blue-600"
                         : "border-gray-200"
-                      }`}
+                    }`}
                   >
                     <img
                       src={src}
@@ -628,18 +657,22 @@ export default function ProductDetailPage() {
                         ? "text-yellow-500 hover:text-yellow-600"
                         : "text-gray-400 hover:text-gray-500"
                     }`}
-                    title={isFavorite ? "Xóa khỏi yêu thích" : "Thêm vào yêu thích"}
+                    title={
+                      isFavorite ? "Xóa khỏi yêu thích" : "Thêm vào yêu thích"
+                    }
                   >
                     {favoriteLoading ? (
                       <div className="w-6 h-6 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
                     ) : (
                       <Bookmark
-                        className={`w-6 h-6 ${isFavorite ? 'fill-current' : ''}`}
+                        className={`w-6 h-6 ${
+                          isFavorite ? "fill-current" : ""
+                        }`}
                       />
                     )}
                   </button>
                   <span className="text-sm text-gray-600">
-                    {favoriteCount > 0 ? favoriteCount : ''}
+                    {favoriteCount > 0 ? favoriteCount : ""}
                   </span>
                 </div>
               </div>
@@ -682,7 +715,9 @@ export default function ProductDetailPage() {
                       <div className="text-3xl font-extrabold text-blue-600">
                         {formatPrice(baseUnitPrice, product.Currency)}
                       </div>
-                      <div className="text-sm text-gray-600">{baseUnitLabel}</div>
+                      <div className="text-sm text-gray-600">
+                        {baseUnitLabel}
+                      </div>
                     </div>
                   </div>
                   <div className="text-right">
@@ -709,16 +744,19 @@ export default function ProductDetailPage() {
                       size="md"
                       variant="outline"
                       showText={true}
-                      className={`w-full h-full justify-center py-2.5 ${outOfStock ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      className={`w-full h-full justify-center py-2.5 ${
+                        outOfStock ? "opacity-50 cursor-not-allowed" : ""
+                      }`}
                     />
                   </div>
                   <button
                     onClick={handleRentNow}
                     disabled={outOfStock}
-                    className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg h-full ${outOfStock
+                    className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-lg h-full ${
+                      outOfStock
                         ? "bg-gray-300 text-gray-600 cursor-not-allowed"
                         : "bg-blue-600 text-white hover:bg-blue-700"
-                      }`}
+                    }`}
                   >
                     <Zap className="w-5 h-5" /> Thuê ngay
                   </button>
@@ -728,20 +766,25 @@ export default function ProductDetailPage() {
                   <div className="flex items-start gap-3 p-3 bg-white rounded-lg shadow-sm border border-gray-100">
                     <CheckCircle className="w-6 h-6 text-green-600 mt-0.5 flex-shrink-0" />
                     <p className="text-sm text-gray-700">
-                      <span className="font-semibold text-gray-900">RetroTrade</span> cam kết: nhận sản phẩm đúng mô tả hoặc hoàn tiền. Thông tin thanh toán của bạn được bảo mật tuyệt đối.
+                      <span className="font-semibold text-gray-900">
+                        RetroTrade
+                      </span>{" "}
+                      cam kết: nhận sản phẩm đúng mô tả hoặc hoàn tiền. Thông
+                      tin thanh toán của bạn được bảo mật tuyệt đối.
                     </p>
                   </div>
                   <div className="flex items-start gap-3 p-3 bg-white rounded-lg shadow-sm border border-gray-100">
                     <Leaf className="w-6 h-6 text-green-600 mt-0.5 flex-shrink-0" />
                     <p className="text-sm text-gray-700">
-                      <span className="font-semibold text-gray-900">RetroTrade</span> - Nền tảng cho thuê đồ vì một trái đất xanh hơn!
+                      <span className="font-semibold text-gray-900">
+                        RetroTrade
+                      </span>{" "}
+                      - Nền tảng cho thuê đồ vì một trái đất xanh hơn!
                     </p>
                   </div>
                 </div>
               </div>
-
             </div>
-
           </section>
         </div>
 
@@ -756,26 +799,32 @@ export default function ProductDetailPage() {
                 {product.Owner?.AvatarUrl ? (
                   <img
                     src={product.Owner.AvatarUrl}
-                    alt={product.Owner?.DisplayName || product.Owner?.FullName || "avatar"}
+                    alt={
+                      product.Owner?.DisplayName ||
+                      product.Owner?.FullName ||
+                      "avatar"
+                    }
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-400">👤</div>
+                  <div className="w-full h-full flex items-center justify-center text-gray-400">
+                    👤
+                  </div>
                 )}
               </div>
               <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
                 <div className="md:col-span-5">
                   <div className="flex items-center gap-2">
-                    <div className="font-medium text-gray-900">
-                      {product.Owner?.DisplayName || product.Owner?.FullName || "Người dùng"}
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900">
+                        {product.Owner?.DisplayName || product.Owner?.FullName || "Người dùng"}
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                        <CheckCircle className="w-3 h-3" /> Chủ cho thuê
+                      </span>
                     </div>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-orange-50 text-orange-700 border border-orange-200">
-                      <CheckCircle className="w-3.5 h-3.5" /> Đã xác minh
-                    </span>
                   </div>
-                  <div className="mt-1 text-sm text-gray-600">
-                    (0 đánh giá) • 0 sản phẩm • 0 đã bán
-                  </div>
+                  
                   <div className="mt-2 flex gap-2">
                     <button
                       onClick={async () => {
@@ -789,7 +838,9 @@ export default function ProductDetailPage() {
                         }
 
                         if (!accessToken) {
-                          toast.error("Vui lòng đăng nhập để sử dụng tính năng chat");
+                          toast.error(
+                            "Vui lòng đăng nhập để sử dụng tính năng chat"
+                          );
                           router.push("/auth/login");
                           return;
                         }
@@ -798,35 +849,56 @@ export default function ProductDetailPage() {
                           // Load danh sách cuộc trò chuyện hiện có
                           const conversationsRes = await getConversations();
                           if (!conversationsRes.ok) {
-                            toast.error("Không thể tải danh sách cuộc trò chuyện");
+                            toast.error(
+                              "Không thể tải danh sách cuộc trò chuyện"
+                            );
                             return;
                           }
 
-                          const conversationsData = await conversationsRes.json();
+                          const conversationsData =
+                            await conversationsRes.json();
                           const conversations = conversationsData.data || [];
 
                           // Tìm cuộc trò chuyện đã tồn tại với người bán này
-                          const existingConversation = conversations.find((conv: Conversation) => {
-                            const userId1 = String(conv.userId1._id || conv.userId1);
-                            const userId2 = String(conv.userId2._id || conv.userId2);
-                            const ownerIdStr = String(ownerId);
-                            return userId1 === ownerIdStr || userId2 === ownerIdStr;
-                          });
+                          const existingConversation = conversations.find(
+                            (conv: Conversation) => {
+                              const userId1 = String(
+                                conv.userId1._id || conv.userId1
+                              );
+                              const userId2 = String(
+                                conv.userId2._id || conv.userId2
+                              );
+                              const ownerIdStr = String(ownerId);
+                              return (
+                                userId1 === ownerIdStr || userId2 === ownerIdStr
+                              );
+                            }
+                          );
 
                           if (existingConversation) {
                             // Đi đến trang chat với conversation ID
-                            router.push(`/auth/messages?conversationId=${existingConversation._id}`);
+                            router.push(
+                              `/auth/messages?conversationId=${existingConversation._id}`
+                            );
                           } else {
                             // Tạo cuộc trò chuyện mới
                             const createRes = await createConversation(ownerId);
                             if (createRes.ok) {
                               const createData = await createRes.json();
-                              const newConversation = createData.data || createData;
-                              router.push(`/auth/messages?conversationId=${newConversation._id}`);
+                              const newConversation =
+                                createData.data || createData;
+                              router.push(
+                                `/auth/messages?conversationId=${newConversation._id}`
+                              );
                               toast.success("Đã tạo cuộc trò chuyện mới");
                             } else {
-                              const errorData = await createRes.json().catch(() => ({}));
-                              toast.error(errorData.message || "Không thể tạo cuộc trò chuyện");
+                              const errorData = await createRes
+                                .json()
+                                .catch(() => ({}));
+                              toast.error(
+                                errorData.message ||
+                                  "Không thể tạo cuộc trò chuyện"
+                              );
                             }
                           }
                         } catch (error) {
@@ -840,11 +912,12 @@ export default function ProductDetailPage() {
                     </button>
                     <button
                       onClick={() => {
-                        const ownerGuid = product?.Owner?.userGuid || product?.Owner?._id;
+                        const ownerGuid =
+                          product?.Owner?.userGuid || product?.Owner?._id;
                         if (ownerGuid) {
                           router.push(`/store/${ownerGuid}`);
                         } else {
-                          toast.error('Không tìm thấy thông tin cửa hàng');
+                          toast.error("Không tìm thấy thông tin cửa hàng");
                         }
                       }}
                       className="px-3 py-1.5 text-sm rounded-md border text-gray-700 hover:bg-gray-50"
@@ -854,30 +927,29 @@ export default function ProductDetailPage() {
                   </div>
                 </div>
                 <div className="md:col-span-7">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     <div className="flex items-center gap-2 text-gray-700">
                       <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
                         <ShieldCheck className="w-5 h-5" />
                       </div>
-                      <div className="text-sm">Đáng tin cậy</div>
+                      <div className="text-sm">Đối tác đáng tin cậy</div>
                     </div>
                     <div className="flex items-center gap-2 text-gray-700">
                       <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
                         <Calendar className="w-5 h-5" />
                       </div>
-                      <div className="text-sm">Thành viên từ {product.CreatedAt ? new Date(product.CreatedAt).getFullYear() : "-"}</div>
+                      <div className="text-sm">
+                        Thành viên từ{" "}
+                        {product.CreatedAt
+                          ? new Date(product.CreatedAt).getFullYear()
+                          : "-"}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 text-gray-700">
                       <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
                         <MessageCircle className="w-5 h-5" />
                       </div>
-                      <div className="text-sm">Phản hồi nhanh</div>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-700">
-                      <div className="w-9 h-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
-                        <Truck className="w-5 h-5" />
-                      </div>
-                      <div className="text-sm">Giao hàng nhanh</div>
+                      <div className="text-sm">Hỗ trợ 24/7</div>
                     </div>
                   </div>
                 </div>
@@ -894,8 +966,19 @@ export default function ProductDetailPage() {
               <div className="p-5">
                 <div className="flex justify-between items-start mb-6">
                   <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                    <svg className="w-6 h-6 text-indigo-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6h2m7-6h2m2 6h2M5 7h14a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2zm0 0V5a2 2 0 012-2h2M7 3h10a2 2 0 012 2v2H5V5a2 2 0 012-2z"></path>
+                    <svg
+                      className="w-6 h-6 text-indigo-600 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6h2m7-6h2m2 6h2M5 7h14a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2zm0 0V5a2 2 0 012-2h2M7 3h10a2 2 0 012 2v2H5V5a2 2 0 012-2z"
+                      ></path>
                     </svg>
                     <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                       Thông tin sản phẩm
@@ -904,24 +987,53 @@ export default function ProductDetailPage() {
                   <div className="flex flex-col items-end space-y-1.5">
                     {product.AvailableQuantity === 0 ? (
                       <span className="px-3 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800 border border-red-200 shadow-sm flex items-center">
-                        <svg className="w-3.5 h-3.5 mr-1.5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+                        <svg
+                          className="w-3.5 h-3.5 mr-1.5"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z"
+                            clipRule="evenodd"
+                          />
                         </svg>
                         Hết hàng
                       </span>
                     ) : null}
-                    <span className={`px-3 py-1 text-xs font-medium rounded-full flex items-center ${product.Condition?.ConditionName === 'Mới'
-                        ? 'bg-green-100 text-green-800 border border-green-200'
-                        : 'bg-amber-100 text-amber-800 border border-amber-200'
-                      }`}>
-                      <svg className={`w-3.5 h-3.5 mr-1.5 ${product.Condition?.ConditionName === 'Mới' ? 'text-green-500' : 'text-amber-500'}`} fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                        {product.Condition?.ConditionName === 'Mới' ? (
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+                    <span
+                      className={`px-3 py-1 text-xs font-medium rounded-full flex items-center ${
+                        product.Condition?.ConditionName === "Mới"
+                          ? "bg-green-100 text-green-800 border border-green-200"
+                          : "bg-amber-100 text-amber-800 border border-amber-200"
+                      }`}
+                    >
+                      <svg
+                        className={`w-3.5 h-3.5 mr-1.5 ${
+                          product.Condition?.ConditionName === "Mới"
+                            ? "text-green-500"
+                            : "text-amber-500"
+                        }`}
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        {product.Condition?.ConditionName === "Mới" ? (
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                            clipRule="evenodd"
+                          />
                         ) : (
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z"
+                            clipRule="evenodd"
+                          />
                         )}
                       </svg>
-                      {product.Condition?.ConditionName || 'Đã sử dụng'}
+                      {product.Condition?.ConditionName || "Đã sử dụng"}
                     </span>
                   </div>
                 </div>
@@ -935,12 +1047,14 @@ export default function ProductDetailPage() {
                         <MapPin className="h-5 w-5 text-indigo-600" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-500 mb-0.5">Địa chỉ</p>
+                        <p className="text-sm font-medium text-gray-500 mb-0.5">
+                          Địa chỉ
+                        </p>
                         <p className="text-sm font-medium text-gray-900">
                           {[product.Address, product.District, product.City]
                             .filter(Boolean)
-                            .join(', ')
-                            .replace(/,\s*$/, '') || 'Chưa cập nhật địa chỉ'}
+                            .join(", ")
+                            .replace(/,\s*$/, "") || "Chưa cập nhật địa chỉ"}
                         </p>
                       </div>
                     </div>
@@ -951,9 +1065,15 @@ export default function ProductDetailPage() {
                         <Calendar className="h-5 w-5 text-blue-600" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-500 mb-0.5">Ngày đăng</p>
+                        <p className="text-sm font-medium text-gray-500 mb-0.5">
+                          Ngày đăng
+                        </p>
                         <p className="text-sm font-medium text-gray-900">
-                          {product.CreatedAt ? new Date(product.CreatedAt).toLocaleDateString('vi-VN') : 'N/A'}
+                          {product.CreatedAt
+                            ? new Date(product.CreatedAt).toLocaleDateString(
+                                "vi-VN"
+                              )
+                            : "N/A"}
                         </p>
                       </div>
                     </div>
@@ -964,14 +1084,30 @@ export default function ProductDetailPage() {
                     {/* Total Quantity */}
                     <div className="flex items-start group">
                       <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center mr-3 group-hover:bg-purple-100 transition-colors">
-                        <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                        <svg
+                          className="w-5 h-5 text-purple-600"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                          ></path>
                         </svg>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-500 mb-0.5">Tổng số lượng</p>
+                        <p className="text-sm font-medium text-gray-500 mb-0.5">
+                          Tổng số lượng
+                        </p>
                         <p className="text-lg font-semibold text-gray-900">
-                          {product.Quantity || 0} <span className="text-sm font-normal text-gray-500">sản phẩm</span>
+                          {product.Quantity || 0}{" "}
+                          <span className="text-sm font-normal text-gray-500">
+                            sản phẩm
+                          </span>
                         </p>
                       </div>
                     </div>
@@ -979,14 +1115,30 @@ export default function ProductDetailPage() {
                     {/* Available Quantity */}
                     <div className="flex items-start group">
                       <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center mr-3 group-hover:bg-emerald-100 transition-colors">
-                        <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                        <svg
+                          className="w-5 h-5 text-emerald-600"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M5 13l4 4L19 7"
+                          ></path>
                         </svg>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-500 mb-0.5">Có sẵn</p>
+                        <p className="text-sm font-medium text-gray-500 mb-0.5">
+                          Có sẵn
+                        </p>
                         <p className="text-lg font-semibold text-gray-900">
-                          {product.AvailableQuantity || 0} <span className="text-sm font-normal text-gray-500">sản phẩm</span>
+                          {product.AvailableQuantity || 0}{" "}
+                          <span className="text-sm font-normal text-gray-500">
+                            sản phẩm
+                          </span>
                         </p>
                       </div>
                     </div>
@@ -996,25 +1148,47 @@ export default function ProductDetailPage() {
                   <div className="pt-4 border-t border-gray-100">
                     <div className="flex items-start">
                       <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center mr-3">
-                        <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        <svg
+                          className="w-5 h-5 text-amber-600"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                          ></path>
                         </svg>
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-500 mb-2">Thời gian thuê</p>
+                        <p className="text-sm font-medium text-gray-500 mb-2">
+                          Thời gian thuê
+                        </p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div className="bg-amber-50 p-3 rounded-lg border border-amber-100">
-                            <p className="text-xs text-amber-700 font-medium mb-1">Tối thiểu</p>
+                            <p className="text-xs text-amber-700 font-medium mb-1">
+                              Tối thiểu
+                            </p>
                             <p className="text-base font-semibold text-amber-900">
-                              {product.MinRentalDuration || 1} {product.PriceUnit?.UnitName?.toLowerCase() || 'ngày'}
+                              {product.MinRentalDuration || 1}{" "}
+                              {product.PriceUnit?.UnitName?.toLowerCase() ||
+                                "ngày"}
                             </p>
                           </div>
                           <div className="bg-amber-50 p-3 rounded-lg border border-amber-100">
-                            <p className="text-xs text-amber-700 font-medium mb-1">Tối đa</p>
+                            <p className="text-xs text-amber-700 font-medium mb-1">
+                              Tối đa
+                            </p>
                             <p className="text-base font-semibold text-amber-900">
                               {product.MaxRentalDuration
-                                ? `${product.MaxRentalDuration} ${product.PriceUnit?.UnitName?.toLowerCase() || 'ngày'}`
-                                : 'Không giới hạn'}
+                                ? `${product.MaxRentalDuration} ${
+                                    product.PriceUnit?.UnitName?.toLowerCase() ||
+                                    "ngày"
+                                  }`
+                                : "Không giới hạn"}
                             </p>
                           </div>
                         </div>
@@ -1028,90 +1202,20 @@ export default function ProductDetailPage() {
             <div className="bg-white border rounded-2xl p-4">
               <h3 className="font-semibold mb-3">Mô tả sản phẩm</h3>
               <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-                {product.Description || product.ShortDescription || "Chưa có mô tả."}
+                {product.Description ||
+                  product.ShortDescription ||
+                  "Chưa có mô tả."}
               </p>
             </div>
 
-            {/* Reviews Section */}
+     
             <div className="bg-white rounded-xl shadow-sm border overflow-hidden mt-6">
-              <div className="border-b px-6 py-4 flex items-center gap-2">
-                <Star size={20} className="text-yellow-600" />
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Phản hồi và đánh giá từ khách hàng
-                </h3>
-              </div>
               <div className="p-6">
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="flex items-center gap-1">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star
-                        key={star}
-                        size={20}
-                        className={`${star <= 4 ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-xl font-bold text-gray-900">4</span>
-                  <span className="text-sm text-gray-600">(12 đánh giá)</span>
-                </div>
                 <div className="space-y-4 max-h-96 overflow-y-auto">
-                  {/* Review 1 */}
-                  <div className="flex gap-4 p-4 bg-gray-50 rounded-lg">
-                    <div className="flex-shrink-0">
-                      <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium text-gray-600">N</span>
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-gray-900">Nguyễn Văn A</span>
-                        <div className="flex items-center gap-1">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <Star
-                              key={star}
-                              size={16}
-                              className={`${star <= 5 ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-2">
-                        Sản phẩm tốt, đóng gói cẩn thận, giao hàng nhanh.
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {new Date().toLocaleDateString('vi-VN')}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Review 2 */}
-                  <div className="flex gap-4 p-4 bg-gray-50 rounded-lg">
-                    <div className="flex-shrink-0">
-                      <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium text-gray-600">T</span>
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-gray-900">Trần Thị B</span>
-                        <div className="flex items-center gap-1">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <Star
-                              key={star}
-                              size={16}
-                              className={`${star <= 4 ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-2">
-                        Sản phẩm như mô tả, shop tư vấn nhiệt tình, sẽ ủng hộ shop lần sau.
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toLocaleDateString('vi-VN')}
-                      </p>
-                    </div>
-                  </div>
+                  <RatingSection
+                    itemId={product._id}
+                    orders={orders}
+                  />
                 </div>
               </div>
             </div>
@@ -1124,9 +1228,14 @@ export default function ProductDetailPage() {
                     <button
                       onClick={(e) => {
                         e.preventDefault();
-                        const container = document.querySelector('.similar-products-slider');
+                        const container = document.querySelector(
+                          ".similar-products-slider"
+                        );
                         if (container) {
-                          container.scrollBy({ left: -300, behavior: 'smooth' });
+                          container.scrollBy({
+                            left: -300,
+                            behavior: "smooth",
+                          });
                         }
                       }}
                       className="p-1.5 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
@@ -1137,9 +1246,11 @@ export default function ProductDetailPage() {
                     <button
                       onClick={(e) => {
                         e.preventDefault();
-                        const container = document.querySelector('.similar-products-slider');
+                        const container = document.querySelector(
+                          ".similar-products-slider"
+                        );
                         if (container) {
-                          container.scrollBy({ left: 300, behavior: 'smooth' });
+                          container.scrollBy({ left: 300, behavior: "smooth" });
                         }
                       }}
                       className="p-1.5 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
@@ -1158,7 +1269,10 @@ export default function ProductDetailPage() {
                       const thumb = it?.Images?.[0]?.Url;
                       const href = `/products/details?id=${it._id}`;
                       return (
-                        <div key={it._id} className="flex-none w-[calc(100%-2rem)] sm:w-[calc(50%-1rem)] lg:w-[calc(33.333%-1rem)] px-1 snap-start">
+                        <div
+                          key={it._id}
+                          className="flex-none w-[calc(100%-2rem)] sm:w-[calc(50%-1rem)] lg:w-[calc(33.333%-1rem)] px-1 snap-start"
+                        >
                           <Link href={href} className="block">
                             <div className="rounded-xl border bg-white overflow-hidden cursor-pointer transition-transform duration-300 ease-out hover:-translate-y-1 hover:shadow-lg h-full">
                               <div className="w-full aspect-video bg-gray-100 relative">
@@ -1171,7 +1285,9 @@ export default function ProductDetailPage() {
                                   />
                                 ) : (
                                   <div className="w-full h-full flex items-center justify-center text-gray-400">
-                                    <span className="text-sm">Không có hình ảnh</span>
+                                    <span className="text-sm">
+                                      Không có hình ảnh
+                                    </span>
                                   </div>
                                 )}
                                 {it.AvailableQuantity === 0 && (
@@ -1187,23 +1303,52 @@ export default function ProductDetailPage() {
 
                                 {/* Price Row */}
                                 <div className="flex items-center gap-2 mb-1">
-                                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                  <svg
+                                    className="w-4 h-4 text-gray-500"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth="2"
+                                      d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                    ></path>
                                   </svg>
                                   <span className="text-orange-600 font-semibold">
                                     {formatPrice(it.BasePrice, it.Currency)}
                                   </span>
-                                  <span className="text-xs text-gray-500">/{it.PriceUnit?.UnitName || 'ngày'}</span>
+                                  <span className="text-xs text-gray-500">
+                                    /{it.PriceUnit?.UnitName || "ngày"}
+                                  </span>
                                 </div>
 
                                 {/* Deposit Row */}
                                 <div className="flex items-center gap-2 mb-2 text-sm">
-                                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                                  <svg
+                                    className="w-4 h-4 text-gray-500"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth="2"
+                                      d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                                    ></path>
                                   </svg>
-                                  <span className="text-gray-600">Đặt cọc: </span>
+                                  <span className="text-gray-600">
+                                    Đặt cọc:{" "}
+                                  </span>
                                   <span className="font-medium text-gray-800">
-                                    {formatPrice(it.DepositAmount || 0, it.Currency)}
+                                    {formatPrice(
+                                      it.DepositAmount || 0,
+                                      it.Currency
+                                    )}
                                   </span>
                                 </div>
 
@@ -1212,11 +1357,12 @@ export default function ProductDetailPage() {
                                   <div className="flex items-start gap-2 text-sm mt-2 pt-2 border-t border-gray-100">
                                     <MapPin className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
                                     <span className="text-gray-600 line-clamp-2">
-                                      {[it.District, it.City].filter(Boolean).join(', ')}
+                                      {[it.District, it.City]
+                                        .filter(Boolean)
+                                        .join(", ")}
                                     </span>
                                   </div>
                                 )}
-
                               </div>
                             </div>
                           </Link>
@@ -1226,7 +1372,9 @@ export default function ProductDetailPage() {
                   </div>
                 </div>
               ) : (
-                <div className="text-sm text-gray-500 py-4">Chưa có sản phẩm tương tự</div>
+                <div className="text-sm text-gray-500 py-4">
+                  Chưa có sản phẩm tương tự
+                </div>
               )}
 
               <style jsx global>{`
@@ -1259,9 +1407,15 @@ export default function ProductDetailPage() {
                       <div className="rounded-xl border bg-white overflow-hidden cursor-pointer transition-transform duration-300 ease-out hover:-translate-y-1 hover:shadow-lg">
                         <div className="w-full aspect-video bg-gray-100 relative">
                           {thumb ? (
-                            <img src={thumb} alt={it.Title} className="w-full h-full object-cover" />
+                            <img
+                              src={thumb}
+                              alt={it.Title}
+                              className="w-full h-full object-cover"
+                            />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-gray-400">No image</div>
+                            <div className="w-full h-full flex items-center justify-center text-gray-400">
+                              No image
+                            </div>
                           )}
                           {it.AvailableQuantity === 0 && (
                             <div className="absolute top-2 right-2 bg-red-600 text-white text-xs font-medium px-2 py-1 rounded-full">
@@ -1276,19 +1430,43 @@ export default function ProductDetailPage() {
 
                           {/* Price Row */}
                           <div className="flex items-center gap-2 mb-1">
-                            <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            <svg
+                              className="w-4 h-4 text-gray-500"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                              ></path>
                             </svg>
                             <span className="text-orange-600 font-semibold">
                               {formatPrice(it.BasePrice, it.Currency)}
                             </span>
-                            <span className="text-xs text-gray-500">/{it.PriceUnit?.UnitName || 'ngày'}</span>
+                            <span className="text-xs text-gray-500">
+                              /{it.PriceUnit?.UnitName || "ngày"}
+                            </span>
                           </div>
 
                           {/* Deposit Row */}
                           <div className="flex items-center gap-2 mb-2 text-sm">
-                            <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                            <svg
+                              className="w-4 h-4 text-gray-500"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                              ></path>
                             </svg>
                             <span className="text-gray-600">Đặt cọc: </span>
                             <span className="font-medium text-gray-800">
@@ -1301,18 +1479,21 @@ export default function ProductDetailPage() {
                             <div className="flex items-start gap-2 text-sm mt-2 pt-2 border-t border-gray-100">
                               <MapPin className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
                               <span className="text-gray-600 line-clamp-2">
-                                {[it.District, it.City].filter(Boolean).join(', ')}
+                                {[it.District, it.City]
+                                  .filter(Boolean)
+                                  .join(", ")}
                               </span>
                             </div>
                           )}
-
                         </div>
                       </div>
                     </Link>
                   );
                 })}
                 {ownerTopItems.length === 0 && (
-                  <div className="text-sm text-gray-500">Chưa có sản phẩm nổi bật</div>
+                  <div className="text-sm text-gray-500">
+                    Chưa có sản phẩm nổi bật
+                  </div>
                 )}
               </div>
             </div>

@@ -1,8 +1,8 @@
 import api from "../customizeAPI";
 
-export interface TaxSetting {
+export interface ServiceFeeSetting {
   _id: string;
-  taxRate: number;
+  serviceFeeRate: number;
   description?: string;
   isActive: boolean;
   effectiveFrom: string;
@@ -18,7 +18,7 @@ export interface TaxSetting {
     email: string;
   };
   history?: Array<{
-    taxRate: number;
+    serviceFeeRate: number;
     description?: string;
     effectiveFrom?: string;
     effectiveTo?: string;
@@ -33,22 +33,22 @@ export interface TaxSetting {
   updatedAt: string;
 }
 
-export interface CreateTaxRequest {
-  taxRate: number;
+export interface CreateServiceFeeRequest {
+  serviceFeeRate: number;
   description?: string;
   effectiveFrom?: string;
   effectiveTo?: string;
 }
 
-export interface UpdateTaxRequest {
-  taxRate?: number;
+export interface UpdateServiceFeeRequest {
+  serviceFeeRate?: number;
   description?: string;
   effectiveFrom?: string;
   effectiveTo?: string;
   isActive?: boolean;
 }
 
-export interface TaxApiResponse<T> {
+export interface ServiceFeeApiResponse<T> {
   success: boolean;
   message: string;
   data?: T;
@@ -64,7 +64,7 @@ export interface TaxApiResponse<T> {
 // Helper function to parse response
 const parseResponse = async <T>(
   response: Response
-): Promise<TaxApiResponse<T>> => {
+): Promise<ServiceFeeApiResponse<T>> => {
   try {
     const contentType = response.headers.get("content-type");
     if (contentType && contentType.includes("application/json")) {
@@ -88,10 +88,10 @@ const parseResponse = async <T>(
   }
 };
 
-// Get current tax setting (public)
-export const getCurrentTax = async (): Promise<
-  TaxApiResponse<{
-    taxRate: number;
+// Get current serviceFee setting (public)
+export const getCurrentServiceFee = async (): Promise<
+  ServiceFeeApiResponse<{
+    serviceFeeRate: number;
     description?: string;
     isActive: boolean;
     effectiveFrom: string;
@@ -100,63 +100,63 @@ export const getCurrentTax = async (): Promise<
     updatedAt: string;
   }>
 > => {
-  const response = await api.get("/tax/current");
+  const response = await api.get("/serviceFee/current");
   return await parseResponse(response);
 };
 
-// Get all tax settings (admin only)
-export const getAllTaxSettings = async (
+// Get all serviceFee settings (admin only)
+export const getAllServiceFeeSettings = async (
   page: number = 1,
   limit: number = 20,
   includeInactive: boolean = false
-): Promise<TaxApiResponse<TaxSetting[]>> => {
+): Promise<ServiceFeeApiResponse<ServiceFeeSetting[]>> => {
   const queryParams = new URLSearchParams({
     page: page.toString(),
     limit: limit.toString(),
     ...(includeInactive && { includeInactive: "true" }),
   });
-  const response = await api.get(`/tax?${queryParams}`);
+  const response = await api.get(`/serviceFee?${queryParams}`);
   return await parseResponse(response);
 };
 
-// Create new tax setting (admin only)
-export const createTaxSetting = async (
-  payload: CreateTaxRequest
-): Promise<TaxApiResponse<TaxSetting>> => {
-  const response = await api.post("/tax", payload);
+// Create new serviceFee setting (admin only)
+export const createServiceFeeSetting = async (
+  payload: CreateServiceFeeRequest
+): Promise<ServiceFeeApiResponse<ServiceFeeSetting>> => {
+  const response = await api.post("/serviceFee", payload);
   return await parseResponse(response);
 };
 
-// Update tax setting (admin only)
-export const updateTaxSetting = async (
+// Update serviceFee setting (admin only)
+export const updateServiceFeeSetting = async (
   id: string,
-  payload: UpdateTaxRequest
-): Promise<TaxApiResponse<TaxSetting>> => {
-  const response = await api.put(`/tax/${id}`, payload);
+  payload: UpdateServiceFeeRequest
+): Promise<ServiceFeeApiResponse<ServiceFeeSetting>> => {
+  const response = await api.put(`/serviceFee/${id}`, payload);
   return await parseResponse(response);
 };
 
-// Delete tax setting (admin only)
-export const deleteTaxSetting = async (
+// Delete serviceFee setting (admin only)
+export const deleteServiceFeeSetting = async (
   id: string
-): Promise<TaxApiResponse<null>> => {
-  const response = await api.delete(`/tax/${id}`);
+): Promise<ServiceFeeApiResponse<null>> => {
+  const response = await api.delete(`/serviceFee/${id}`);
   return await parseResponse(response);
 };
 
-// Get tax history (admin only)
-export const getTaxHistory = async (
+// Get serviceFee history (admin only)
+export const getServiceFeeHistory = async (
   id: string
 ): Promise<
-  TaxApiResponse<{
-    currentTax: {
-      taxRate: number;
+  ServiceFeeApiResponse<{
+    currentServiceFee: {
+      serviceFeeRate: number;
       description?: string;
       effectiveFrom: string;
       effectiveTo?: string;
     };
     history: Array<{
-      taxRate: number;
+      serviceFeeRate: number;
       description?: string;
       effectiveFrom?: string;
       effectiveTo?: string;
@@ -169,17 +169,17 @@ export const getTaxHistory = async (
     }>;
   }>
 > => {
-  const response = await api.get(`/tax/${id}/history`);
+  const response = await api.get(`/serviceFee/${id}/history`);
   return await parseResponse(response);
 };
 
-// Get all tax history (admin only) - tất cả lịch sử của tất cả tax
-export const getAllTaxHistory = async (): Promise<
-  TaxApiResponse<{
+// Get all serviceFee history (admin only) - tất cả lịch sử của tất cả serviceFee
+export const getAllServiceFeeHistory = async (): Promise<
+  ServiceFeeApiResponse<{
     timeline: Array<{
       type: "create" | "update";
-      taxId: string;
-      taxRate: number;
+      serviceFeeId: string;
+      serviceFeeRate: number;
       description?: string;
       effectiveFrom: string;
       effectiveTo?: string;
@@ -191,25 +191,25 @@ export const getAllTaxHistory = async (): Promise<
         fullName: string;
         email: string;
       };
-      taxInfo: {
+      serviceFeeInfo: {
         _id: string;
-        taxRate: number;
+        serviceFeeRate: number;
         description?: string;
       };
     }>;
     totalEvents: number;
-    totalTaxes: number;
+    totalServiceFees: number;
   }>
 > => {
-  const response = await api.get("/tax/history/all");
+  const response = await api.get("/serviceFee/history/all");
   return await parseResponse(response);
 };
 
-// Activate tax setting (admin only)
-export const activateTaxSetting = async (
+// Activate serviceFee setting (admin only)
+export const activateServiceFeeSetting = async (
   id: string
-): Promise<TaxApiResponse<TaxSetting>> => {
-  const response = await api.post(`/tax/${id}/activate`);
+): Promise<ServiceFeeApiResponse<ServiceFeeSetting>> => {
+  const response = await api.post(`/serviceFee/${id}/activate`);
   return await parseResponse(response);
 };
 

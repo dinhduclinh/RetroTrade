@@ -4,19 +4,12 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
-import { jwtDecode } from "jwt-decode";
+import { decodeToken, type DecodedToken } from '@/utils/jwtHelper';
 import { toast } from "sonner";
-import { Crown, Users, BarChart3, Settings, Home, Wallet, Percent,Contact, Tag, AlertTriangle } from "lucide-react";
+import { Crown, Users, BarChart3, Settings, Home, Wallet, Percent,Contact, Tag, AlertTriangle, FileText } from "lucide-react";
 import { AdminHeader } from "@/components/ui/admin/admin-header";
 import { RootState } from "@/store/redux_store";
 import { logout } from "@/store/auth/authReducer";
-
-interface JwtPayload {
-  email: string;
-  role?: string;
-  exp?: number;
-  iat: number;
-}
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [activePage, setActivePage] = useState("");
@@ -36,34 +29,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       return;
     }
 
-    try {
-      const decoded = jwtDecode<JwtPayload>(accessToken);
+    const decoded = decodeToken(accessToken);
 
-      // Check if token is expired
-      const currentTime = Date.now() / 1000;
-      if (decoded.exp && decoded.exp < currentTime) {
-        toast.error("Phiên đăng nhập đã hết hạn");
-        dispatch(logout());
-        router.push("/auth/login");
-        return;
-      }
-
-      // Check if user has admin role
-      if (decoded.role !== "admin") {
-        toast.error("Bạn không có quyền truy cập trang admin");
-        router.push("/home");
-        return;
-      }
-
-      setIsAuthorized(true);
-    } catch (error) {
-      console.error("Token decode error:", error);
-      toast.error("Token không hợp lệ");
+    if (!decoded) {
+      toast.error("Token không hợp lệ hoặc đã hết hạn");
       dispatch(logout());
       router.push("/auth/login");
-    } finally {
       setIsLoading(false);
+      return;
     }
+
+    // Check if user has admin role
+    if (decoded.role !== "admin") {
+      toast.error("Bạn không có quyền truy cập trang admin");
+      router.push("/home");
+      setIsLoading(false);
+      return;
+    }
+
+    setIsAuthorized(true);
+    setIsLoading(false);
   }, [accessToken, router, dispatch]);
 
   // Show loading while checking authorization
@@ -86,9 +71,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const menus = [
     { icon: Home, label: "Trang chủ", key: "home", href: "/home" },
     { icon: Users, label: "Người dùng", key: "users", href: "/admin/user-management" },
+    { icon: FileText, label: "Điều khoản", key: "terms", href: "/admin/terms" },
     { icon: Wallet, label: "Quản lý ví", key: "wallet", href: "/admin/wallet" },
     { icon: Contact, label: "Quản lý hợp đồng", key: "contract", href: "/admin/contract" },
-    { icon: Percent, label: "Quản lý Thuế", key: "tax", href: "/admin/tax-management" },
+    { icon: Percent, label: "Quản lý Phí dịch vụ", key: "serviceFee", href: "/admin/serviceFee-management" },
     { icon: Tag, label: "Mã giảm giá", key: "discounts", href: "/admin/discount-management" },
     { icon: AlertTriangle, label: "Khiếu nại ban tài khoản", key: "complaints", href: "/admin/complaints" },
     { icon: BarChart3, label: "Lịch sử thay đổi", key: "audit", href: "/admin/audit-logs" },

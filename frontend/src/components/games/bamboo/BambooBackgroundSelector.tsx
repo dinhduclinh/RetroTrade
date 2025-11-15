@@ -9,7 +9,7 @@ type BambooBackgroundSelectorProps = {
 export function BambooBackgroundSelector({ value, disabled, onChange }: BambooBackgroundSelectorProps) {
   return (
     <label className="flex items-center gap-2 text-sm text-slate-700">
-      <span>Background:</span>
+      <span>Nền:</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as BackgroundType)}

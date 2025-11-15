@@ -59,7 +59,10 @@ const calculateRentalDuration = (
   }
 };
 
-const getRentalDurationText = (duration: number, priceUnit?: string): string => {
+const getRentalDurationText = (
+  duration: number,
+  priceUnit?: string
+): string => {
   const unit = priceUnit?.toLowerCase();
   switch (unit) {
     case "giờ":
@@ -156,32 +159,30 @@ export default function OrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
- useEffect(() => {
-   if (!id) return;
+  useEffect(() => {
+    if (!id) return;
 
-   const fetchOrder = async () => {
-     try {
-       const res = await getOrderDetails(id as string);
-       if (res.code === 200 && res.data) {
-         setOrder(res.data); 
-       } else {
-         setError(res.message || "Không tìm thấy đơn hàng");
-         setOrder(null); 
-       }
+    const fetchOrder = async () => {
+      try {
+        const res = await getOrderDetails(id as string);
+        if (res.code === 200 && res.data) {
+          setOrder(res.data);
+        } else {
+          setError(res.message || "Không tìm thấy đơn hàng");
+          setOrder(null);
+        }
       } catch (err) {
         setError(
-          err instanceof Error
-            ? err.message
-            : "Lỗi khi tải dữ liệu đơn hàng"
+          err instanceof Error ? err.message : "Lỗi khi tải dữ liệu đơn hàng"
         );
-       setOrder(null);
-     } finally {
-       setLoading(false);
-     }
-   };
+        setOrder(null);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-   fetchOrder();
- }, [id]);
+    fetchOrder();
+  }, [id]);
 
   if (loading) {
     return (
@@ -244,8 +245,12 @@ export default function OrderDetailPage() {
 
           <div className="text-center max-w-md mx-auto px-4">
             <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Không tìm thấy đơn hàng</h2>
-            <p className="text-gray-600 mb-6">{error || "Đơn hàng không tồn tại hoặc đã bị xóa"}</p>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">
+              Không tìm thấy đơn hàng
+            </h2>
+            <p className="text-gray-600 mb-6">
+              {error || "Đơn hàng không tồn tại hoặc đã bị xóa"}
+            </p>
             <Link href="/order">
               <Button className="bg-emerald-600 hover:bg-emerald-700 text-white">
                 <ShoppingBag className="w-4 h-4 mr-2" />
@@ -269,8 +274,9 @@ export default function OrderDetailPage() {
   );
 
   // Calculate pricing breakdown
-  const rentalTotal = order.itemSnapshot.basePrice * order.unitCount * rentalDuration;
-  const taxAmount = order.serviceFee || 0;
+  const rentalTotal =
+    order.itemSnapshot.basePrice * order.unitCount * rentalDuration;
+  const serviceFeeAmount = order.serviceFee || 0;
   const depositAmount = order.depositAmount || 0;
   const grandTotal = order.totalAmount;
 
@@ -292,7 +298,7 @@ export default function OrderDetailPage() {
               const IconComponent = breadcrumb.icon;
               const isLast = index === breadcrumbs.length - 1;
 
-  return (
+              return (
                 <div
                   key={breadcrumb.href}
                   className="flex items-center space-x-2"
@@ -329,7 +335,8 @@ export default function OrderDetailPage() {
               Chi tiết đơn hàng
             </h1>
             <p className="text-lg text-gray-600 mt-3">
-              Mã đơn hàng: <span className="font-mono font-semibold">{order.orderGuid}</span>
+              Mã đơn hàng:{" "}
+              <span className="font-mono font-semibold">{order.orderGuid}</span>
             </p>
           </div>
         </div>
@@ -390,8 +397,10 @@ export default function OrderDetailPage() {
                     </div>
                     <div className="flex items-center gap-3 text-base text-gray-700">
                       <Calendar className="w-5 h-5 text-emerald-600" />
-                      {format(new Date(order.startAt), "dd/MM/yyyy HH:mm")} →{" "}
-                      {format(new Date(order.endAt), "dd/MM/yyyy HH:mm")}
+                      {format(
+                        new Date(order.startAt),
+                        "dd/MM/yyyy HH:mm"
+                      )} → {format(new Date(order.endAt), "dd/MM/yyyy HH:mm")}
                     </div>
                     <div className="pt-3 border-t border-gray-200">
                       <div className="flex justify-between items-center">
@@ -429,13 +438,16 @@ export default function OrderDetailPage() {
                   <Building2 className="w-5 h-5 text-gray-400 mt-0.5" />
                   <span className="text-gray-700">
                     {order.shippingAddress.ward}
-                    {order.shippingAddress.district && `, ${order.shippingAddress.district}`}
+                    {order.shippingAddress.district &&
+                      `, ${order.shippingAddress.district}`}
                     {`, ${order.shippingAddress.province}`}
                   </span>
                 </div>
                 <div className="flex items-start gap-3">
                   <Phone className="w-5 h-5 text-gray-400 mt-0.5" />
-                  <span className="text-gray-700">{order.shippingAddress.phone}</span>
+                  <span className="text-gray-700">
+                    {order.shippingAddress.phone}
+                  </span>
                 </div>
               </div>
             </div>
@@ -466,7 +478,9 @@ export default function OrderDetailPage() {
                       )}
                     </div>
                     <div>
-                      <h3 className="font-bold text-lg text-gray-800 mb-1">Người thuê</h3>
+                      <h3 className="font-bold text-lg text-gray-800 mb-1">
+                        Người thuê
+                      </h3>
                       <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-100 px-3 py-1 rounded-full w-fit">
                         <User className="w-3 h-3" />
                         <span>Người mua</span>
@@ -480,7 +494,9 @@ export default function OrderDetailPage() {
                       </div>
                       <div className="flex-1">
                         <p className="text-xs text-gray-500 mb-1">Họ và tên</p>
-                        <p className="text-base font-semibold text-gray-800">{order.renterId.fullName}</p>
+                        <p className="text-base font-semibold text-gray-800">
+                          {order.renterId.fullName}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -489,11 +505,13 @@ export default function OrderDetailPage() {
                       </div>
                       <div className="flex-1">
                         <p className="text-xs text-gray-500 mb-1">Email</p>
-                        <p className="text-sm text-gray-700 break-all">{order.renterId.email}</p>
+                        <p className="text-sm text-gray-700 break-all">
+                          {order.renterId.email}
+                        </p>
                       </div>
                     </div>
                   </div>
-      </div>
+                </div>
 
                 {/* Người cho thuê */}
                 <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-xl p-6 border border-emerald-100">
@@ -513,8 +531,10 @@ export default function OrderDetailPage() {
                         </div>
                       )}
                     </div>
-      <div>
-                      <h3 className="font-bold text-lg text-gray-800 mb-1">Người cho thuê</h3>
+                    <div>
+                      <h3 className="font-bold text-lg text-gray-800 mb-1">
+                        Người cho thuê
+                      </h3>
                       <div className="flex items-center gap-2 text-sm text-emerald-600 bg-emerald-100 px-3 py-1 rounded-full w-fit">
                         <Store className="w-3 h-3" />
                         <span>Chủ cửa hàng</span>
@@ -528,7 +548,9 @@ export default function OrderDetailPage() {
                       </div>
                       <div className="flex-1">
                         <p className="text-xs text-gray-500 mb-1">Họ và tên</p>
-                        <p className="text-base font-semibold text-gray-800">{order.ownerId.fullName}</p>
+                        <p className="text-base font-semibold text-gray-800">
+                          {order.ownerId.fullName}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -537,12 +559,18 @@ export default function OrderDetailPage() {
                       </div>
                       <div className="flex-1">
                         <p className="text-xs text-gray-500 mb-1">Email</p>
-                        <p className="text-sm text-gray-700 break-all">{order.ownerId.email}</p>
+                        <p className="text-sm text-gray-700 break-all">
+                          {order.ownerId.email}
+                        </p>
                       </div>
                     </div>
                   </div>
                   <div className="pt-4 mt-4 border-t border-emerald-200">
-                    <Link href={`/store/${order.ownerId.userGuid || order.ownerId._id}`}>
+                    <Link
+                      href={`/store/${
+                        order.ownerId.userGuid || order.ownerId._id
+                      }`}
+                    >
                       <Button
                         variant="outline"
                         className="w-full text-emerald-600 border-emerald-300 hover:bg-emerald-100 font-medium"
@@ -571,7 +599,7 @@ export default function OrderDetailPage() {
                 </div>
                 <div className="flex justify-between text-yellow-200">
                   <span>Phí dịch vụ</span>
-                  <span>{formatPrice(taxAmount, order.currency)}</span>
+                  <span>{formatPrice(serviceFeeAmount, order.currency)}</span>
                 </div>
                 <div className="flex justify-between text-amber-200">
                   <span>Tiền cọc</span>
@@ -597,7 +625,10 @@ export default function OrderDetailPage() {
                 </div>
                 <div className="flex items-center gap-2 text-emerald-100">
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Ngày tạo: {format(new Date(order.createdAt), "dd/MM/yyyy HH:mm")}</span>
+                  <span>
+                    Ngày tạo:{" "}
+                    {format(new Date(order.createdAt), "dd/MM/yyyy HH:mm")}
+                  </span>
                 </div>
               </div>
 

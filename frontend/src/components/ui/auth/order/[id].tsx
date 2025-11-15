@@ -503,13 +503,35 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
                       <p className="text-xs text-gray-500">
                         {format(new Date(order.updatedAt), "dd/MM/yyyy HH:mm")}
                       </p>
-                      <button
-                        onClick={() => router.push(`/dispute/${id}`)}
-                        className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-red-600 hover:text-red-700 underline underline-offset-2 transition-colors group"
-                      >
-                        <Eye className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-                        Chi tiết tranh chấp
-                      </button>
+
+                      {/* NÚT CHỈ HIỆN KHI CÓ disputeId */}
+                      {order.disputeId ? (
+                        <button
+                          onClick={() => {
+                            const disputeId =
+                              typeof order.disputeId === "string"
+                                ? order.disputeId
+                                : order.disputeId?._id;
+
+                            if (disputeId) {
+                              router.push(`/dispute/${disputeId}`);
+                            } else {
+                              console.error(
+                                "Không tìm thấy disputeId hợp lệ:",
+                                order.disputeId
+                              );
+                            }
+                          }}
+                          className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-red-600 hover:text-red-700 underline underline-offset-2 transition-colors group"
+                        >
+                          <Eye className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                          Chi tiết tranh chấp
+                        </button>
+                      ) : (
+                        <p className="text-xs text-gray-400 mt-3">
+                          Đang tải thông tin tranh chấp...
+                        </p>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -605,11 +627,10 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
                   </span>
                 </div>
 
-                {/* Discount Information */}
                 {order.discount &&
-                  (order.discount.amountApplied > 0 ||
-                    order.discount.secondaryAmountApplied > 0 ||
-                    order.discount.totalAmountApplied > 0) && (
+                  ((order.discount.amountApplied ?? 0) > 0 ||
+                    (order.discount.secondaryAmountApplied ?? 0) > 0 ||
+                    (order.discount.totalAmountApplied ?? 0) > 0) && (
                     <div className="flex justify-between text-green-200 border-t border-emerald-400 pt-3">
                       <span>Giảm giá</span>
                       <span className="font-medium">
@@ -642,7 +663,7 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
                             Mã công khai: {order.discount.code}{" "}
                             {order.discount.type === "percent"
                               ? `(${order.discount.value}%)`
-                              : `(${order.discount.value.toLocaleString(
+                              : `(${(order.discount.value ?? 0).toLocaleString(
                                   "vi-VN"
                                 )}₫)`}{" "}
                             -{" "}
@@ -712,9 +733,10 @@ export default function OrderDetail({ id: propId }: { id?: string }) {
                 <span className="text-gray-700">Hợp đồng</span>
                 <span
                   className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium
-                    ${order.isContractSigned
-                      ? "bg-green-100 text-green-700"
-                      : "bg-red-100 text-red-700"
+                    ${
+                      order.isContractSigned
+                        ? "bg-green-100 text-green-700"
+                        : "bg-red-100 text-red-700"
                     }`}
                 >
                   {order.isContractSigned ? (

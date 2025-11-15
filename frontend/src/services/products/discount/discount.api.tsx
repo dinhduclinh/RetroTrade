@@ -35,6 +35,7 @@ export type CreateDiscountRequest = {
   notes?: string;
   codeLength?: number;
   codePrefix?: string;
+  isPublic?: boolean;
 };
 
 type ApiListResponse<T> = {
@@ -148,7 +149,21 @@ export async function validateDiscount(payload: { code: string; baseAmount: numb
 
 export async function claimDiscount(discountId: string) {
   const res = await api.post(`/discounts/claim`, { discountId });
-  const json: ApiSingleResponse<{ discount: Discount; assignment?: any; alreadyClaimed?: boolean }> = await res.json();
+  type DiscountAssignment = {
+    userId?: string;
+    uses?: number;
+    perUserLimit?: number;
+    effectiveFrom?: string;
+    effectiveTo?: string;
+  };
+
+  type ClaimResponse = {
+    discount: Discount;
+    assignment?: DiscountAssignment;
+    alreadyClaimed?: boolean;
+  };
+
+  const json: ApiSingleResponse<ClaimResponse> = await res.json();
   return json;
 }
 

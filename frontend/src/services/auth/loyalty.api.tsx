@@ -13,7 +13,8 @@ export interface LoyaltyPointTransaction {
     | "referral"
     | "game_reward"
     | "admin_adjustment"
-    | "expired";
+    | "expired"
+    | "points_to_discount";
   description: string;
   orderId?: string;
   expiresAt?: string;
@@ -68,6 +69,29 @@ export const claimDailyLoginPoints = async (): Promise<
   ApiResponse<{ points: number; balance: number; alreadyClaimed?: boolean }>
 > => {
   const response = await api.post("/loyalty/claim-daily-login");
+  return await parseResponse(response);
+};
+
+export interface ConvertToDiscountResponse {
+  discount: {
+    _id: string;
+    code: string;
+    value: number;
+    type: string;
+    endAt: string;
+  };
+  pointsUsed: number;
+  discountPercent: number;
+  newBalance: number;
+}
+
+/**
+ * Quy đổi RT Points sang discount
+ */
+export const convertPointsToDiscount = async (
+  points: number
+): Promise<ApiResponse<ConvertToDiscountResponse>> => {
+  const response = await api.post("/loyalty/convert-to-discount", { points });
   return await parseResponse(response);
 };
 

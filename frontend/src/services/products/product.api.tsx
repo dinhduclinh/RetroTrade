@@ -257,3 +257,36 @@ export const getComparableProducts = async (
     throw new Error(error.message || "Có lỗi xảy ra khi tải sản phẩm so sánh");
   }
 };
+
+export const getRatingsByItem = async (itemId: string) => {
+  try {
+    const res = await fetch(`/api/v1/products/rating/item/${itemId}`);
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`HTTP ${res.status}: ${text}`);
+    }
+
+    const data = await res.json(); 
+    return { data: Array.isArray(data) ? data : [] };
+  } catch (error: any) {
+    console.error(" Error fetching ratings:", error?.message || error);
+    return { data: [] };
+  }
+};
+
+
+
+export const createRating = async (formData: FormData) => {
+  try {
+    const res = await instance.post("/products/rating", formData, {
+      headers: {},
+    });
+
+    const data = await res.json();
+    return data;
+  } catch (error) {
+    console.error("Error creating rating:", error);
+    throw error;
+  }
+};

@@ -26,13 +26,15 @@ export default function PopupModal({
   secondaryButtonText,
   onSecondaryButtonClick
 }: PopupModalProps) {
-  const [isVisible, setIsVisible] = useState(false)
+  const [isVisible, setIsVisible] = useState(isOpen)
 
   useEffect(() => {
     if (isOpen) {
-      setIsVisible(true)
+      // Small delay to ensure smooth animation
+      const timer = setTimeout(() => setIsVisible(true), 10)
       // Prevent body scroll when modal is open
       document.body.style.overflow = 'hidden'
+      return () => clearTimeout(timer)
     } else {
       setIsVisible(false)
       document.body.style.overflow = 'unset'
@@ -44,7 +46,7 @@ export default function PopupModal({
     }
   }, [isOpen])
 
-  if (!isVisible) return null
+  if (!isOpen && !isVisible) return null
 
   const getIcon = () => {
     switch (type) {
@@ -99,7 +101,7 @@ export default function PopupModal({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -143,8 +145,13 @@ export default function PopupModal({
               <Button
                 onClick={onSecondaryButtonClick}
                 className={`
-                  flex-1 py-3 px-6 text-lg font-semibold rounded-lg transition-all duration-200 hover:scale-105
-                  bg-blue-600 hover:bg-blue-700 text-white
+                  w-full py-3 px-6 text-lg font-semibold rounded-lg transition-all duration-200 hover:scale-105
+                  ${type === "error" 
+                    ? "bg-red-100 hover:bg-red-200 text-red-700" 
+                    : type === "success"
+                    ? "bg-green-100 hover:bg-green-200 text-green-700"
+                    : "bg-blue-100 hover:bg-blue-200 text-blue-700"
+                  }
                 `}
               >
                 {secondaryButtonText}
@@ -153,6 +160,7 @@ export default function PopupModal({
             <Button
               onClick={onClose}
               className={`
+                w-full py-3 px-6 text-lg font-semibold rounded-lg transition-all duration-200 hover:scale-105
                 ${secondaryButtonText ? 'flex-1' : 'w-full'} py-3 px-6 text-lg font-semibold rounded-lg transition-all duration-200 hover:scale-105
                 ${type === "error" 
                   ? "bg-red-600 hover:bg-red-700 text-white" 

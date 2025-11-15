@@ -17,9 +17,9 @@ export default function About() {
 
       <AboutHero />
       <AboutStory />
-      <AboutValues />
       <AboutStats />
-      <AboutTeam />
+      <AboutValues />
+      {/* <AboutTeam /> */}
       <CTASection />
     </>
   );

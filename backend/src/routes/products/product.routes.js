@@ -36,7 +36,7 @@ const {
   removeFromFavorites,
   getFavorites,
 } = require("../../controller/products/favorites.controller");
-
+const ratingController = require("../../controller/order/rating.controller");
 const { upload } = require("../../middleware/upload.middleware");
 const { authenticateToken } = require("../../middleware/auth");
 
@@ -65,6 +65,12 @@ router.post('/:productId/favorite', authenticateToken, addToFavorites);
 router.delete('/:productId/favorite', authenticateToken, removeFromFavorites);
 router.get('/favorites', authenticateToken, getFavorites);
 
+// Rating
+router.post("/rating/",authenticateToken, upload.array("images", 5), ratingController.createRating);
+router.put("/rating/:id",authenticateToken, ratingController.updateRating);
+router.delete("/rating/:id",authenticateToken, ratingController.deleteRating);
+router.get("/rating/item/:itemId", ratingController.getRatingsByItem);
+router.get("/rating/item/:itemId/stats", ratingController.getRatingStats);
 //owner
 router.get("/user", authenticateToken, getUserProducts);
 router.get("/user/addresses",authenticateToken, getUserAddresses);

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSelector } from "react-redux";
 import { RootState } from "@/store/redux_store";
-import { jwtDecode } from "jwt-decode";
+import { decodeToken, type DecodedToken } from '@/utils/jwtHelper';
 import { toast } from "sonner";
 import { ModeratorSidebar } from "@/components/ui/moderator/moderator-sidebar";
 import { ModeratorHeader } from "@/components/ui/moderator/moderator-header";
@@ -33,19 +33,7 @@ import {
 import ProductCategoryManager from "@/components/ui/moderator/categories/category-management";
 import ProductManagement from "@/components/ui/moderator/product/product-management";
 import TopHighlightTable from "@/components/ui/moderator/product/top-highlight-table";
-import { DisputeManagement } from "@/components/ui/moderator/dispute/dispute-management";
-
-// JWT token payload interface
-interface JwtPayload {
-  _id?: string;
-  email: string;
-  userGuid?: string;
-  avatarUrl?: string;
-  role?: string;
-  fullName?: string;
-  exp: number;
-  iat: number;
-}
+import DisputeManagementPage from "./dispute";
 
 export default function ModeratorDashboard() {
   console.log(
@@ -57,7 +45,13 @@ export default function ModeratorDashboard() {
   const searchParams = useSearchParams();
   const { accessToken } = useSelector((state: RootState) => state.auth);
   const [activeTab, setActiveTab] = useState<
-    "dashboard" | "requests" | "verification" | "blog" | "productManagement" | "messages" | "disputes"
+    | "dashboard"
+    | "requests"
+    | "verification"
+    | "blog"
+    | "productManagement"
+    | "messages"
+    | "dispute"
   >("dashboard");
   const [activeBlogTab, setActiveBlogTab] = useState<
     "posts" | "categories" | "comments" | "tags"
@@ -76,16 +70,16 @@ export default function ModeratorDashboard() {
       | "blog"
       | "productManagement"
       | "messages"
-      | "disputes"
+      | "dispute"
   ) => {
     console.log("Moderator handleTabChange called with:", tab);
-    
+
     // Navigate to messages page (separate route)
     if (tab === "messages") {
       router.push("/moderator/messages");
       return;
     }
-    
+
     // For other tabs, update state and URL query parameter
     setActiveTab(tab);
     const newUrl = `/moderator?tab=${tab}`;
@@ -142,7 +136,7 @@ export default function ModeratorDashboard() {
         "blog",
         "productManagement",
         "messages",
-        "disputes",
+        "dispute",
       ].includes(tab)
     ) {
       console.log("Setting activeTab from URL query parameter:", tab);
@@ -158,7 +152,7 @@ export default function ModeratorDashboard() {
         | "verification"
         | "blog"
         | "productManagement"
-        | "disputes";
+        | "dispute";
       setActiveTab(validTab);
     }
   }, [searchParams, router]);
@@ -167,35 +161,29 @@ export default function ModeratorDashboard() {
     if (!accessToken) {
       toast.error("Bạn cần đăng nhập để truy cập trang này");
       router.push("/auth/login");
+      setIsLoading(false);
       return;
     }
 
-    try {
-      const decoded = jwtDecode<JwtPayload>(accessToken);
+    const decoded = decodeToken(accessToken);
 
-      // Check if token is expired
-      const currentTime = Date.now() / 1000;
-      if (decoded.exp && decoded.exp < currentTime) {
-        toast.error("Phiên đăng nhập đã hết hạn");
-        router.push("/auth/login");
-        return;
-      }
-
-      // Check if user has moderator role
-      if (decoded.role !== "moderator" && decoded.role !== "admin") {
-        toast.error("Bạn không có quyền truy cập trang moderator");
-        router.push("/home");
-        return;
-      }
-
-      setIsAuthorized(true);
-    } catch (error) {
-      console.error("Token decode error:", error);
-      toast.error("Token không hợp lệ");
+    if (!decoded) {
+      toast.error("Token không hợp lệ hoặc đã hết hạn");
       router.push("/auth/login");
-    } finally {
       setIsLoading(false);
+      return;
     }
+
+    // Check if user has moderator role
+    if (decoded.role !== "moderator" && decoded.role !== "admin") {
+      toast.error("Bạn không có quyền truy cập trang moderator");
+      router.push("/home");
+      setIsLoading(false);
+      return;
+    }
+
+    setIsAuthorized(true);
+    setIsLoading(false);
   }, [accessToken, router]);
 
   // Show loading while checking authorization
@@ -254,9 +242,9 @@ export default function ModeratorDashboard() {
       case "requests":
         return <OwnerRequestManagement />;
       case "verification":
-        return <VerificationRequestManagement />;
-      case "disputes":
-        return <DisputeManagement />;
+        return <VerificationQueue />;
+      case "dispute":
+        return <DisputeManagementPage />;
       default:
         return <DashboardOverview />;
     }
@@ -296,8 +284,8 @@ export default function ModeratorDashboard() {
         return "Yêu cầu kiểm duyệt";
       case "verification":
         return "Xác thực tài khoản";
-      case "disputes":
-        return "Xử lý khiếu nại";
+      case "dispute":
+        return "Xử lý Tranh chấp Đơn hàng";
       default:
         return "Dashboard Tổng quan";
     }
@@ -337,8 +325,8 @@ export default function ModeratorDashboard() {
         return "Duyệt và phê duyệt các yêu cầu từ người dùng";
       case "verification":
         return "Xác thực danh tính và thông tin người dùng";
-      case "disputes":
-        return "Quản lý và xử lý các tranh chấp từ người dùng";
+      case "dispute":
+        return "Quản lý và giải quyết khiếu nại tranh chấp đơn hàng";
       default:
         return "Tổng quan về hoạt động và thống kê hệ thống";
     }

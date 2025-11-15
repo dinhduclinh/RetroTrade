@@ -784,7 +784,7 @@ exports.signContract = async (req, res) => {
 
     await OrderModel.findByIdAndUpdate(
       contract.rentalOrderId,
-      { contractSigned: signaturesCount >= 2 },
+      { isContractSigned: signaturesCount >= 2 },
       { session }
     );
 
@@ -811,6 +811,7 @@ exports.signContract = async (req, res) => {
       signatureId: userSigId,
       signatureUrl: signatureImagePath,
       isFullySigned: signaturesCount >= 2,
+      isContractSigned: signaturesCount >= 2,
       position: { x: positionX, y: positionY },
     });
   } catch (error) {
