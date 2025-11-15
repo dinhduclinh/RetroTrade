@@ -336,16 +336,17 @@ export default function Checkout() {
     0
   );
 
-  // Tính serviceFee trên rentalTotal (trước discount) - theo logic backend
-  const serviceFeeAmount = (rentalTotal * serviceFeeRate) / 100;
+  // Tính serviceFee trên (tiền thuê + tiền cọc) theo công thức mới
+  const serviceFeeAmount = ((rentalTotal + depositTotal) * serviceFeeRate) / 100;
 
   // Tính totalDiscountAmount từ public và private discount (chỉ áp dụng khi có sản phẩm được chọn)
   const effectivePublicDiscountAmount = selectedCartItems.length > 0 ? publicDiscountAmount : 0;
   const effectivePrivateDiscountAmount = selectedCartItems.length > 0 ? privateDiscountAmount : 0;
   const totalDiscountAmount = effectivePublicDiscountAmount + effectivePrivateDiscountAmount;
 
-  // Tính grandTotal theo logic backend: totalAmount + serviceFee + depositAmount - totalDiscountAmount
-  const grandTotal = Math.max(0, rentalTotal + serviceFeeAmount + depositTotal - totalDiscountAmount);
+  // Tính grandTotal theo công thức mới: 
+  // Tổng = tiền thuê + tiền cọc + (tiền thuê + tiền cọc) * thuế - giảm giá
+  const grandTotal = Math.max(0, rentalTotal + depositTotal + serviceFeeAmount - totalDiscountAmount);
 
   // Kiểm tra minOrderAmount cho public discount
   useEffect(() => {

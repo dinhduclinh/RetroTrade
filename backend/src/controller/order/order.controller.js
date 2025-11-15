@@ -85,12 +85,18 @@ module.exports = {
         });
       }
 
-      const { totalAmount, depositAmount, serviceFee, duration, unitName } =
+      // calculateTotals trả về:
+      // - rentalAmount: tiền thuê
+      // - serviceFee: phí dịch vụ
+      // - depositAmount: tiền cọc
+      // - totalAmount: rentalAmount + serviceFee + depositAmount
+      const { totalAmount, rentalAmount, depositAmount, serviceFee, duration, unitName } =
         result;
 
       // === DISCOUNT ===
-      // Tính baseAmount cho discount = totalAmount (tiền thuê) + depositAmount (tiền cọc)
-      const baseAmountForDiscount = totalAmount + depositAmount;
+      // Discount được tính trên: tiền thuê + tiền cọc (KHÔNG bao gồm serviceFee)
+      // baseAmountForDiscount = rentalAmount + depositAmount
+      const baseAmountForDiscount = rentalAmount + depositAmount;
       let discountInfo = null;
       let finalAmount = baseAmountForDiscount;
       let totalDiscountAmount = 0;
@@ -182,9 +188,11 @@ module.exports = {
         }
       }
 
-      // Tính lại finalAmount sau khi apply discount
-      // finalAmount = totalAmount + serviceFee + depositAmount - totalDiscountAmount
-      const finalOrderAmount = Math.max(0, totalAmount + serviceFee + depositAmount - totalDiscountAmount);
+      // Tính finalAmount sau khi apply discount
+      // Công thức mới: Tổng = tiền thuê + tiền cọc + (tiền thuê + tiền cọc) * thuế - giảm giá
+      // = rentalAmount + depositAmount + serviceFee - totalDiscountAmount
+      // = totalAmount - totalDiscountAmount
+      const finalOrderAmount = Math.max(0, totalAmount - totalDiscountAmount);
 
       // Clean up internal data before saving
       const cleanDiscountInfo = discountInfo ? {
@@ -215,7 +223,7 @@ module.exports = {
             unitCount: quantity,
             startAt: new Date(finalStartAt),
             endAt: new Date(finalEndAt),
-            totalAmount,
+            totalAmount: rentalAmount, // Lưu rentalAmount vào totalAmount (tiền thuê)
             discount: cleanDiscountInfo || undefined,
             finalAmount: finalOrderAmount,
             depositAmount,

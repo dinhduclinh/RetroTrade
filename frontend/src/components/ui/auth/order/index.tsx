@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useSelector } from "react-redux";
 import { decodeToken } from '@/utils/jwtHelper';
-import { listOrders, renterReturn } from "@/services/auth/order.api";
+import { listOrdersByOwner, renterReturn } from "@/services/auth/order.api";
 import type { Order } from "@/services/auth/order.api";
 import { RootState } from "@/store/redux_store";
 import { Button } from "@/components/ui/common/button";
@@ -65,7 +65,7 @@ export default function OrderListPage({ onOpenDetail }: { onOpenDetail?: (id: st
     const fetchOrders = async () => {
       try {
         setLoading(true);
-        const res = await listOrders();
+        const res = await listOrdersByOwner();
         if (res.code === 200 && Array.isArray(res.data)) {
           setOrders(res.data);
         }

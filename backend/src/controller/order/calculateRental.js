@@ -50,8 +50,9 @@ module.exports.calculateTotals = async function (
     if (duration <= 0) throw new Error("Invalid date range");
 
     const rentalAmount = basePrice * duration * quantity;
-    const serviceFee = rentalAmount * (serviceFeeRate / 100);
     const depositAmount = depositPerUnit * quantity;
+    // Tính serviceFee trên (tiền thuê + tiền cọc) theo yêu cầu mới
+    const serviceFee = (rentalAmount + depositAmount) * (serviceFeeRate / 100);
     const totalAmount = rentalAmount + serviceFee + depositAmount;
 
     const unitName = getUnitName(priceUnitId);
