@@ -8,6 +8,8 @@ import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import type { RootState } from "@/store/redux_store";
 import { MapPin, Star, Bookmark, ShieldCheck, Truck, BadgeCheck, Clock3, ChevronLeft, ChevronRight, Loader2, Eye, ChevronDown, MessageCircle } from "lucide-react";
 import { getFavorites, getPublicStoreByUserGuid } from "@/services/products/product.api";
+import OwnerRatingsSection from "@/components/owner/OwnerRatingsSection";
+import type { OwnerRatingStats } from "@/components/owner/OwnerRatingsSection";
 import { toast } from "sonner";
 
 interface Product {
@@ -75,6 +77,7 @@ export default function OwnerStorePage() {
   const [isLoadMoreMode, setIsLoadMoreMode] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [favoriteLoading, setFavoriteLoading] = useState<Set<string>>(new Set());
+  const [ownerRatingStats, setOwnerRatingStats] = useState<OwnerRatingStats | null>(null);
   const isAuthenticated = useAppSelector((state: RootState) => !!state.auth.accessToken);
   const accessToken = useAppSelector((state: RootState) => state.auth.accessToken);
   const dispatch = useAppDispatch();
@@ -86,7 +89,8 @@ export default function OwnerStorePage() {
     return Array.from(new Set(displayItems.map((it) => it.Category?.name).filter(Boolean)));
   }, [isLoadMoreMode, products, items]);
 
-  const displayItems = useMemo(() => isLoadMoreMode ? products : items, [isLoadMoreMode, products, items]);
+  const displayItems = useMemo(() => (isLoadMoreMode ? products : items), [isLoadMoreMode, products, items]);
+  const ownerInfo = useMemo(() => owner, [owner]);
 
   // Update URL with current query params (only for pagination mode)
   const updateUrl = useCallback((page: number) => {
@@ -335,8 +339,6 @@ export default function OwnerStorePage() {
     fetchStoreData(1);
   }, [fetchStoreData, router.isReady]);
 
-  const ownerInfo = useMemo(() => owner, [owner]);
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -400,7 +402,9 @@ export default function OwnerStorePage() {
               <div className="flex items-center gap-4 mb-4 text-sm text-gray-600 flex-wrap">
                 <div className="flex items-center gap-1">
                   <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                  <span className="font-semibold text-gray-900">{ownerInfo.reputationScore?.toFixed(1) ?? 5.0}</span>
+                  <span className="font-semibold text-gray-900">
+                    {ownerRatingStats?.average?.toFixed(1) ?? ownerInfo.reputationScore?.toFixed(1) ?? "5.0"}
+                  </span>
                 </div>
                 <div className="hidden md:block w-px h-4 bg-gray-300" />
                 <div className="flex items-center gap-1">
@@ -439,8 +443,8 @@ export default function OwnerStorePage() {
                   }</div>
                 </div>
                 <div className="text-center p-4 rounded-xl bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-100">
-                  <div className="text-gray-600 text-sm">Đánh giá</div>
-                  <div className="text-2xl font-bold text-gray-900">{ownerInfo.reputationScore?.toFixed(1) ?? 5.0}</div>
+                  <div className="text-gray-600 text-sm">Lượt đánh giá</div>
+                  <div className="text-2xl font-bold text-gray-900">{ownerRatingStats?.total ?? 0}</div>
                 </div>
               </div>
             </div>
@@ -705,143 +709,12 @@ export default function OwnerStorePage() {
         </div>
 
         {/* Customer Reviews Section */}
-        <div className="bg-white rounded-3xl p-6 shadow-lg mb-8 mt-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Đánh giá và phản hồi từ khách hàng</h2>
-          
-          {/* Overall Rating */}
-          <div className="flex items-center justify-between mb-8 p-6 bg-gray-50 rounded-xl">
-            <div className="text-center">
-              <div className="text-5xl font-bold text-gray-900 mb-1">{ownerInfo.reputationScore?.toFixed(1) ?? 5.0}</div>
-              <div className="flex justify-center mb-2">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <Star key={star} className="w-6 h-6 text-yellow-500 fill-yellow-500" />
-                ))}
-              </div>
-              <p className="text-gray-600 text-sm">Dựa trên 24 đánh giá</p>
-            </div>
-            
-            <div className="w-px h-20 bg-gray-200 mx-8"></div>
-            
-            <div className="flex-1">
-              {[5, 4, 3, 2, 1].map((rating) => (
-                <div key={rating} className="flex items-center mb-2">
-                  <span className="w-8 text-sm text-gray-600">{rating} sao</span>
-                  <div className="w-48 h-2 bg-gray-200 rounded-full mx-2 overflow-hidden">
-                    <div 
-                      className="h-full bg-yellow-500" 
-                      style={{ width: `${(rating === 5 ? 80 : rating === 4 ? 15 : rating === 3 ? 3 : rating === 2 ? 1 : 1) * 10}%` }}
-                    ></div>
-                  </div>
-                  <span className="text-sm text-gray-500 w-8 text-right">
-                    {rating === 5 ? 80 : rating === 4 ? 15 : rating === 3 ? 3 : rating === 2 ? 1 : 1}%
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Review List */}
-          <div className="space-y-6">
-            {/* Review Item 1 */}
-            <div className="border-b border-gray-200 pb-6">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center">
-                  <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg mr-3">
-                    KH
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-gray-900">Khách hàng 1</h4>
-                    <div className="flex items-center">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <Star key={star} className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                      ))}
-                      <span className="ml-2 text-sm text-gray-500">1 tuần trước</span>
-                    </div>
-                  </div>
-                </div>
-                <span className="text-sm text-gray-500">#ĐH123456</span>
-              </div>
-              <p className="text-gray-700 mb-3">Sản phẩm rất tốt, đóng gói cẩn thận, giao hàng nhanh. Sẽ ủng hộ shop dài dài.</p>
-              <div className="flex space-x-2">
-                <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden">
-                  <img 
-                    src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200&q=80&auto=format&fit=crop" 
-                    alt="Review" 
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Review Item 2 */}
-            <div className="border-b border-gray-200 pb-6">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center">
-                  <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg mr-3">
-                    NT
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-gray-900">Nguyễn Trang</h4>
-                    <div className="flex items-center">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <Star key={star} className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                      ))}
-                      <span className="ml-2 text-sm text-gray-500">2 tuần trước</span>
-                    </div>
-                  </div>
-                </div>
-                <span className="text-sm text-gray-500">#ĐH123455</span>
-              </div>
-              <p className="text-gray-700 mb-3">Hàng đẹp, đúng như mô tả. Shop tư vấn nhiệt tình, giao hàng đúng hẹn. Cảm ơn shop!</p>
-            </div>
-
-            {/* Review Item 3 */}
-            <div className="pb-2">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center">
-                  <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg mr-3">
-                    TL
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-gray-900">Trần Long</h4>
-                    <div className="flex items-center">
-                      {[1, 2, 3, 4].map((star) => (
-                        <Star key={star} className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                      ))}
-                      <Star className="w-4 h-4 text-gray-300" />
-                      <span className="ml-2 text-sm text-gray-500">3 tuần trước</span>
-                    </div>
-                  </div>
-                </div>
-                <span className="text-sm text-gray-500">#ĐH123454</span>
-              </div>
-              <p className="text-gray-700 mb-3">Sản phẩm tốt nhưng giao hàng hơi chậm. Đóng gói cẩn thận, nhân viên giao hàng thân thiện.</p>
-              <div className="flex space-x-2">
-                <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden">
-                  <img 
-                    src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200&q=80&auto=format&fit=crop" 
-                    alt="Review" 
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden">
-                  <img 
-                    src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200&q=80&auto=format&fit=crop" 
-                    alt="Review" 
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Load More Button */}
-          <div className="mt-8 text-center">
-            <button className="px-6 py-2 border border-gray-300 rounded-full text-gray-700 hover:bg-gray-50 transition-colors">
-              Xem thêm đánh giá
-            </button>
-          </div>
-        </div>
+        {ownerInfo?._id && (
+          <OwnerRatingsSection 
+            ownerId={ownerInfo._id} 
+            onStatsUpdate={setOwnerRatingStats}
+          />
+        )}
       </div>
     </div>
   );

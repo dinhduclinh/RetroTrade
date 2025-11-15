@@ -1162,7 +1162,7 @@ const getRatingByOwnerId = async (req, res) => {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parsedLimit)
-        .populate('renterId', 'FullName DisplayName AvatarUrl')
+        .populate('renterId', 'fullName displayName avatarUrl FullName DisplayName AvatarUrl')
         .populate('itemId', 'Title')
         .lean()
     ]);
